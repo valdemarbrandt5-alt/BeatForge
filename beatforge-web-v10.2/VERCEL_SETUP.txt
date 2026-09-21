@@ -1,19 +1,16 @@
-BeatForge v0.13 - Vercel setup
+BeatForge v0.13.1 - frontend-only Vercel deployment
 
-1. Commit/push the contents of this folder to the existing GitHub repository.
-2. In Vercel, keep Root Directory set to: beatforge-web-v10.2
-3. Vercel Services should detect:
-   - frontend: Next.js at /
-   - backend: FastAPI
-4. Deploy.
-5. The browser uses http://127.0.0.1:8000 locally, but /api/backend in production.
-6. After deployment, upload a short WAV first to verify Demucs on Vercel.
+Vercel:
+- Root Directory: beatforge-web-v10.2
+- Framework: Next.js
+- No Python/Demucs service is deployed on Vercel.
 
-Gameplay changes:
-- x1: combo 0-9
-- x2: 10-19
-- x3: 20-29
-- x4: 30-49
-- x5: 50+
-- Gold Mode activates at x5.
-- Star meter now advances with song progress and performance quality, so 5 stars cannot be reached near the start of a song.
+Local development:
+- Start backend locally on http://127.0.0.1:8000
+- npm.cmd run dev
+
+Production AI backend (later):
+- Add Vercel environment variable NEXT_PUBLIC_BEATFORGE_API_URL with the public backend URL.
+- Until then, production uploads fall back to the browser generator.
+
+The backend/ directory remains in the repository so it can be deployed separately later.
