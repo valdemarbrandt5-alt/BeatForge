@@ -23,65 +23,96 @@ export default function Home(){
  const up=(e:KeyboardEvent)=>{const lane=keys.indexOf(e.key.toLowerCase());if(lane<0)return;setHeldLanes(h=>h.map((v,i)=>i===lane?false:v));heldLanesRef.current=heldLanesRef.current.map((v,i)=>i===lane?false:v);setPressed(p=>p===lane?null:p);if(!running)return;setNotes(old=>old.map(n=>n.lane===lane&&n.holding&&!n.miss?{...n,holding:false,completed:true}:n))};
  window.addEventListener('keydown',down);window.addEventListener('keyup',up);return()=>{window.removeEventListener('keydown',down);window.removeEventListener('keyup',up)}},[keys,running]);
  const analyze=(buffer:AudioBuffer)=>{
-  // BeatForge Instant Generator: browser-only transient/rhythm analysis.
-  // It deliberately separates note timing from lane placement so charts feel musical
-  // without the old pitch-to-lane bias or zig-zag pattern.
+  // BeatForge Vocal Generator v0.15.
+  // Browser-only vocal-focused analysis: band-pass the mix, track the vocal envelope,
+  // reject short percussive spikes, and turn sustained phrases into holds.
   const sr=buffer.sampleRate, channels=buffer.numberOfChannels;
   const mono=new Float32Array(buffer.length);
   for(let c=0;c<channels;c++){const d=buffer.getChannelData(c);for(let i=0;i<d.length;i++)mono[i]+=d[i]/channels}
-  const hop=512, win=2048, frames=Math.max(1,Math.floor((mono.length-win)/hop));
-  const energy=new Float32Array(frames), high=new Float32Array(frames), zcr=new Float32Array(frames);
+
+  // Cheap vocal emphasis without a server/model: high-pass ~110 Hz + low-pass ~4.2 kHz.
+  // This removes most sub-bass and much of the cymbal/air band while preserving speech/singing.
+  const vocal=new Float32Array(mono.length);
+  const hpRC=1/(2*Math.PI*110), lpRC=1/(2*Math.PI*4200), dt=1/sr;
+  const hpA=hpRC/(hpRC+dt), lpA=dt/(lpRC+dt);
+  let hp=0,prevX=mono[0]||0,lp=0;
+  for(let i=0;i<mono.length;i++){const x=mono[i];hp=hpA*(hp+x-prevX);prevX=x;lp+=lpA*(hp-lp);vocal[i]=lp}
+
+  const hop=512, win=2048, frames=Math.max(1,Math.floor((vocal.length-win)/hop));
+  const rms=new Float32Array(frames), zcr=new Float32Array(frames), rough=new Float32Array(frames);
   for(let f=0;f<frames;f++){
-   const p=f*hop;let e=0,h=0,z=0,prev=mono[p];
-   for(let j=0;j<win;j+=2){const v=mono[p+j];e+=v*v;h+=Math.abs(v-prev);if((v>=0)!=(prev>=0))z++;prev=v}
-   energy[f]=Math.sqrt(e/(win/2));high[f]=h/(win/2);zcr[f]=z/(win/2);
+   const p=f*hop;let e=0,z=0,r=0,prev=vocal[p];
+   for(let j=0;j<win;j+=2){const v=vocal[p+j];e+=v*v;r+=Math.abs(v-prev);if((v>=0)!=(prev>=0))z++;prev=v}
+   rms[f]=Math.sqrt(e/(win/2));zcr[f]=z/(win/2);rough[f]=r/(win/2);
   }
-  const flux=new Float32Array(frames);let maxFlux=0;
-  for(let i=2;i<frames;i++){
-   const de=Math.max(0,energy[i]-energy[i-1]);
-   const dh=Math.max(0,high[i]-high[i-1]);
-   flux[i]=de*1.25+dh*.55+Math.max(0,zcr[i]-zcr[i-1])*.08;
-   if(flux[i]>maxFlux)maxFlux=flux[i];
+  // Smooth the vocal envelope. Vocals normally persist across several frames; drums often do not.
+  const env=new Float32Array(frames);
+  for(let i=0;i<frames;i++){let sum=0,w=0;for(let k=-2;k<=2;k++){const q=i+k;if(q>=0&&q<frames){const ww=3-Math.abs(k);sum+=rms[q]*ww;w+=ww}}env[i]=sum/Math.max(1,w)}
+  let maxEnv=0;for(const v of env)if(v>maxEnv)maxEnv=v;
+
+  const novelty=new Float32Array(frames);let maxNovelty=0;
+  for(let i=3;i<frames-3;i++){
+   const rise=Math.max(0,env[i]-env[i-2]);
+   const sustain=(env[i+2]+env[i+3])*.5;
+   const sustainRatio=sustain/Math.max(.00001,env[i]);
+   const noisy=Math.max(0,(rough[i]/Math.max(.00001,env[i]))-2.8);
+   const vocalShape=Math.max(.15,Math.min(1.25,sustainRatio*1.15)) / (1+noisy*.22);
+   novelty[i]=rise*vocalShape;
+   if(novelty[i]>maxNovelty)maxNovelty=novelty[i];
   }
-  // Adaptive local threshold keeps quiet intros and loud choruses both playable.
-  const peaks:{t:number;strength:number;frame:number}[]=[];let lastT=-1;
-  for(let i=4;i<frames-4;i++){
-   let mean=0,dev=0,count=0;const a=Math.max(0,i-28),b=Math.min(frames,i+28);
-   for(let k=a;k<b;k++){mean+=flux[k];count++}mean/=Math.max(1,count);
-   for(let k=a;k<b;k++)dev+=Math.abs(flux[k]-mean);dev/=Math.max(1,count);
-   const threshold=mean+dev*1.35;
+
+  const candidates:{t:number;strength:number;frame:number}[]=[];let last=-1;
+  for(let i=5;i<frames-5;i++){
+   let mean=0,dev=0,n=0;const a=Math.max(0,i-34),b=Math.min(frames,i+34);
+   for(let k=a;k<b;k++){mean+=novelty[k];n++}mean/=Math.max(1,n);
+   for(let k=a;k<b;k++)dev+=Math.abs(novelty[k]-mean);dev/=Math.max(1,n);
+   const localFloor=Math.max(maxNovelty*.018,mean+dev*1.12);
+   const voicedEnergy=env[i]/Math.max(.00001,maxEnv);
+   const sustained=env[Math.min(frames-1,i+3)]>env[i]*.30;
+   // Very high zero-crossing rates and one-frame energy bursts are commonly percussion/noise.
+   const plausibleZcr=zcr[i]>.004&&zcr[i]<.34;
    const t=i*hop/sr;
-   if(t>.25&&t-lastT>.105&&flux[i]>threshold&&flux[i]>=flux[i-1]&&flux[i]>=flux[i+1]){
-    peaks.push({t,strength:flux[i]/Math.max(.00001,maxFlux),frame:i});lastT=t;
+   if(t>.22&&t-last>.115&&voicedEnergy>.018&&sustained&&plausibleZcr&&novelty[i]>localFloor&&novelty[i]>=novelty[i-1]&&novelty[i]>=novelty[i+1]){
+    candidates.push({t,strength:novelty[i]/Math.max(.00001,maxNovelty),frame:i});last=t;
    }
   }
-  // Estimate a useful beat interval from onset spacings, then gently snap close peaks.
+
+  // Merge near-duplicate attacks. This helps one sung syllable become one note rather than a cluster.
+  const peaks:{t:number;strength:number;frame:number}[]=[];
+  for(const p of candidates){const prev=peaks[peaks.length-1];if(prev&&p.t-prev.t<.18){if(p.strength>prev.strength)peaks[peaks.length-1]=p}else peaks.push(p)}
+
+  // Find a loose rhythmic grid only for tiny timing corrections. Vocal timing remains the authority.
   const hist=new Map<number,number>();
-  for(let i=1;i<peaks.length;i++)for(let back=1;back<=4&&i-back>=0;back++){
+  for(let i=1;i<peaks.length;i++)for(let back=1;back<=3&&i-back>=0;back++){
    let d=peaks[i].t-peaks[i-back].t;while(d<.30)d*=2;while(d>.85)d/=2;
    if(d>=.30&&d<=.85){const bin=Math.round(d/.01);hist.set(bin,(hist.get(bin)||0)+peaks[i].strength)}
   }
-  let beat=.5,best=0;hist.forEach((v,k)=>{if(v>best){best=v;beat=k*.01}});
-  const origin=peaks[0]?.t||0;
-  const snapped=peaks.map(p=>{const step=beat/2;const grid=origin+Math.round((p.t-origin)/step)*step;return {...p,t:Math.abs(grid-p.t)<.055?grid:p.t}});
+  let beat=.5,best=0;hist.forEach((v,k)=>{if(v>best){best=v;beat=k*.01}});const origin=peaks[0]?.t||0;
+
   const out:Note[]=[];let prevLane=-1,prevPrev=-1;
-  snapped.forEach((p,idx)=>{
-   // Ignore weakest events; difficulty filtering later controls final density too.
-   if(p.strength<.055)return;
-   const candidates=[0,1,2,3,4].filter(l=>l!==prevLane || idx%5===0);
-   const seed=((p.frame*1103515245+idx*12345)>>>0);
-   let lane=candidates[seed%candidates.length];
+  peaks.forEach((p,idx)=>{
+   if(p.strength<.035)return;
+   const step=beat/2,grid=origin+Math.round((p.t-origin)/step)*step;
+   const t=Math.abs(grid-p.t)<.035?grid:p.t; // less snapping than v0.14: preserve sung phrasing
+   const candidates=[0,1,2,3,4].filter(l=>l!==prevLane||idx%6===0);
+   const seed=((p.frame*1103515245+idx*12345)>>>0);let lane=candidates[seed%candidates.length];
    if(lane===prevPrev&&candidates.length>1)lane=candidates[(seed+2)%candidates.length];
-   // Sustained energy after a strong onset becomes a hold. Cap at 2.4 s.
-   let dur=0;
-   if(p.strength>.20){const base=energy[p.frame],floor=Math.max(.012,base*.52);let k=p.frame+1;while(k<frames&&energy[k]>floor&&(k-p.frame)*hop/sr<2.4)k++;const sustained=(k-p.frame)*hop/sr;if(sustained>=.48)dur=Math.min(2.4,Math.max(.45,sustained-.10))}
-   out.push({id:out.length,time:p.t,lane,duration:dur||undefined});prevPrev=prevLane;prevLane=lane;
+
+   // Follow the smoothed vocal envelope to estimate how long the syllable/note is sustained.
+   const base=env[p.frame],floor=Math.max(maxEnv*.012,base*.34);let k=p.frame+1;
+   while(k<frames&&env[k]>floor&&(k-p.frame)*hop/sr<3.2){
+    // Stop a hold when a strong new vocal attack begins.
+    if(k>p.frame+5&&novelty[k]>maxNovelty*.10&&novelty[k]>novelty[k-1]*1.35)break;k++;
+   }
+   const sustained=(k-p.frame)*hop/sr;let dur=0;
+   if(sustained>=.52)dur=Math.min(3.2,Math.max(.45,sustained-.10));
+   out.push({id:out.length,time:t,lane,duration:dur||undefined});prevPrev=prevLane;prevLane=lane;
   });
-  if(out.length<10)return Array.from({length:Math.max(12,Math.floor(buffer.duration*1.8))},(_,i)=>({id:i,time:.8+i*.55,lane:(i*3)%5}));
-  return out.slice(0,1800);
+  if(out.length<8)return Array.from({length:Math.max(10,Math.floor(buffer.duration*1.25))},(_,i)=>({id:i,time:.9+i*.72,lane:(i*3)%5}));
+  return out.slice(0,1600);
  };
  const ding=()=>{try{const ctx=new AudioContext();const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=880;g.gain.setValueAtTime(.16,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.22);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+.22);o.onended=()=>ctx.close()}catch{}};
- const upload=async(e:ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];if(!file)return;stop();setAnalyzing(true);setStatus('Instant analysis…');if(urlRef.current)URL.revokeObjectURL(urlRef.current);const url=URL.createObjectURL(file);urlRef.current=url;setAudioUrl(url);setSongName(file.name);fileRef.current=file;try{const arr=await file.arrayBuffer();const ctx=new AudioContext();const buffer=await ctx.decodeAudioData(arr.slice(0));const t0=performance.now();const generated=analyze(buffer);const ms=performance.now()-t0;setBaseNotes(generated);setDuration(buffer.duration);const chart=buildChart(generated,laneCount,difficulty);setNotes(chart);setStatus(`${chart.length} notes · Instant Generator · ${(ms/1000).toFixed(2)}s · ${difficulty} · ${laneCount} lanes`);await ctx.close();ding()}catch(err){console.error(err);setStatus('Could not analyze this audio file.');setNotes(demo)}finally{setAnalyzing(false)}};
+ const upload=async(e:ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];if(!file)return;stop();setAnalyzing(true);setStatus('Instant analysis…');if(urlRef.current)URL.revokeObjectURL(urlRef.current);const url=URL.createObjectURL(file);urlRef.current=url;setAudioUrl(url);setSongName(file.name);fileRef.current=file;try{const arr=await file.arrayBuffer();const ctx=new AudioContext();const buffer=await ctx.decodeAudioData(arr.slice(0));const t0=performance.now();const generated=analyze(buffer);const ms=performance.now()-t0;setBaseNotes(generated);setDuration(buffer.duration);const chart=buildChart(generated,laneCount,difficulty);setNotes(chart);setStatus(`${chart.length} notes · Vocal Generator · ${(ms/1000).toFixed(2)}s · ${difficulty} · ${laneCount} lanes`);await ctx.close();ding()}catch(err){console.error(err);setStatus('Could not analyze this audio file.');setNotes(demo)}finally{setAnalyzing(false)}};
  useEffect(()=>{if(audio.current)audio.current.volume=volume},[volume,audioUrl]);
  useEffect(()=>()=>{if(urlRef.current)URL.revokeObjectURL(urlRef.current)},[]);
  const travel=3.0;
@@ -101,9 +132,9 @@ export default function Home(){
  const fmt=(secs:number)=>{const s=Math.max(0,Math.ceil(secs));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
  return <main><header><div><h1>BEAT<span>FORGE</span></h1><p>5 lane browser rhythm game</p></div></header>
  <section className="upload"><label className="uploadBtn">UPLOAD SONG<input type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a" onChange={upload}/></label><div><strong>{songName}</strong><small>{analyzing?'Analyzing…':status}</small></div></section>
- <section className="chartOptions"><div><small>LANES</small><div className="seg">{[3,4,5].map(x=><button key={x} className={laneCount===x?'active':''} onClick={()=>setLaneCount(x)}>{x}</button>)}</div></div><div><small>DIFFICULTY</small><div className="seg">{(['Easy','Medium','Hard','Expert'] as Difficulty[]).map(x=><button key={x} className={difficulty===x?'active':''} onClick={()=>setDifficulty(x)}>{x}</button>)}</div></div><p className="analysisNote">Instant Generator active: analysis runs locally in your browser. No server or AI backend required.</p></section>
+ <section className="chartOptions"><div><small>LANES</small><div className="seg">{[3,4,5].map(x=><button key={x} className={laneCount===x?'active':''} onClick={()=>setLaneCount(x)}>{x}</button>)}</div></div><div><small>DIFFICULTY</small><div className="seg">{(['Easy','Medium','Hard','Expert'] as Difficulty[]).map(x=><button key={x} className={difficulty===x?'active':''} onClick={()=>setDifficulty(x)}>{x}</button>)}</div></div><p className="analysisNote">Vocal Generator active: browser-only analysis emphasizes singing and suppresses much of the instrumental mix. No server required.</p></section>
  {audioUrl&&<audio ref={audio} src={audioUrl} preload="auto"/>}
  <section className={`game ${multiplier===5?'goldMode':''}`}><div className="gameHud"><div className="hudScore"><b>{score.toLocaleString()}</b><small>SCORE</small></div><div className="hudCombo"><b>{combo} COMBO</b><strong>×{multiplier}</strong></div><div className="starMeter"><div className="stars">{[1,2,3,4,5].map(x=><span key={x} className={starProgress>=x?'earned':starProgress>=x-.8?'active':''}>★</span>)}</div><div className="starRail"><i style={{width:`${starProgress/5*100}%`}}/></div></div></div><div className={`judge ${judge.toLowerCase()}`}>{judge}</div><div className="lanes" style={{gridTemplateColumns:`repeat(${laneCount},1fr)`}}>{keys.map((k,l)=><div className={`lane ${pressed===l?'pressed':''}`} key={l}>{notes.filter(n=>n.lane===l&&!n.miss&&(!n.completed)).map(n=>{const dur=n.duration||0;const end=n.time+dur;const remaining=n.time-time;if(end<time-.20||remaining>travel)return null;const p=1-(remaining/travel);const endP=1-((end-time)/travel);const hold=dur>=.45;const top=Math.min(p,endP)*88;const height=Math.max(18,Math.abs(p-endP)*.88*610);return hold?<div key={n.id} className={`holdNote ${n.holding?'holding':''}`} style={{top:`${top}%`,height:`${height}px`}}><div className="holdHead"/></div>:<div key={n.id} className="note" style={{top:`calc(${p*88}% - 0px)`}}/>})}<div className={`receptor ${pressed===l?'filled':''}`}/>{impact?.lane===l&&<div key={impact.id} className={`impact ${impact.kind.toLowerCase()}`}/>}<div className={`key ${pressed===l?'keyPressed':''}`}>{k.toUpperCase()}</div></div>)}</div><div className="songProgress" aria-label={`Song progress, ${fmt(remaining)} remaining`}><span ref={remainingLabel} className="remainingLabel">{fmt(remaining)}</span><div className="progressRail"><div ref={progressFill} className="progressFill" style={{height:`${progress*100}%`}}/><div ref={progressKnob} className="progressKnob" style={{bottom:`calc(${progress*100}% - 8px)`}}/></div><small>LEFT</small></div></section>
  <section className="controls"><span className="debug">{running?`${upcoming} upcoming notes`:`${notes.length} notes ready`}</span><button disabled={analyzing} onClick={running?stop:play}>{running?'STOP':analyzing?'ANALYZING…':'PLAY'}</button><button className="secondary" onClick={stop}>RESET</button><label className="volume"><span>VOLUME</span><input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={volume} onChange={e=>{const v=Number(e.target.value);setVolume(v);if(audio.current)audio.current.volume=v}}/><b>{Math.round(volume*100)}%</b></label><div className="time">{fmt(time)} / {fmt(songDuration)}</div></section>
- <section className="settings"><h2>Keybinds</h2><p>Click a box, then press the key you want for that lane.</p><div className="binds">{keys.map((k,i)=><button key={i} onKeyDown={e=>{e.preventDefault();setKeys(a=>a.map((x,j)=>j===i?e.key.toLowerCase():x))}}>{i+1}<strong>{k.toUpperCase()}</strong></button>)}</div></section>{resultsOpen&&<div className="resultBackdrop" role="dialog" aria-modal="true"><div className="resultCard"><small>SONG COMPLETE</small><h2>{songName}</h2><div className="finalScore">{score.toLocaleString()}</div><span className="scoreLabel">FINAL SCORE</span><div className="resultGrid"><div className="perfectStat"><b>{hitStats.perfect}</b><span>PERFECT</span></div><div className="goodStat"><b>{hitStats.good}</b><span>GOOD</span></div><div className="greatStat"><b>{hitStats.great}</b><span>GREAT</span></div><div className="missStat"><b>{hitStats.miss}</b><span>MISS</span></div></div><div className="resultMeta"><div><b>{accuracy.toFixed(1)}%</b><span>ACCURACY</span></div><div><b>{hitStats.maxCombo}×</b><span>MAX COMBO</span></div><div><b>{Math.abs(avgTimingMs).toFixed(0)} ms</b><span>{timingLabel}</span></div></div><div className="resultActions"><button onClick={()=>{setResultsOpen(false);play()}}>PLAY AGAIN</button><button className="secondary" onClick={()=>setResultsOpen(false)}>CLOSE</button></div></div></div>}<footer>BeatForge v0.14 · Instant Generator + ×5 Gold Mode</footer></main>
+ <section className="settings"><h2>Keybinds</h2><p>Click a box, then press the key you want for that lane.</p><div className="binds">{keys.map((k,i)=><button key={i} onKeyDown={e=>{e.preventDefault();setKeys(a=>a.map((x,j)=>j===i?e.key.toLowerCase():x))}}>{i+1}<strong>{k.toUpperCase()}</strong></button>)}</div></section>{resultsOpen&&<div className="resultBackdrop" role="dialog" aria-modal="true"><div className="resultCard"><small>SONG COMPLETE</small><h2>{songName}</h2><div className="finalScore">{score.toLocaleString()}</div><span className="scoreLabel">FINAL SCORE</span><div className="resultGrid"><div className="perfectStat"><b>{hitStats.perfect}</b><span>PERFECT</span></div><div className="goodStat"><b>{hitStats.good}</b><span>GOOD</span></div><div className="greatStat"><b>{hitStats.great}</b><span>GREAT</span></div><div className="missStat"><b>{hitStats.miss}</b><span>MISS</span></div></div><div className="resultMeta"><div><b>{accuracy.toFixed(1)}%</b><span>ACCURACY</span></div><div><b>{hitStats.maxCombo}×</b><span>MAX COMBO</span></div><div><b>{Math.abs(avgTimingMs).toFixed(0)} ms</b><span>{timingLabel}</span></div></div><div className="resultActions"><button onClick={()=>{setResultsOpen(false);play()}}>PLAY AGAIN</button><button className="secondary" onClick={()=>setResultsOpen(false)}>CLOSE</button></div></div></div>}<footer>BeatForge v0.15 · Vocal Generator + ×5 Gold Mode</footer></main>
 }
