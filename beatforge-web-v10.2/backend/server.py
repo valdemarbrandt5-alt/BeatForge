@@ -7,7 +7,14 @@ import soundfile as sf
 from scipy.ndimage import gaussian_filter1d
 
 app=FastAPI(title='BeatForge AI Backend')
-app.add_middleware(CORSMiddleware,allow_origins=['http://localhost:3000','http://127.0.0.1:3000'],allow_methods=['*'],allow_headers=['*'])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['http://localhost:3000', 'http://127.0.0.1:3000'],
+    # Allow BeatForge deployments on Vercel without having to add every preview URL manually.
+    allow_origin_regex=r'https://.*\.vercel\.app',
+    allow_methods=['*'],
+    allow_headers=['*'],
+)
 
 @app.get('/')
 def root(): return {'ok':True,'service':'BeatForge AI Backend','health':'/health'}
