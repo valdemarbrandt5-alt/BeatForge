@@ -12,3 +12,12 @@
 .holdNote{position:absolute;left:20%;width:60%;min-height:18px;border-radius:7px;background:linear-gradient(#b49cff,#7357d9);box-shadow:0 0 14px #9b7cff66;z-index:2;transform:translateY(-9px);overflow:visible}.holdHead{position:absolute;left:-14%;bottom:0;width:128%;height:18px;border-radius:6px;background:#b49cff;box-shadow:0 0 18px #9b7cff88}.holdNote.holding{background:linear-gradient(#e7ddff,#9b7cff);box-shadow:0 0 22px #b49cffaa}.holdNote.holding .holdHead{background:#fff}
 /* v0.12.3 in-game HUD, multiplier and star meter */
 .gameHud{position:absolute;z-index:8;left:18px;bottom:118px;width:145px;display:flex;flex-direction:column;gap:8px;pointer-events:none}.hudScore,.hudCombo,.starMeter{background:#0b0e16d9;border:1px solid #303747;border-radius:11px;padding:9px 11px;backdrop-filter:blur(5px)}.hudScore b{display:block;font-size:22px;line-height:1;font-variant-numeric:tabular-nums}.hudScore small{display:block;margin-top:4px;color:#7f8798;font-size:9px;font-weight:900;letter-spacing:1px}.hudCombo{display:flex;align-items:center;justify-content:space-between}.hudCombo b{font-size:12px}.hudCombo strong{font-size:24px;color:#b49cff}.stars{display:flex;justify-content:space-between;font-size:17px;line-height:1;color:#343a48}.stars span.earned{color:#ffd54a;text-shadow:0 0 10px #ffd54a88}.stars span.active{color:#8f7b45}.starRail{height:4px;margin-top:7px;border-radius:99px;background:#2b3140;overflow:hidden}.starRail i{display:block;height:100%;border-radius:99px;background:#ffd54a;transition:width .15s linear}@media(max-width:760px){.gameHud{left:8px;bottom:112px;width:118px}.hudScore b{font-size:18px}.hudCombo strong{font-size:20px}.stars{font-size:14px}}
+
+/* v0.13 Gold Mode: activates at 50+ combo */
+.goldMode .note{background:#ffd54a;box-shadow:0 0 24px #ffd54acc,0 0 48px #ffd54a55}
+.goldMode .holdNote{background:linear-gradient(#fff0a3,#d99f16);box-shadow:0 0 24px #ffd54aaa}
+.goldMode .holdHead{background:#ffd54a;box-shadow:0 0 24px #ffd54acc}
+.goldMode .holdNote.holding{background:linear-gradient(#fff7c7,#ffd54a)}
+.goldMode .receptor{border-color:#ffe58a;box-shadow:0 0 18px #ffd54a77}
+.goldMode .hudCombo strong{color:#ffd54a;text-shadow:0 0 14px #ffd54aaa}
+.goldMode{box-shadow:inset 0 0 45px #ffd54a12}

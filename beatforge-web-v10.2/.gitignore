@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+dist/
+.env
+.env.local
+.env.*.local
+__pycache__/
+*.pyc
+backend/separated/
+separated/
+tsconfig.tsbuildinfo
+.DS_Store
+Thumbs.db
