@@ -66,3 +66,13 @@
 .leaderSide .leaderRow em{grid-column:2/4;font-size:9px}
 @media(min-width:1251px) and (max-width:1500px){.leaderSide.leaderGlobal,.leaderSide.leaderFriends{width:210px}.leaderSide{font-size:11px}}
 @media(max-width:1250px){.leaderSide.leaderGlobal,.leaderSide.leaderFriends{position:relative;left:auto;right:auto;top:auto;width:min(1180px,94vw);margin:12px auto}}
+
+/* v0.25.2 stronger gameplay feedback */
+.impact.great{color:#55e7a1!important}.impact.good{color:#ffad42!important}
+.game.goldMode:not(.streak100):not(.streak200){border-color:rgba(255,211,78,.72);box-shadow:0 0 34px rgba(255,211,78,.20),inset 0 0 42px rgba(255,211,78,.055)}
+.game.streak100{background:linear-gradient(180deg,#111a2d,#080c18)!important;border:2px solid rgba(75,150,255,.95)!important;box-shadow:0 0 34px rgba(55,125,255,.7),0 0 90px rgba(55,125,255,.30),inset 0 0 90px rgba(45,115,255,.18)!important}
+.game.streak100:before,.game.streak200:before{content:"100 STREAK";position:absolute;z-index:2;inset:0;pointer-events:none;border-radius:16px;box-shadow:inset 0 0 80px rgba(60,145,255,.20);animation:streakFlash .9s ease-in-out infinite alternate;color:rgba(100,180,255,.25);font-size:11px;font-weight:900;letter-spacing:.25em;padding:14px}
+.game.streak200{background:linear-gradient(180deg,#211126,#090810)!important;border:2px solid rgba(255,205,70,.98)!important;box-shadow:0 0 40px rgba(255,190,45,.75),0 0 105px rgba(190,70,255,.45),inset 0 0 110px rgba(210,70,255,.22)!important}
+.game.streak200:before{content:"200 STREAK · OVERDRIVE";color:rgba(255,215,90,.40);box-shadow:inset 0 0 100px rgba(220,75,255,.28);animation:overdriveFlash .42s ease-in-out infinite alternate}
+.game.streak100 .note{box-shadow:0 0 24px rgba(95,165,255,.9)}.game.streak200 .note{background:#ffd75a;box-shadow:0 0 28px rgba(255,210,70,.95),0 0 45px rgba(200,90,255,.5)}
+@keyframes streakFlash{to{filter:brightness(1.35);box-shadow:inset 0 0 120px rgba(60,145,255,.30)}}@keyframes overdriveFlash{to{filter:brightness(1.5);box-shadow:inset 0 0 135px rgba(235,80,255,.38)}}
