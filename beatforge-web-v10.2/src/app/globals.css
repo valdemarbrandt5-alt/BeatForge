@@ -24,3 +24,6 @@
 
 /* v0.16 count-in */
 .countIn{position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:#090b1066;backdrop-filter:blur(2px);pointer-events:none}.countIn span{font-size:92px;font-weight:1000;line-height:1;color:#fff;text-shadow:0 0 32px #9b7cff,0 6px 28px #000;animation:countPop .7s ease-out}@keyframes countPop{0%{transform:scale(1.45);opacity:.2}25%{opacity:1}100%{transform:scale(.9);opacity:.85}}
+
+/* v0.18 accounts */
+.accountArea{display:flex;align-items:center;gap:12px}.accountEmail{font-size:12px;opacity:.7;max-width:220px;overflow:hidden;text-overflow:ellipsis}.accountBtn{border:1px solid #ffffff2b;background:#ffffff0b;color:#fff;border-radius:10px;padding:10px 16px;font-weight:900;cursor:pointer}.authCard{max-width:430px}.authInput{width:100%;box-sizing:border-box;margin:7px 0;padding:14px 15px;border-radius:10px;border:1px solid #ffffff25;background:#0d1018;color:#fff;font:inherit;outline:none}.authInput:focus{border-color:#9b7cff}.authMessage{font-size:13px;opacity:.8;margin:8px 0 0}.authCard .resultActions{flex-wrap:wrap}
