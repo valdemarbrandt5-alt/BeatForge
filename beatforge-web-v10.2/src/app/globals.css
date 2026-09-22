@@ -84,3 +84,15 @@
 .leaderSide.leaderFriends{right:calc(50% - 735px)!important;left:auto!important}
 @media(min-width:1251px) and (max-width:1500px){.leaderSide.leaderGlobal{left:8px!important}.leaderSide.leaderFriends{right:8px!important}}
 @media(max-width:1250px){.leaderSide.leaderGlobal,.leaderSide.leaderFriends{left:auto!important;right:auto!important}}
+
+/* v0.25.5 refined 100/200 streak notes: gold-level bloom + gradient sustains */
+.game.streak100 .note{background:#58a6ff!important;box-shadow:0 0 24px rgba(88,166,255,.80),0 0 48px rgba(88,166,255,.33)!important}
+.game.streak100 .holdNote{background:linear-gradient(#a9d2ff,#3478d4)!important;box-shadow:0 0 24px rgba(88,166,255,.67)!important}
+.game.streak100 .holdHead{background:#58a6ff!important;box-shadow:0 0 24px rgba(88,166,255,.80)!important}
+.game.streak100 .holdNote.holding{background:linear-gradient(#d8ebff,#58a6ff)!important}
+.game.streak100 .holdNote.holding .holdHead{background:#fff!important}
+.game.streak200 .note{background:#ff72d2!important;box-shadow:0 0 24px rgba(255,114,210,.80),0 0 48px rgba(255,114,210,.33)!important}
+.game.streak200 .holdNote{background:linear-gradient(#ffc0ea,#c743a5)!important;box-shadow:0 0 24px rgba(255,114,210,.67)!important}
+.game.streak200 .holdHead{background:#ff72d2!important;box-shadow:0 0 24px rgba(255,114,210,.80)!important}
+.game.streak200 .holdNote.holding{background:linear-gradient(#ffe0f5,#ff72d2)!important}
+.game.streak200 .holdNote.holding .holdHead{background:#fff!important}
