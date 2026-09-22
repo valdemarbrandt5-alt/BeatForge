@@ -40,3 +40,12 @@ create policy "own charts update" on public.charts for update using (auth.uid() 
 create policy "own charts delete" on public.charts for delete using (auth.uid() = user_id);
 create policy "scores readable" on public.scores for select using (true);
 create policy "own scores insert" on public.scores for insert with check (auth.uid() = user_id);
+
+
+-- v0.20 private audio storage
+alter table public.charts add column if not exists audio_path text;
+insert into storage.buckets (id, name, public) values ('song-audio','song-audio',false) on conflict (id) do update set public=false;
+create policy "own song audio read" on storage.objects for select to authenticated using (bucket_id='song-audio' and (storage.foldername(name))[1]=auth.uid()::text);
+create policy "own song audio upload" on storage.objects for insert to authenticated with check (bucket_id='song-audio' and (storage.foldername(name))[1]=auth.uid()::text);
+create policy "own song audio update" on storage.objects for update to authenticated using (bucket_id='song-audio' and (storage.foldername(name))[1]=auth.uid()::text);
+create policy "own song audio delete" on storage.objects for delete to authenticated using (bucket_id='song-audio' and (storage.foldername(name))[1]=auth.uid()::text);
