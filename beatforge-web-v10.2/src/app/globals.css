@@ -125,7 +125,7 @@
 .communityTop small,.sectionHeading small{font-size:10px;letter-spacing:.22em;font-weight:900;color:#9b7cff}
 .communityTop h2{font-size:42px;line-height:1;margin:8px 0 10px;letter-spacing:-.035em}
 .communityTop p{margin:0;color:#8791a4;font-size:14px}
-.communityClose{width:42px;height:42px;border-radius:50%;border:1px solid #293143;background:#111722;color:#dce3ee;font-size:16px;cursor:pointer}
+.communityClose{width:42px;height:42px;border-radius:50%;border:1px solid #293143;background:#111722;color:#dce3ee;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
 .communitySearch{height:54px;border:1px solid #2a3140;background:#0d1119;border-radius:14px;display:flex;align-items:center;gap:12px;padding:0 18px;margin-bottom:18px;box-shadow:0 14px 40px #0004}
 .communitySearch span{font-size:24px;color:#717b8e}
 .communitySearch input{flex:1;background:transparent;border:0;outline:0;color:#fff;font:inherit;font-size:15px}
