@@ -164,3 +164,7 @@
 .saveChartPrimary{background:linear-gradient(135deg,#805cff,#a86cff)!important;border-color:#aa8bff!important;box-shadow:0 0 22px rgba(133,89,255,.22)}
 .lane.missFlash{animation:laneMissFlash .17s ease-out}
 @keyframes laneMissFlash{0%{background:rgba(255,45,65,.48);box-shadow:inset 0 0 38px rgba(255,35,55,.8),0 0 18px rgba(255,35,55,.35)}100%{background:transparent;box-shadow:none}}
+
+/* v0.29 Community likes */
+.tileLike{position:absolute;right:10px;top:10px;z-index:3;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(7,10,16,.78);backdrop-filter:blur(8px);color:#d7dce7;padding:6px 9px;font-size:11px;font-weight:900;cursor:pointer}
+.tileLike:hover,.tileLike.liked{background:rgba(135,78,255,.9);border-color:#b398ff;color:#fff}
