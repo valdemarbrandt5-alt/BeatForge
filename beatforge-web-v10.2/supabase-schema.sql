@@ -73,3 +73,9 @@ drop policy if exists "send friend requests" on public.friendships;
 create policy "send friend requests" on public.friendships for insert to authenticated with check (auth.uid()=requester_id and status='pending');
 drop policy if exists "accept friend requests" on public.friendships;
 create policy "accept friend requests" on public.friendships for update to authenticated using (auth.uid()=addressee_id) with check (auth.uid()=addressee_id and status='accepted');
+
+-- v0.25 difficulty-specific leaderboards
+alter table public.scores add column if not exists difficulty text;
+update public.scores s set difficulty=c.difficulty from public.charts c where s.chart_id=c.id and s.difficulty is null;
+alter table public.scores alter column difficulty set default 'Medium';
+create index if not exists scores_chart_difficulty_score_idx on public.scores(chart_id,difficulty,score desc);
