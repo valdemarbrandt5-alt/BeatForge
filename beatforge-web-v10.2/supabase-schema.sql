@@ -52,3 +52,6 @@ create policy "own song audio delete" on storage.objects for delete to authentic
 
 -- v0.21 chart metadata
 alter table public.charts add column if not exists artist text;
+
+-- v0.22 community chart discovery
+create index if not exists charts_title_artist_idx on public.charts (lower(title), lower(artist));
