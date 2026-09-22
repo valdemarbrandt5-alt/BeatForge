@@ -156,3 +156,11 @@
 @media(max-width:980px){.communityGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.communityPage{width:min(100% - 26px,1220px);padding-top:30px}.communityTop h2{font-size:32px}.communityGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:430px){.communityGrid{grid-template-columns:1fr}}
+
+/* v0.28 QA polish */
+.resetBind{display:flex;align-items:center;gap:8px;color:#7f899b;font-size:10px;font-weight:900;letter-spacing:.08em}
+.resetBind button{min-width:42px;height:36px;padding:0 11px;border:1px solid #394255;border-radius:9px;background:#111722;color:#fff;font-weight:900;cursor:pointer}
+.resetBind button:focus{border-color:#8d68ff;box-shadow:0 0 0 3px rgba(141,104,255,.16);outline:0}
+.saveChartPrimary{background:linear-gradient(135deg,#805cff,#a86cff)!important;border-color:#aa8bff!important;box-shadow:0 0 22px rgba(133,89,255,.22)}
+.lane.missFlash{animation:laneMissFlash .17s ease-out}
+@keyframes laneMissFlash{0%{background:rgba(255,45,65,.48);box-shadow:inset 0 0 38px rgba(255,35,55,.8),0 0 18px rgba(255,35,55,.35)}100%{background:transparent;box-shadow:none}}
