@@ -175,3 +175,6 @@
 .generateFileBtn{margin-top:8px;background:#805cff!important;border-color:#a98fff!important}
 .secondaryUploadChoice{opacity:.82}
 @media(max-width:620px){.uploadChoices{grid-template-columns:1fr}}
+
+/* Admin community controls */
+.adminChartButton{position:absolute;left:10px;top:10px;z-index:5;border:1px solid #8e76ff;background:#171126;color:#bdafff;border-radius:999px;padding:7px 10px;font-size:9px;font-weight:1000;letter-spacing:.1em;cursor:pointer}.adminChartButton:hover{background:#7657ff;color:#fff}
