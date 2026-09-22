@@ -30,3 +30,6 @@
 
 /* v0.19 profiles + chart library */
 .cloudToast{position:fixed;right:24px;bottom:24px;z-index:80;background:#171b26;border:1px solid #9b7cff66;border-radius:12px;padding:12px 16px;font-weight:800;box-shadow:0 12px 40px #0008}.libraryCard{max-width:620px}.chartLibrary{display:grid;gap:9px;max-height:50vh;overflow:auto;margin:14px 0}.savedChart{text-align:left;border:1px solid #ffffff1d;background:#0d1018;color:#fff;border-radius:12px;padding:14px;cursor:pointer}.savedChart:hover{border-color:#9b7cff}.savedChart strong,.savedChart span{display:block}.savedChart span{font-size:12px;opacity:.65;margin-top:4px}@media(max-width:850px){.accountArea{flex-wrap:wrap;justify-content:flex-end}.accountEmail{display:none}}
+
+/* v0.20.1 chart delete */
+.savedChartRow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch}.savedChartRow .savedChart{width:100%}.deleteChart{border:1px solid #ff5d6c55;background:#ff334414;color:#ff8b95;border-radius:12px;padding:0 13px;font-size:11px;font-weight:900;cursor:pointer}.deleteChart:hover{background:#ff334425;border-color:#ff5d6c}
