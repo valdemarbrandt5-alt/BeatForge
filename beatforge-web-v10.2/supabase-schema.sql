@@ -82,3 +82,29 @@ create index if not exists scores_chart_difficulty_score_idx on public.scores(ch
 
 -- v0.26 YouTube-linked charts
 alter table public.charts add column if not exists youtube_url text;
+
+
+-- v0.29 Community popularity
+alter table public.charts add column if not exists play_count integer not null default 0;
+
+create table if not exists public.chart_likes (
+  chart_id uuid not null references public.charts(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz default now(),
+  primary key (chart_id,user_id)
+);
+alter table public.chart_likes enable row level security;
+drop policy if exists "chart likes are public" on public.chart_likes;
+create policy "chart likes are public" on public.chart_likes for select using (true);
+drop policy if exists "users can like charts" on public.chart_likes;
+create policy "users can like charts" on public.chart_likes for insert to authenticated with check (auth.uid()=user_id);
+drop policy if exists "users can unlike charts" on public.chart_likes;
+create policy "users can unlike charts" on public.chart_likes for delete to authenticated using (auth.uid()=user_id);
+
+create or replace function public.increment_chart_play(p_chart_id uuid)
+returns void language sql security definer set search_path=public as $$
+  update public.charts set play_count=play_count+1 where id=p_chart_id;
+$$;
+grant execute on function public.increment_chart_play(uuid) to anon, authenticated;
+create index if not exists charts_play_count_idx on public.charts(play_count desc);
+create index if not exists chart_likes_chart_idx on public.chart_likes(chart_id);
