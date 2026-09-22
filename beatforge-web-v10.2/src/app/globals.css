@@ -104,3 +104,16 @@
 .youtubeLabel{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:9px;font-size:11px;color:#9099aa}
 .youtubeLabel strong{color:#ff5b68;letter-spacing:.12em}
 @media(max-width:650px){.youtubeLabel{align-items:flex-start;flex-direction:column}}
+
+/* v0.26.2 add-song chooser */
+.hiddenFileInput{display:none}
+.uploadChoices{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0}
+.uploadChoices>button,.youtubeChoice{min-height:180px;border:1px solid #30394d;border-radius:14px;background:#111722;padding:18px;text-align:left}
+.uploadChoices>button{color:#fff;cursor:pointer}
+.uploadChoices>button:hover,.youtubeChoice:focus-within{border-color:#6e7cff;background:#151d2b}
+.uploadChoices strong{display:block;font-size:13px;letter-spacing:.08em;margin-bottom:8px}
+.uploadChoices span{display:block;color:#8e98aa;font-size:12px;line-height:1.45}
+.youtubeChoice .authInput{margin:14px 0 10px}
+.youtubeChoice button{width:100%}
+.uploadChoiceCard{width:min(620px,92vw)}
+@media(max-width:620px){.uploadChoices{grid-template-columns:1fr}}
