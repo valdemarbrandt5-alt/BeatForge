@@ -55,9 +55,9 @@ export default function Home(){
  const resetStats=()=>setHitStats({perfect:0,great:0,good:0,miss:0,maxCombo:0,timingSum:0,timingHits:0});
  const ytCommand=(func:string,args:any[]=[])=>{youtubeFrame.current?.contentWindow?.postMessage(JSON.stringify({event:'command',func,args}),'*')};
  const finishSong=()=>{setRunning(false);cancelAnimationFrame(raf.current);if(pendingChart?.youtube_url&&!audioUrl)ytCommand('pauseVideo');setResultsOpen(true)};
- const stop=()=>{setAudioLive(false);setRunning(false);cancelAnimationFrame(raf.current);if(pendingChart?.youtube_url&&!audioUrl){ytCommand('pauseVideo');ytCommand('seekTo',[0,true]);youtubeStartedRef.current=false}if(audio.current){audio.current.pause();audio.current.currentTime=0}setTime(0);timeRef.current=0;setCombo(0);comboRef.current=0;setScore(0);setHoldScore(0);holdRemainder.current=0;lastFrameRef.current=null;setJudge('READY');setPressed(null);setResultsOpen(false);resetStats();resetNotes()};
+ const stop=()=>{setAudioLive(false);setRunning(false);cancelAnimationFrame(raf.current);if(pendingChart?.youtube_url&&!audioUrl){ytCommand('mute');ytCommand('pauseVideo');ytCommand('seekTo',[0,true]);youtubeStartedRef.current=false}if(audio.current){audio.current.pause();audio.current.currentTime=0}setTime(0);timeRef.current=0;setCombo(0);comboRef.current=0;setScore(0);setHoldScore(0);holdRemainder.current=0;lastFrameRef.current=null;setJudge('READY');setPressed(null);setResultsOpen(false);resetStats();resetNotes()};
  const play=async()=>{setAudioLive(false);if(audio.current){audio.current.pause();audio.current.currentTime=0;audio.current.muted=true}scoreSubmittedRef.current=false;setResultsOpen(false);resetStats();setCombo(0);comboRef.current=0;setScore(0);setHoldScore(0);holdRemainder.current=0;lastFrameRef.current=null;setJudge('READY');setPressed(null);resetNotes();setTime(0);timeRef.current=0;setRunning(false);
-  const hasYoutube=!!(pendingChart?.youtube_url&&youtubeId(pendingChart.youtube_url)&&!audioUrl);if(hasYoutube){ytCommand('pauseVideo');ytCommand('seekTo',[0,true]);ytCommand('setVolume',[Math.round(volume*100)]);youtubeStartedRef.current=false}
+  const hasYoutube=!!(pendingChart?.youtube_url&&youtubeId(pendingChart.youtube_url)&&!audioUrl);if(hasYoutube){ytCommand('mute');ytCommand('pauseVideo');ytCommand('seekTo',[0,true]);youtubeStartedRef.current=false}
   // Prime the audio while this click still counts as a user gesture, then pause it for the count-in.
   if(audio.current&&audioUrl){audio.current.pause();audio.current.currentTime=0}
   for(const label of ['3','2','1','GO!']){setCountIn(label);await new Promise(r=>setTimeout(r,label==='GO!'?450:700))}setCountIn(null);
@@ -66,7 +66,7 @@ export default function Home(){
   audioStartedRef.current=false;youtubeStartedRef.current=false;start.current=performance.now()/1000+PRE_ROLL;timeRef.current=-PRE_ROLL;setTime(-PRE_ROLL);lastFrameRef.current=null;setRunning(true)};
  useEffect(()=>{if(!running)return;let lastUiUpdate=0;const loop=()=>{const now=performance.now()/1000;const dt=lastFrameRef.current==null?0:Math.min(.05,Math.max(0,now-lastFrameRef.current));lastFrameRef.current=now;let t:number;
    const hasYoutube=!!(pendingChart?.youtube_url&&youtubeId(pendingChart.youtube_url)&&!audioUrl);
-   if(hasYoutube){t=now-start.current;if(t>=0&&!youtubeStartedRef.current){ytCommand('seekTo',[0,true]);ytCommand('setVolume',[Math.round(volume*100)]);ytCommand('playVideo');youtubeStartedRef.current=true;t=0}}
+   if(hasYoutube){t=now-start.current;if(t>=0&&!youtubeStartedRef.current){ytCommand('seekTo',[0,true]);ytCommand('setVolume',[Math.round(volume*100)]);ytCommand('unMute');ytCommand('playVideo');youtubeStartedRef.current=true;t=0}}
    else if(audio.current&&audioUrl){
     if(!audioStartedRef.current){
      t=now-start.current;
