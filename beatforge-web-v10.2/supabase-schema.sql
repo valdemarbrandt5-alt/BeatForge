@@ -79,3 +79,6 @@ alter table public.scores add column if not exists difficulty text;
 update public.scores s set difficulty=c.difficulty from public.charts c where s.chart_id=c.id and s.difficulty is null;
 alter table public.scores alter column difficulty set default 'Medium';
 create index if not exists scores_chart_difficulty_score_idx on public.scores(chart_id,difficulty,score desc);
+
+-- v0.26 YouTube-linked charts
+alter table public.charts add column if not exists youtube_url text;
