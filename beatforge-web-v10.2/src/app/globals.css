@@ -58,3 +58,11 @@
 .leaderRow.podium.gold strong,.leaderRow.podium.gold>span,.leaderRow.podium.gold>b{color:#ffd34e}.leaderRow.podium.silver strong,.leaderRow.podium.silver>span,.leaderRow.podium.silver>b{color:#dce6ef}.leaderRow.podium.bronze strong,.leaderRow.podium.bronze>span,.leaderRow.podium.bronze>b{color:#d9955c}
 .leaderRow.youLive{outline:1px solid rgba(255,255,255,.38);background:rgba(255,255,255,.08)}
 @media(max-width:1250px){.leaderSide{position:relative;right:auto;top:auto;width:min(1180px,94vw);max-height:none;margin:14px auto}}
+
+/* v0.25.1 dual side leaderboards */
+.leaderSide.leaderGlobal{position:fixed;left:16px;right:auto;top:190px;width:255px;margin:0;z-index:12}
+.leaderSide.leaderFriends{position:fixed;right:16px;left:auto;top:190px;width:255px;margin:0;z-index:12}
+.leaderSide .leaderRow{grid-template-columns:28px 1fr auto;gap:6px;padding:8px}
+.leaderSide .leaderRow em{grid-column:2/4;font-size:9px}
+@media(min-width:1251px) and (max-width:1500px){.leaderSide.leaderGlobal,.leaderSide.leaderFriends{width:210px}.leaderSide{font-size:11px}}
+@media(max-width:1250px){.leaderSide.leaderGlobal,.leaderSide.leaderFriends{position:relative;left:auto;right:auto;top:auto;width:min(1180px,94vw);margin:12px auto}}
