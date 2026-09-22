@@ -49,3 +49,6 @@ create policy "own song audio read" on storage.objects for select to authenticat
 create policy "own song audio upload" on storage.objects for insert to authenticated with check (bucket_id='song-audio' and (storage.foldername(name))[1]=auth.uid()::text);
 create policy "own song audio update" on storage.objects for update to authenticated using (bucket_id='song-audio' and (storage.foldername(name))[1]=auth.uid()::text);
 create policy "own song audio delete" on storage.objects for delete to authenticated using (bucket_id='song-audio' and (storage.foldername(name))[1]=auth.uid()::text);
+
+-- v0.21 chart metadata
+alter table public.charts add column if not exists artist text;
