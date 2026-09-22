@@ -76,3 +76,11 @@
 .game.streak200:before{content:"200 STREAK · OVERDRIVE";color:rgba(255,215,90,.40);box-shadow:inset 0 0 100px rgba(220,75,255,.28);animation:overdriveFlash .42s ease-in-out infinite alternate}
 .game.streak100 .note{box-shadow:0 0 24px rgba(95,165,255,.9)}.game.streak200 .note{background:#ffd75a;box-shadow:0 0 28px rgba(255,210,70,.95),0 0 45px rgba(200,90,255,.5)}
 @keyframes streakFlash{to{filter:brightness(1.35);box-shadow:inset 0 0 120px rgba(60,145,255,.30)}}@keyframes overdriveFlash{to{filter:brightness(1.5);box-shadow:inset 0 0 135px rgba(235,80,255,.38)}}
+
+/* v0.25.4 streak note palette + closer leaderboards */
+.game.streak100 .note,.game.streak100 .holdNote,.game.streak100 .holdHead{background:#58a6ff!important;box-shadow:0 0 24px rgba(88,166,255,.95),0 0 42px rgba(65,130,255,.55)!important}
+.game.streak200 .note,.game.streak200 .holdNote,.game.streak200 .holdHead{background:#ff72d2!important;box-shadow:0 0 28px rgba(255,114,210,.98),0 0 48px rgba(220,80,255,.65)!important}
+.leaderSide.leaderGlobal{left:calc(50% - 735px)!important;right:auto!important}
+.leaderSide.leaderFriends{right:calc(50% - 735px)!important;left:auto!important}
+@media(min-width:1251px) and (max-width:1500px){.leaderSide.leaderGlobal{left:8px!important}.leaderSide.leaderFriends{right:8px!important}}
+@media(max-width:1250px){.leaderSide.leaderGlobal,.leaderSide.leaderFriends{left:auto!important;right:auto!important}}
