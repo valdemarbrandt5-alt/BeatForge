@@ -96,3 +96,11 @@
 .game.streak200 .holdHead{background:#ff72d2!important;box-shadow:0 0 24px rgba(255,114,210,.80)!important}
 .game.streak200 .holdNote.holding{background:linear-gradient(#ffe0f5,#ff72d2)!important}
 .game.streak200 .holdNote.holding .holdHead{background:#fff!important}
+
+/* v0.26 YouTube chart player */
+.optional{font-size:10px;opacity:.55;margin-left:6px}
+.youtubePlayer{margin:14px auto 18px;max-width:520px;padding:12px;border:1px solid #293143;border-radius:16px;background:#0e131d;box-shadow:0 14px 35px #0005}
+.youtubePlayer iframe{display:block;width:100%;aspect-ratio:16/9;height:auto;border:0;border-radius:11px;background:#000}
+.youtubeLabel{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:9px;font-size:11px;color:#9099aa}
+.youtubeLabel strong{color:#ff5b68;letter-spacing:.12em}
+@media(max-width:650px){.youtubeLabel{align-items:flex-start;flex-direction:column}}
