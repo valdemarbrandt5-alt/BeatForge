@@ -55,3 +55,21 @@ alter table public.charts add column if not exists artist text;
 
 -- v0.22 community chart discovery
 create index if not exists charts_title_artist_idx on public.charts (lower(title), lower(artist));
+
+-- v0.24 friends
+create table if not exists public.friendships (
+  id bigint generated always as identity primary key,
+  requester_id uuid not null references public.profiles(id) on delete cascade,
+  addressee_id uuid not null references public.profiles(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending','accepted')),
+  created_at timestamptz default now(),
+  unique(requester_id, addressee_id),
+  check (requester_id <> addressee_id)
+);
+alter table public.friendships enable row level security;
+drop policy if exists "friendships visible to participants" on public.friendships;
+create policy "friendships visible to participants" on public.friendships for select to authenticated using (auth.uid()=requester_id or auth.uid()=addressee_id);
+drop policy if exists "send friend requests" on public.friendships;
+create policy "send friend requests" on public.friendships for insert to authenticated with check (auth.uid()=requester_id and status='pending');
+drop policy if exists "accept friend requests" on public.friendships;
+create policy "accept friend requests" on public.friendships for update to authenticated using (auth.uid()=addressee_id) with check (auth.uid()=addressee_id and status='accepted');
