@@ -30,7 +30,13 @@ if (typeof window !== 'undefined') {
       .order('created_at',{ascending:false})
       .limit(1)
       .maybeSingle();
-    if (data?.id) activeMatchId = data.id;
+    if (data?.id) {
+      if (activeMatchId !== data.id) {
+        forfeitBy = null;
+        unloadSent = false;
+      }
+      activeMatchId = data.id;
+    }
     return data;
   };
 
