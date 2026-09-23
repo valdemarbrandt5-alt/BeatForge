@@ -20,6 +20,12 @@ if (typeof window !== 'undefined' && supabase) {
     accessToken = session?.access_token || accessToken;
   };
 
+  const stopCurrentGameplay = () => {
+    const reset = Array.from(document.querySelectorAll('.controls button'))
+      .find(button => button.textContent?.trim() === 'RESET') as HTMLButtonElement | undefined;
+    reset?.click();
+  };
+
   const findPlayingMatch = async () => {
     await cacheSession();
     if (!activeUid) return null;
@@ -60,7 +66,10 @@ if (typeof window !== 'undefined' && supabase) {
         return;
       }
       const row = Array.isArray(result?.data) ? result.data[0] : result?.data;
-      if (row?.forfeited_by) forfeitBy = String(row.forfeited_by);
+      if (row?.forfeited_by) {
+        forfeitBy = String(row.forfeited_by);
+        if (row?.match_status === 'finished') stopCurrentGameplay();
+      }
       if (row?.match_status === 'finished') activeMatchId = null;
     } finally {
       heartbeatBusy = false;
@@ -102,6 +111,7 @@ if (typeof window !== 'undefined' && supabase) {
       }
       const row = Array.isArray(result?.data) ? result.data[0] : result?.data;
       if (row?.forfeited_by) forfeitBy = String(row.forfeited_by);
+      stopCurrentGameplay();
       activeMatchId = null;
       closePrompt();
     };
