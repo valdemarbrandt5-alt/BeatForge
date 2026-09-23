@@ -25,6 +25,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   let shownInviteId='';
   let pollBusy=false;
   let flowPollBusy=false;
+  let flowErrorShown=false;
   let activeInviteId='';
   let activeFriendName='Friend';
   let activeChart:ChartInfo|null=null;
@@ -62,6 +63,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     localDifficulty='';
     localReady=false;
     gameStarted=false;
+    flowErrorShown=false;
   };
 
   const loadSession=async()=>{
@@ -323,7 +325,16 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       const {data,error}=await db.from('casual_invites')
         .select('id,inviter_id,invitee_id,chart_id,status,inviter_ready,invitee_ready,start_at,chart:charts!casual_invites_chart_id_fkey(id,title,artist,youtube_url,play_count)')
         .eq('id',activeInviteId).maybeSingle();
-      if(error||!data)return;
+      if(error){
+        if(!flowErrorShown){
+          flowErrorShown=true;
+          const message=String(error.message||'');
+          toast(/inviter_ready|invitee_ready|start_at|column|schema cache/i.test(message)?'Run the updated casual_invites.sql in Supabase.':message||'Could not sync casual match.');
+        }
+        return;
+      }
+      flowErrorShown=false;
+      if(!data)return;
       const row=data as CasualRow;
       if(row.status==='declined'||row.status==='cancelled'){
         toast('Casual match cancelled.');
