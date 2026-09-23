@@ -16,12 +16,25 @@ if (typeof window !== 'undefined') {
     return '';
   };
 
+  const multiplier = (combo:number) => combo >= 50 ? 5 : combo >= 30 ? 4 : combo >= 20 ? 3 : combo >= 10 ? 2 : 1;
+  const streakTone = (combo:number) => combo >= 200 ? 'streakPink' : combo >= 100 ? 'streakBlue' : combo >= 50 ? 'streakGold' : 'streakBase';
+
   const decorateRanks = () => {
     document.querySelectorAll('.rankedBackdrop.realRanked .matchPlayers span').forEach(player => {
       const rankEl = player.querySelector('em') as HTMLElement | null;
       if (!rankEl) return;
       const cls = rankClass(rankEl.textContent || '');
       if (cls) rankEl.classList.add(cls);
+    });
+  };
+
+  const decorateLeaderboardStreaks = () => {
+    document.querySelectorAll('small').forEach(node => {
+      const el = node as HTMLElement;
+      const match = (el.textContent || '').match(/(\d+)\s*MAX\s*STREAK/i);
+      if (!match) return;
+      el.classList.remove('streakBase','streakGold','streakBlue','streakPink');
+      el.classList.add(streakTone(Number(match[1])));
     });
   };
 
@@ -59,6 +72,14 @@ if (typeof window !== 'undefined') {
     }
     const players = [...hud.querySelectorAll('span')].filter(el => el.querySelector('.rrMe,.rrOpp')) as HTMLElement[];
     if (players.length < 2) return;
+
+    players.forEach(player => {
+      const comboText = player.querySelector('.rrLiveExtra b')?.textContent || '0';
+      const combo = Number(comboText.replace(/[^0-9]/g,'')) || 0;
+      const scoreEl = player.querySelector('.rrMe,.rrOpp') as HTMLElement | null;
+      if (scoreEl) scoreEl.dataset.multiplier = `x${multiplier(combo)}`;
+    });
+
     const scoreOf = (p: HTMLElement) => Number((p.querySelector('.rrMe,.rrOpp')?.textContent || '0').replace(/[^0-9-]/g,'')) || 0;
     [...players].sort((a,b) => scoreOf(b)-scoreOf(a)).forEach((player,i) => {
       player.style.order=String(i); player.dataset.place=String(i+1);
@@ -107,17 +128,18 @@ if (typeof window !== 'undefined') {
     if(document.getElementById('ranked-result-colors'))return;
     const style=document.createElement('style');style.id='ranked-result-colors';style.textContent=`
       .rankedPerformance [data-stat="perfect"] b{color:#ffd43b!important}.rankedPerformance [data-stat="great"] b{color:#4ee6a8!important}.rankedPerformance [data-stat="good"] b{color:#ffad42!important}.rankedPerformance [data-stat="miss"] b{color:#ff4d5e!important}.rankedPerformance [data-stat="accuracy"] b{color:#66d9ff!important}.rankedPerformance [data-stat="combo"] b{color:#b58cff!important}.rankedPerformance [data-stat="timing"] b{color:#75a7ff!important}
+      .streakBase{color:#8e95a5!important}.streakGold{color:#ffd43b!important}.streakBlue{color:#58a6ff!important}.streakPink{color:#ff72d2!important}
       .matchPlayers .rankBronze{color:#cd7f32!important}.matchPlayers .rankSilver{color:#c8ced8!important}.matchPlayers .rankGold{color:#ffd43b!important}.matchPlayers .rankPlatinum{color:#57e0d1!important}.matchPlayers .rankDiamond{color:#6aa9ff!important}.matchPlayers .rankMaster{color:#c084fc!important}
       .rankedCard.rankBronze{--rankAccent:#cd7f32}.rankedCard.rankSilver{--rankAccent:#c8ced8}.rankedCard.rankGold{--rankAccent:#ffd43b}.rankedCard.rankPlatinum{--rankAccent:#57e0d1}.rankedCard.rankDiamond{--rankAccent:#6aa9ff}.rankedCard.rankMaster{--rankAccent:#c084fc}.rankedCard[class*="rank"] .rankedMmrResult b{color:var(--rankAccent)!important}.rankedCard[class*="rank"] .rankedMmrResult{border-color:color-mix(in srgb,var(--rankAccent) 38%,#303646)!important}
       .game>.realRankedLiveHud.rankedScoreboard{position:absolute!important;left:18px!important;bottom:304px!important;top:auto!important;right:auto!important;width:145px!important;min-width:145px!important;max-width:145px!important;height:auto!important;z-index:12!important;margin:0!important;padding:0!important;background:transparent!important;border:0!important;border-radius:0!important;backdrop-filter:none!important;box-shadow:none!important;pointer-events:none;overflow:visible!important;transform:none!important;inset-inline:auto!important}
       .game>.realRankedLiveHud.rankedScoreboard>small{display:none!important}.game>.realRankedLiveHud.rankedScoreboard>div{display:flex!important;flex-direction:column!important;gap:4px!important;width:145px!important;min-width:145px!important;max-width:145px!important;align-items:stretch!important}.game>.realRankedLiveHud.rankedScoreboard i{display:none!important}
       .game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp){position:relative!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:auto auto!important;align-items:center!important;box-sizing:border-box!important;width:145px!important;min-width:145px!important;max-width:145px!important;height:38px!important;margin:0!important;padding:4px 6px 4px 22px!important;border-radius:9px!important;background:#0f131c!important;border:1px solid #303747!important;text-align:left!important;transform:none!important;box-shadow:none!important;flex:none!important}.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp):before{content:'#' attr(data-place);position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:1000;color:#7e8799}.game>.realRankedLiveHud.rankedScoreboard span[data-place='1']{border-color:#6f7685!important}.game>.realRankedLiveHud.rankedScoreboard span[data-place='1']:before{color:#ffd43b}
-      .game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp)>b{grid-column:1;grid-row:1;font-size:8px!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;min-width:0!important}.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp)>em{grid-column:1;grid-row:2;font-size:6px!important;line-height:1!important;color:#788195!important;font-style:normal!important;white-space:nowrap!important}.game>.realRankedLiveHud.rankedScoreboard .rrMe,.game>.realRankedLiveHud.rankedScoreboard .rrOpp{grid-column:2!important;grid-row:1 / span 2!important;font-size:12px!important;line-height:1!important;font-variant-numeric:tabular-nums;margin-left:4px!important;white-space:nowrap!important}.game>.realRankedLiveHud.rankedScoreboard .rrLiveExtra{display:none!important}
+      .game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp)>b{grid-column:1;grid-row:1;font-size:8px!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;min-width:0!important}.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp)>em{grid-column:1;grid-row:2;font-size:6px!important;line-height:1!important;color:#788195!important;font-style:normal!important;white-space:nowrap!important}.game>.realRankedLiveHud.rankedScoreboard .rrMe,.game>.realRankedLiveHud.rankedScoreboard .rrOpp{grid-column:2!important;grid-row:1 / span 2!important;font-size:11px!important;line-height:1!important;font-variant-numeric:tabular-nums;margin-left:4px!important;white-space:nowrap!important}.game>.realRankedLiveHud.rankedScoreboard .rrMe:after,.game>.realRankedLiveHud.rankedScoreboard .rrOpp:after{content:' ' attr(data-multiplier);font-size:8px!important;color:#9ca5b7!important;margin-left:2px}.game>.realRankedLiveHud.rankedScoreboard .rrLiveExtra{display:none!important}
       @media(max-width:760px){.game>.realRankedLiveHud.rankedScoreboard,.game>.realRankedLiveHud.rankedScoreboard>div,.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp){width:132px!important;min-width:132px!important;max-width:132px!important}.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp){height:36px!important}}
     `;document.head.appendChild(style);
   };
 
-  const scan=()=>{addStyles();decorateRanks();decorateResult();decorateLiveHud();autoLoadSelectedSong();};
+  const scan=()=>{addStyles();decorateRanks();decorateLeaderboardStreaks();decorateResult();decorateLiveHud();autoLoadSelectedSong();};
   const start=()=>{scan();new MutationObserver(scan).observe(document.body,{childList:true,subtree:true,characterData:true});document.addEventListener('click',event=>{const target=event.target as HTMLElement|null;if(target?.closest('.realRanked .syncLeave,.realRanked .rankedLeave,.realRanked .cancelRealMatch'))void leaveCurrentLobby();},true);window.setInterval(()=>void recoverCancelledLobby(),500);};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 }
