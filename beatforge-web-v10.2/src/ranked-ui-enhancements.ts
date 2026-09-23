@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase';
 if (typeof window !== 'undefined') {
   let autoLoadedFor = '';
   let checkingLeave = false;
+  let sendingLeave = false;
 
   const rankClass = (text: string) => {
     const t = text.toUpperCase();
@@ -40,6 +41,29 @@ if (typeof window !== 'undefined') {
     window.setTimeout(() => {
       if (load.isConnected && !load.disabled) load.click();
     }, 350);
+  };
+
+  const leaveCurrentLobby = async () => {
+    if (!supabase || sendingLeave) return;
+    sendingLeave = true;
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth.user?.id;
+      if (!uid) return;
+      const { data: match, error: findError } = await supabase.from('ranked_matches')
+        .select('id,status')
+        .or(`player_1.eq.${uid},player_2.eq.${uid}`)
+        .in('status', ['voting','ready'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (findError) { console.error('ranked leave lookup', findError); return; }
+      if (!match?.id) return;
+      const { error } = await supabase.rpc('leave_ranked_match', { p_match: match.id });
+      if (error) console.error('ranked leave rpc', error);
+    } finally {
+      sendingLeave = false;
+    }
   };
 
   const recoverCancelledLobby = async () => {
@@ -107,6 +131,12 @@ if (typeof window !== 'undefined') {
   const start = () => {
     scan();
     new MutationObserver(scan).observe(document.body, { childList: true, subtree: true, characterData: true });
+    document.addEventListener('click', event => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('.realRanked .syncLeave,.realRanked .rankedLeave,.realRanked .cancelRealMatch')) {
+        void leaveCurrentLobby();
+      }
+    }, true);
     window.setInterval(() => void recoverCancelledLobby(), 500);
   };
 
