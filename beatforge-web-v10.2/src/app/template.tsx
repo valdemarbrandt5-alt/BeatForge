@@ -3,6 +3,7 @@ import {useEffect,useRef} from 'react';
 import RankedMultiplayer from './RankedMultiplayer';
 import {supabase} from '../lib/supabase';
 import '../ranked-ui-enhancements';
+import '../ranked-forfeit';
 
 export default function Template({children}:{children:React.ReactNode}){
  const timer=useRef<number|null>(null);
