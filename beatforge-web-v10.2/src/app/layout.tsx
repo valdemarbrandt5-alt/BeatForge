@@ -76,16 +76,20 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           (()=>{
             let lastStars=0;
             let finalStars=0;
+            let lastRaw=-1;
             const updateStars=()=>{
               const meter=document.querySelector('.starMeter');
               const rail=meter?.querySelector('.starRail i');
               const stars=[...(meter?.querySelectorAll('.stars span')||[])];
               if(!meter||!rail||!stars.length)return;
               const raw=parseFloat(rail.style.width)||0;
+              if(raw===lastRaw)return;
+              lastRaw=raw;
               const progress=Math.max(0,Math.min(5,raw/20));
               const earned=Math.min(5,Math.floor(progress+0.0001));
               const fraction=earned>=5?1:progress-earned;
-              rail.style.width=(fraction*100)+'%';
+              const visualWidth=fraction*100;
+              rail.style.setProperty('--bf-star-progress',visualWidth+'%');
               meter.setAttribute('data-stars',String(earned));
               if(earned>lastStars){
                 finalStars=earned;
@@ -110,9 +114,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 wrap.appendChild(row);label.insertAdjacentElement('afterend',wrap);
               });
             };
-            const obs=new MutationObserver(()=>{updateStars();addResultStars()});
-            obs.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['style','class']});
-            setInterval(updateStars,100);
+            const obs=new MutationObserver(mutations=>{
+              if(mutations.some(m=>m.type==='childList'))addResultStars();
+            });
+            obs.observe(document.body,{subtree:true,childList:true});
+            setInterval(updateStars,80);
           })();
         `}</Script>
         <style>{`
@@ -132,7 +138,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           .starMeter{position:relative;padding:11px 12px!important;transition:border-color .2s,box-shadow .2s}
           .stars{font-size:20px!important;gap:4px}
           .starRail{height:7px!important;margin-top:9px!important;background:#252b38!important;border:1px solid #3a4253;overflow:hidden!important}
-          .starRail i{height:100%!important;background:linear-gradient(90deg,#f6b93b,#ffd54a,#fff0a0)!important;box-shadow:0 0 10px #ffd54a88;transition:width .12s linear!important}
+          .starRail i{height:100%!important;width:var(--bf-star-progress,0%);background:linear-gradient(90deg,#f6b93b,#ffd54a,#fff0a0)!important;box-shadow:0 0 10px #ffd54a88;transition:width .12s linear!important}
           .starMeter:after{content:attr(data-stars) ' / 5';position:absolute;right:10px;bottom:-16px;font-size:8px;font-weight:900;letter-spacing:1px;color:#8e95a5}
           .starEarnPop{animation:bfStarPop .7s cubic-bezier(.2,.9,.25,1.25)!important}
           .starMeterBurst{animation:bfMeterBurst .65s ease-out}
