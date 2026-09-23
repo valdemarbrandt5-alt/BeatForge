@@ -1,6 +1,7 @@
 import { supabase } from './lib/supabase';
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && supabase) {
+  const db: any = supabase;
   let activeMatchId: string | null = null;
   let activeUid: string | null = null;
   let accessToken = '';
@@ -13,52 +14,52 @@ if (typeof window !== 'undefined') {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
   const cacheSession = async () => {
-    if (!supabase) return;
-    const { data } = await supabase.auth.getSession();
-    activeUid = data.session?.user.id || activeUid;
-    accessToken = data.session?.access_token || accessToken;
+    const result = await db.auth.getSession();
+    const session = result?.data?.session;
+    activeUid = session?.user?.id || activeUid;
+    accessToken = session?.access_token || accessToken;
   };
 
   const findPlayingMatch = async () => {
-    if (!supabase) return null;
     await cacheSession();
     if (!activeUid) return null;
-    const { data } = await supabase.from('ranked_matches')
+    const result = await db.from('ranked_matches')
       .select('id,status,forfeit_by')
       .or(`player_1.eq.${activeUid},player_2.eq.${activeUid}`)
       .eq('status','playing')
       .order('created_at',{ascending:false})
       .limit(1)
       .maybeSingle();
+    const data = result?.data;
     if (data?.id) {
       if (activeMatchId !== data.id) {
         forfeitBy = null;
         unloadSent = false;
       }
-      activeMatchId = data.id;
+      activeMatchId = String(data.id);
     }
-    return data;
+    return data || null;
   };
 
   const inRankedPlayContext = () => {
     if (document.querySelector('.realRankedLiveHud')) return true;
-    return [...document.querySelectorAll('.rankedBackdrop.realRanked .rankedCard')]
-      .some(card => /GET READY/i.test(card.textContent || ''));
+    const cards = Array.from(document.querySelectorAll('.rankedBackdrop.realRanked .rankedCard'));
+    return cards.some(card => /GET READY/i.test(card.textContent || ''));
   };
 
   const heartbeat = async () => {
-    if (!supabase || heartbeatBusy || !inRankedPlayContext()) return;
+    if (heartbeatBusy || !inRankedPlayContext()) return;
     heartbeatBusy = true;
     try {
       if (!activeMatchId) await findPlayingMatch();
       if (!activeMatchId) return;
       await cacheSession();
-      const { data, error } = await supabase.rpc('ranked_match_heartbeat',{p_match:activeMatchId});
-      if (error) {
-        if (!/does not exist/i.test(error.message || '')) console.error('ranked heartbeat',error);
+      const result = await db.rpc('ranked_match_heartbeat',{p_match:activeMatchId});
+      if (result?.error) {
+        if (!/does not exist/i.test(result.error.message || '')) console.error('ranked heartbeat',result.error);
         return;
       }
-      const row = Array.isArray(data) ? data[0] : data;
+      const row = Array.isArray(result?.data) ? result.data[0] : result?.data;
       if (row?.forfeited_by) forfeitBy = String(row.forfeited_by);
       if (row?.match_status === 'finished') activeMatchId = null;
     } finally {
@@ -72,34 +73,34 @@ if (typeof window !== 'undefined') {
   };
 
   const openForfeitPrompt = async () => {
-    if (!supabase || promptEl || !document.querySelector('.realRankedLiveHud')) return;
+    if (promptEl || !document.querySelector('.realRankedLiveHud')) return;
     if (!activeMatchId) await findPlayingMatch();
     if (!activeMatchId) return;
 
-    const host = document.fullscreenElement?.classList?.contains('beatforgeFullscreenShell')
-      ? document.fullscreenElement
-      : document.body;
-    const o = document.createElement('div');
-    o.className = 'rankedBackdrop realRanked rankedForfeitPrompt';
-    o.innerHTML = '<div class="rankedCard"><small>RANKED DUEL</small><h2>LEAVE MATCH?</h2><p class="forfeitWarning">Leaving counts as a loss and costs <b>20 MMR</b>. The match keeps running while this prompt is open.</p><button class="rankedPrimary confirmForfeit">LEAVE MATCH</button><button class="rankedSecondary cancelForfeit">CANCEL</button></div>';
-    host.appendChild(o);
-    promptEl = o;
+    const fullscreenHost = document.fullscreenElement;
+    const host: Element = fullscreenHost?.classList.contains('beatforgeFullscreenShell') ? fullscreenHost : document.body;
+    const overlay = document.createElement('div');
+    overlay.className = 'rankedBackdrop realRanked rankedForfeitPrompt';
+    overlay.innerHTML = '<div class="rankedCard"><small>RANKED DUEL</small><h2>LEAVE MATCH?</h2><p class="forfeitWarning">Leaving counts as a loss and costs <b>20 MMR</b>. The match keeps running while this prompt is open.</p><button class="rankedPrimary confirmForfeit">LEAVE MATCH</button><button class="rankedSecondary cancelForfeit">CANCEL</button></div>';
+    host.appendChild(overlay);
+    promptEl = overlay;
 
-    (o.querySelector('.cancelForfeit') as HTMLButtonElement).onclick = closePrompt;
-    (o.querySelector('.confirmForfeit') as HTMLButtonElement).onclick = async () => {
-      const button = o.querySelector('.confirmForfeit') as HTMLButtonElement;
-      button.disabled = true;
-      button.textContent = 'LEAVING…';
+    const cancel = overlay.querySelector('.cancelForfeit') as HTMLButtonElement | null;
+    const confirm = overlay.querySelector('.confirmForfeit') as HTMLButtonElement | null;
+    if (cancel) cancel.onclick = closePrompt;
+    if (confirm) confirm.onclick = async () => {
+      confirm.disabled = true;
+      confirm.textContent = 'LEAVING…';
       const id = activeMatchId;
       if (!id) { closePrompt(); return; }
-      const { data, error } = await supabase.rpc('forfeit_ranked_match',{p_match:id});
-      if (error) {
-        console.error('ranked forfeit',error);
-        button.disabled = false;
-        button.textContent = 'LEAVE MATCH';
+      const result = await db.rpc('forfeit_ranked_match',{p_match:id});
+      if (result?.error) {
+        console.error('ranked forfeit',result.error);
+        confirm.disabled = false;
+        confirm.textContent = 'LEAVE MATCH';
         return;
       }
-      const row = Array.isArray(data) ? data[0] : data;
+      const row = Array.isArray(result?.data) ? result.data[0] : result?.data;
       if (row?.forfeited_by) forfeitBy = String(row.forfeited_by);
       activeMatchId = null;
       closePrompt();
@@ -124,8 +125,8 @@ if (typeof window !== 'undefined') {
 
   const decorateForfeitResult = () => {
     if (!forfeitBy || !activeUid) return;
-    const card = [...document.querySelectorAll('.rankedBackdrop.realRanked .rankedCard')]
-      .find(x => /RANKED DUEL COMPLETE/i.test(x.textContent || '')) as HTMLElement | undefined;
+    const cards = Array.from(document.querySelectorAll('.rankedBackdrop.realRanked .rankedCard'));
+    const card = cards.find(x => /RANKED DUEL COMPLETE/i.test(x.textContent || '')) as HTMLElement | undefined;
     if (!card) return;
     const verdict = card.querySelector('.rankedVerdict') as HTMLElement | null;
     if (!verdict) return;
@@ -142,10 +143,7 @@ if (typeof window !== 'undefined') {
     if (document.getElementById('ranked-forfeit-style')) return;
     const style = document.createElement('style');
     style.id = 'ranked-forfeit-style';
-    style.textContent = `
-      .rankedForfeitPrompt .forfeitWarning{max-width:430px;margin:10px auto 16px;color:#aab2c2;line-height:1.5}.rankedForfeitPrompt .forfeitWarning b{color:#ff6275}.rankedForfeitPrompt .confirmForfeit{background:#ff4d61!important;border-color:#ff4d61!important}.rankedForfeitPrompt .confirmForfeit:hover{filter:brightness(1.08)}
-      .forfeitResultNote{margin:-2px 0 10px;font-size:9px;font-weight:1000;letter-spacing:1.5px;color:#9ca5b7}
-    `;
+    style.textContent = '.rankedForfeitPrompt .forfeitWarning{max-width:430px;margin:10px auto 16px;color:#aab2c2;line-height:1.5}.rankedForfeitPrompt .forfeitWarning b{color:#ff6275}.rankedForfeitPrompt .confirmForfeit{background:#ff4d61!important;border-color:#ff4d61!important}.rankedForfeitPrompt .confirmForfeit:hover{filter:brightness(1.08)}.forfeitResultNote{margin:-2px 0 10px;font-size:9px;font-weight:1000;letter-spacing:1.5px;color:#9ca5b7}';
     document.head.appendChild(style);
   };
 
@@ -159,10 +157,7 @@ if (typeof window !== 'undefined') {
 
   const scan = () => {
     decorateForfeitResult();
-    if (!inRankedPlayContext()) {
-      promptEl?.remove();
-      promptEl = null;
-    }
+    if (!inRankedPlayContext()) closePrompt();
   };
 
   const start = () => {
