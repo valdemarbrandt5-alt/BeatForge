@@ -1,7 +1,7 @@
 import { supabase } from './lib/supabase';
 
 if (typeof window !== 'undefined') {
-  let autoLoadedFor = '';
+  let loadingCard: HTMLElement | null = null;
   let checkingLeave = false;
   let sendingLeave = false;
 
@@ -32,15 +32,21 @@ if (typeof window !== 'undefined') {
   const autoLoadSelectedSong = () => {
     const card = [...document.querySelectorAll('.rankedBackdrop.realRanked .rankedCard')]
       .find(x => /SONG SELECTED/i.test(x.textContent || '')) as HTMLElement | undefined;
-    if (!card) { autoLoadedFor = ''; return; }
+    if (!card) { loadingCard = null; return; }
+
+    // SONG SELECTED is now an internal transition only. Never show the old
+    // LOAD SONG step to either player.
+    const overlay = card.closest('.rankedBackdrop.realRanked') as HTMLElement | null;
+    if (overlay) overlay.style.visibility = 'hidden';
+
     const load = card.querySelector('.rankedLoad') as HTMLButtonElement | null;
-    if (!load || load.disabled) return;
-    const key = card.textContent || 'selected';
-    if (autoLoadedFor === key) return;
-    autoLoadedFor = key;
-    window.setTimeout(() => {
-      if (load.isConnected && !load.disabled) load.click();
-    }, 350);
+    if (!load || load.disabled || loadingCard === card) return;
+    loadingCard = card;
+
+    // Click synchronously while this exact card/button still exists. The old
+    // 350 ms delay could lose the button during multiplayer state updates and
+    // leave one client waiting on LOAD SONG.
+    load.click();
   };
 
   const leaveCurrentLobby = async () => {
