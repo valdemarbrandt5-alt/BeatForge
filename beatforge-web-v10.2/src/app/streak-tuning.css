@@ -4,50 +4,51 @@
   border:1px solid rgba(88,166,255,.58)!important;
   box-shadow:0 0 22px rgba(88,166,255,.24),inset 0 0 38px rgba(88,166,255,.07)!important;
 }
-.game.streak100 .lanes{
-  background:radial-gradient(circle at 50% 100%,rgba(88,166,255,.08),transparent 58%)!important;
-  animation:none!important;
-}
-.game.streak100:before{
-  color:rgba(120,185,255,.16)!important;
-  box-shadow:inset 0 0 34px rgba(88,166,255,.08)!important;
-  animation:none!important;
-}
-.game.streak100 .note{
-  background:#58a6ff!important;
-  box-shadow:0 0 14px rgba(88,166,255,.58),0 0 26px rgba(88,166,255,.18)!important;
-}
-.game.streak100 .holdNote{
-  background:linear-gradient(#9acaff,#397fd7)!important;
-  box-shadow:0 0 14px rgba(88,166,255,.48)!important;
-}
-.game.streak100 .holdHead{
-  background:#58a6ff!important;
-  box-shadow:0 0 14px rgba(88,166,255,.58)!important;
-}
-.game.streak200{
-  background:linear-gradient(180deg,#1a111d,#0b0910)!important;
-  border:1px solid rgba(255,114,210,.62)!important;
-  box-shadow:0 0 25px rgba(255,114,210,.26),inset 0 0 42px rgba(255,114,210,.08)!important;
-}
-.game.streak200 .lanes{
-  background:radial-gradient(circle at 50% 100%,rgba(255,114,210,.09),transparent 58%)!important;
-  animation:none!important;
-}
-.game.streak200:before{
-  color:rgba(255,150,220,.18)!important;
-  box-shadow:inset 0 0 38px rgba(255,114,210,.09)!important;
-  animation:none!important;
-}
-.game.streak200 .note{
-  background:#ff72d2!important;
-  box-shadow:0 0 14px rgba(255,114,210,.60),0 0 28px rgba(255,114,210,.20)!important;
-}
-.game.streak200 .holdNote{
-  background:linear-gradient(#ffb5e6,#c84aa8)!important;
-  box-shadow:0 0 14px rgba(255,114,210,.50)!important;
-}
-.game.streak200 .holdHead{
-  background:#ff72d2!important;
-  box-shadow:0 0 14px rgba(255,114,210,.60)!important;
+.game.streak100 .lanes{background:radial-gradient(circle at 50% 100%,rgba(88,166,255,.08),transparent 58%)!important;animation:none!important}
+.game.streak100:before{color:rgba(120,185,255,.16)!important;box-shadow:inset 0 0 34px rgba(88,166,255,.08)!important;animation:none!important}
+.game.streak100 .note{background:#58a6ff!important;box-shadow:0 0 14px rgba(88,166,255,.58),0 0 26px rgba(88,166,255,.18)!important}
+.game.streak100 .holdNote{background:linear-gradient(#9acaff,#397fd7)!important;box-shadow:0 0 14px rgba(88,166,255,.48)!important}
+.game.streak100 .holdHead{background:#58a6ff!important;box-shadow:0 0 14px rgba(88,166,255,.58)!important}
+.game.streak200{background:linear-gradient(180deg,#1a111d,#0b0910)!important;border:1px solid rgba(255,114,210,.62)!important;box-shadow:0 0 25px rgba(255,114,210,.26),inset 0 0 42px rgba(255,114,210,.08)!important}
+.game.streak200 .lanes{background:radial-gradient(circle at 50% 100%,rgba(255,114,210,.09),transparent 58%)!important;animation:none!important}
+.game.streak200:before{color:rgba(255,150,220,.18)!important;box-shadow:inset 0 0 38px rgba(255,114,210,.09)!important;animation:none!important}
+.game.streak200 .note{background:#ff72d2!important;box-shadow:0 0 14px rgba(255,114,210,.60),0 0 28px rgba(255,114,210,.20)!important}
+.game.streak200 .holdNote{background:linear-gradient(#ffb5e6,#c84aa8)!important;box-shadow:0 0 14px rgba(255,114,210,.50)!important}
+.game.streak200 .holdHead{background:#ff72d2!important;box-shadow:0 0 14px rgba(255,114,210,.60)!important}
+
+/* Compact end screen: ranked information belongs inside the normal result card without making it a skyscraper. */
+.resultBackdrop{overflow:auto!important;padding:18px!important;box-sizing:border-box!important}
+.resultCard{max-height:calc(100vh - 36px)!important;overflow-y:auto!important;overflow-x:hidden!important;box-sizing:border-box!important;scrollbar-width:none!important}
+.resultCard::-webkit-scrollbar{display:none!important}
+.rankedResultInline{margin:10px 0!important;padding:11px 13px!important;border-radius:12px!important}
+.rankedResultInline>small{font-size:8px!important;letter-spacing:1.7px!important}
+.rankedResultInline h2{font-size:21px!important;margin:2px 0 5px!important;line-height:1.05!important}
+.rankedResultInline .duelFinal{margin:7px 0!important;gap:8px!important}
+.rankedResultInline .duelFinal>div{padding:8px 10px!important;border-radius:10px!important;gap:2px!important}
+.rankedResultInline .duelFinal span{font-size:8px!important}
+.rankedResultInline .duelFinal strong{font-size:16px!important}
+.rankedResultInline .ratingChange{padding-top:8px!important;gap:7px!important}
+.rankedResultInline .ratingChange b{font-size:10px!important}
+.rankedResultInline .ratingChange strong{font-size:11px!important;padding:4px 7px!important}
+.rankedResultInline .rankedPrimary{margin-top:8px!important;padding:10px 18px!important;font-size:11px!important}
+.personalBestResult{margin:10px 0!important;padding:10px 13px!important;gap:3px!important}
+.personalBestResult strong{font-size:11px!important}
+.personalBestResult>span{font-size:14px!important}
+.personalBestResult small{font-size:9px!important}
+.resultStarsFinal{margin:9px auto 1px!important;padding:8px 13px!important;min-width:185px!important}
+.resultStarsFinal>span{font-size:8px!important;margin-bottom:3px!important}
+.resultStarsRow{font-size:22px!important}
+
+/* Fullscreen gets the exact same polished result layout and always keeps the action buttons reachable. */
+.beatforgeFullscreenShell>.resultBackdrop{display:flex!important;align-items:center!important;justify-content:center!important;overflow:auto!important;padding:16px!important;box-sizing:border-box!important}
+.beatforgeFullscreenShell>.resultBackdrop>.resultCard{width:min(620px,94vw)!important;max-width:620px!important;max-height:calc(100vh - 32px)!important;margin:auto!important;padding:22px 28px!important;overflow-y:auto!important;scrollbar-width:none!important}
+.beatforgeFullscreenShell>.resultBackdrop>.resultCard::-webkit-scrollbar{display:none!important}
+.beatforgeFullscreenShell .resultActions{position:relative!important;z-index:2!important;margin-top:10px!important;padding-bottom:2px!important}
+.beatforgeFullscreenShell .rankedResultInline{width:auto!important}
+@media (max-height:800px){
+ .beatforgeFullscreenShell>.resultBackdrop>.resultCard{padding:16px 24px!important}
+ .beatforgeFullscreenShell .rankedResultInline{margin:7px 0!important;padding:8px 11px!important}
+ .beatforgeFullscreenShell .personalBestResult{margin:7px 0!important;padding:7px 11px!important}
+ .beatforgeFullscreenShell .resultStarsFinal{margin:6px auto 0!important;padding:6px 11px!important}
+ .beatforgeFullscreenShell .rankedResultInline .duelFinal{margin:5px 0!important}
 }
