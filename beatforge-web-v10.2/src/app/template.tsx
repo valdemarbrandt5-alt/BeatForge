@@ -6,6 +6,7 @@ import '../ranked-ui-enhancements';
 import '../ranked-forfeit';
 import '../main-ui-tweaks';
 import '../casual-social';
+import '../casual-ready';
 
 export default function Template({children}:{children:React.ReactNode}){
  const timer=useRef<number|null>(null);
