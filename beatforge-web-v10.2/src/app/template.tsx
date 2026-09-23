@@ -24,10 +24,23 @@ export default function Template({children}:{children:React.ReactNode}){
    const {error}=await db.rpc('heartbeat_ranked_queue');
    if(error)console.error('ranked queue heartbeat',error);
   };
+  const installProfileNav=()=>{
+   const area=document.querySelector('.accountArea');
+   if(!area||area.querySelector('.profileNavBtn'))return;
+   const buttons=Array.from(area.querySelectorAll('button'));
+   if(!buttons.some(button=>button.textContent?.trim()==='LOG OUT'))return;
+   const profile=document.createElement('button');
+   profile.className='accountBtn profileNavBtn';
+   profile.textContent='PROFILE';
+   profile.onclick=()=>{window.location.href='/profile'};
+   const charts=buttons.find(button=>button.textContent?.trim()==='MY CHARTS');
+   if(charts)charts.insertAdjacentElement('afterend',profile);else area.appendChild(profile);
+  };
   const sync=()=>{
    const active=!!document.querySelector('.realRanked .cancelRealQueue');
    if(active&&timer.current===null){wasSearching.current=true;void beat();timer.current=window.setInterval(beat,2000)}
    else if(!active&&timer.current!==null)stop();
+   installProfileNav();
   };
   const observer=new MutationObserver(sync);
   observer.observe(document.body,{childList:true,subtree:true});
