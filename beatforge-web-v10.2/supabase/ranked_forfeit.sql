@@ -91,10 +91,10 @@ begin
     opponent_seen:=case when uid=m.player_1 then m.player_2_seen_at else m.player_1_seen_at end;
 
     -- Fallback for hard tab/browser closes where the unload request never reaches Supabase.
-    -- We wait 12 seconds after the shared start time to avoid false forfeits from startup jitter.
+    -- We wait 20 seconds after the shared start time to avoid false forfeits from startup or network jitter.
     if m.start_at is not null
-       and now() > m.start_at + interval '12 seconds'
-       and (opponent_seen is null or opponent_seen < now() - interval '12 seconds') then
+       and now() > m.start_at + interval '20 seconds'
+       and (opponent_seen is null or opponent_seen < now() - interval '20 seconds') then
       if opponent=m.player_1 then
         update public.ranked_players set mmr=greatest(0,mmr-20),losses=losses+1,updated_at=now() where user_id=m.player_1;
         update public.ranked_players set mmr=greatest(0,mmr+20),wins=wins+1,updated_at=now() where user_id=m.player_2;
