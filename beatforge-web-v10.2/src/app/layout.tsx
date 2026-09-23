@@ -16,12 +16,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           (() => {
             let shell = null;
             let moved = [];
+            let observer = null;
             const rememberAndMove = (el, target) => {
-              if (!el) return;
+              if (!el || moved.some(x => x.el === el)) return;
               moved.push({el,parent:el.parentNode,next:el.nextSibling});
               target.appendChild(el);
             };
+            const moveFullscreenModal = () => {
+              if (!shell) return;
+              document.querySelectorAll('body > .resultBackdrop, body > main > .resultBackdrop').forEach(el => rememberAndMove(el, shell));
+            };
             const restore = () => {
+              observer?.disconnect(); observer=null;
               [...moved].reverse().forEach(({el,parent,next}) => {
                 if (parent) parent.insertBefore(el,next);
               });
@@ -48,7 +54,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               rememberAndMove(game,center);
               rememberAndMove(friends,right);
               rememberAndMove(controls,shell);
-              try{await shell.requestFullscreen()}catch{restore()}
+              observer=new MutationObserver(moveFullscreenModal);
+              observer.observe(document.body,{childList:true,subtree:true});
+              try{await shell.requestFullscreen();moveFullscreenModal()}catch{restore()}
             };
             const toggleFullscreen=async()=>{
               if(document.fullscreenElement)await document.exitFullscreen();else await enter();
@@ -70,14 +78,15 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           })();
         `}</Script>
         <style>{`
-          .beatforgeFullscreenShell{background:#070a10;width:100vw;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;overflow:auto;padding:18px;box-sizing:border-box}
-          .beatforgeFullscreenArena{width:100%;display:grid;grid-template-columns:minmax(180px,1fr) 920px minmax(180px,1fr);gap:18px;align-items:center;justify-items:center}
-          .beatforgeFullscreenCenter{width:920px;height:610px;flex:none}
-          .beatforgeFullscreenCenter>.game{width:920px!important;height:610px!important;min-height:610px!important;max-height:610px!important;margin:0!important}
-          .beatforgeFullscreenSide{width:100%;max-width:270px;min-width:0}
-          .beatforgeFullscreenSide>.leaderSide{position:static!important;inset:auto!important;transform:none!important;width:100%!important;max-height:610px!important;margin:0!important;display:block!important;visibility:visible!important}
-          .beatforgeFullscreenShell>.controls{width:920px;max-width:calc(100vw - 36px);margin:0!important;display:flex!important;visibility:visible!important;flex:0 0 auto}
-          @media(max-width:1400px){.beatforgeFullscreenArena{grid-template-columns:220px 920px 220px;justify-content:center;gap:10px}.beatforgeFullscreenSide{max-width:220px}}
+          .beatforgeFullscreenShell{background:#070a10;width:100vw;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;overflow:hidden;padding:10px 18px;box-sizing:border-box}
+          .beatforgeFullscreenArena{width:100%;display:grid;grid-template-columns:minmax(190px,1fr) minmax(0,calc((100vh - 100px) * 1.5082)) minmax(190px,1fr);gap:16px;align-items:center;justify-items:center;min-height:0}
+          .beatforgeFullscreenCenter{width:min(1120px,calc((100vh - 100px) * 1.5082));aspect-ratio:920/610;min-width:0;flex:none}
+          .beatforgeFullscreenCenter>.game{width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;margin:0!important}
+          .beatforgeFullscreenSide{width:100%;max-width:300px;min-width:0}
+          .beatforgeFullscreenSide>.leaderSide{position:static!important;inset:auto!important;transform:none!important;width:100%!important;max-height:calc(100vh - 130px)!important;margin:0!important;display:block!important;visibility:visible!important}
+          .beatforgeFullscreenShell>.controls{width:min(1120px,calc((100vh - 100px) * 1.5082));max-width:calc(100vw - 36px);margin:0!important;display:flex!important;visibility:visible!important;flex:0 0 auto}
+          .beatforgeFullscreenShell>.resultBackdrop{position:fixed!important;inset:0!important;z-index:9999!important;width:100%!important;height:100%!important}
+          @media(max-width:1500px){.beatforgeFullscreenArena{grid-template-columns:220px minmax(0,calc((100vh - 100px) * 1.5082)) 220px;gap:10px}.beatforgeFullscreenSide{max-width:220px}}
         `}</style>
       </body>
     </html>
