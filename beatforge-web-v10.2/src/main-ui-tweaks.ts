@@ -6,6 +6,7 @@ if (typeof window !== 'undefined') {
     style.textContent = `
       .analysisNote{display:none!important}
       .controls>.debug{display:none!important}
+      main>header>div:first-child>p{display:none!important}
       .accountArea .accountEmail{display:none!important}
       .accountArea{align-items:center!important;gap:10px!important;flex-wrap:nowrap!important}
       .accountArea .accountBtn,.accountArea .rankedNavBtn{
