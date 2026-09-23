@@ -88,9 +88,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               const progress=Math.max(0,Math.min(5,raw/20));
               const earned=Math.min(5,Math.floor(progress+0.0001));
               const fraction=earned>=5?1:progress-earned;
-              const visualWidth=fraction*100;
-              rail.style.setProperty('--bf-star-progress',visualWidth+'%');
-              meter.setAttribute('data-stars',String(earned));
+              rail.style.setProperty('--bf-star-progress',(fraction*100)+'%');
               if(earned>lastStars){
                 finalStars=earned;
                 const star=stars[earned-1];
@@ -114,9 +112,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 wrap.appendChild(row);label.insertAdjacentElement('afterend',wrap);
               });
             };
-            const obs=new MutationObserver(mutations=>{
-              if(mutations.some(m=>m.type==='childList'))addResultStars();
-            });
+            const obs=new MutationObserver(mutations=>{if(mutations.some(m=>m.type==='childList'))addResultStars()});
             obs.observe(document.body,{subtree:true,childList:true});
             setInterval(updateStars,80);
           })();
@@ -135,11 +131,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           .beatforgeFullscreenShell>.resultBackdrop{position:fixed!important;inset:0!important;z-index:9999!important;width:100%!important;height:100%!important}
           @media(max-width:1500px){.beatforgeFullscreenArena{grid-template-columns:240px auto 240px;gap:14px}.beatforgeFullscreenSide,.beatforgeFullscreenSide>.leaderSide{width:240px!important;min-width:240px!important;max-width:240px!important}}
 
+          .leaderRow.youLive{outline:none!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)!important}
           .starMeter{position:relative;padding:11px 12px!important;transition:border-color .2s,box-shadow .2s}
           .stars{font-size:20px!important;gap:4px}
           .starRail{height:7px!important;margin-top:9px!important;background:#252b38!important;border:1px solid #3a4253;overflow:hidden!important}
-          .starRail i{height:100%!important;width:var(--bf-star-progress,0%);background:linear-gradient(90deg,#f6b93b,#ffd54a,#fff0a0)!important;box-shadow:0 0 10px #ffd54a88;transition:width .12s linear!important}
-          .starMeter:after{content:attr(data-stars) ' / 5';position:absolute;right:10px;bottom:-16px;font-size:8px;font-weight:900;letter-spacing:1px;color:#8e95a5}
+          .starRail i{height:100%!important;width:var(--bf-star-progress,0%)!important;background:linear-gradient(90deg,#f6b93b,#ffd54a,#fff0a0)!important;box-shadow:0 0 10px #ffd54a88;transition:width .12s linear!important}
+          .starMeter:after{content:none!important;display:none!important}
           .starEarnPop{animation:bfStarPop .7s cubic-bezier(.2,.9,.25,1.25)!important}
           .starMeterBurst{animation:bfMeterBurst .65s ease-out}
           .starGameFlash:after{content:'';position:absolute;inset:0;z-index:20;pointer-events:none;border:2px solid #ffd54a88;border-radius:18px;animation:bfGameStarFlash .65s ease-out forwards}
