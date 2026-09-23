@@ -68,7 +68,7 @@ if (typeof window !== 'undefined' && supabase) {
       const row = Array.isArray(result?.data) ? result.data[0] : result?.data;
       if (row?.forfeited_by) {
         forfeitBy = String(row.forfeited_by);
-        if (row?.match_status === 'finished') stopCurrentGameplay();
+        if (row?.match_status === 'finished' && forfeitBy !== activeUid) stopCurrentGameplay();
       }
       if (row?.match_status === 'finished') activeMatchId = null;
     } finally {
@@ -79,6 +79,16 @@ if (typeof window !== 'undefined' && supabase) {
   const closePrompt = () => {
     promptEl?.remove();
     promptEl = null;
+  };
+
+  const reloadAfterForfeit = async () => {
+    unloadSent = true;
+    activeMatchId = null;
+    closePrompt();
+    if (document.fullscreenElement) {
+      try { await document.exitFullscreen(); } catch {}
+    }
+    window.setTimeout(() => window.location.reload(), 80);
   };
 
   const openForfeitPrompt = async () => {
@@ -111,9 +121,7 @@ if (typeof window !== 'undefined' && supabase) {
       }
       const row = Array.isArray(result?.data) ? result.data[0] : result?.data;
       if (row?.forfeited_by) forfeitBy = String(row.forfeited_by);
-      stopCurrentGameplay();
-      activeMatchId = null;
-      closePrompt();
+      await reloadAfterForfeit();
     };
   };
 
