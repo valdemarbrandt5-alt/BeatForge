@@ -1,0 +1,7 @@
+# Submitted for BeatForge batch import on 2026-09-24.
+# One video per line. Chart generation and Supabase insertion are still pending.
+https://www.youtube.com/watch?v=TAZkHYyio-M
+https://www.youtube.com/watch?v=Pz4L3HML6l8
+https://www.youtube.com/watch?v=-qKTo_upUeQ
+https://www.youtube.com/watch?v=2I9eC2MRhto
+https://www.youtube.com/watch?v=Yboj5OnAeEo
