@@ -29,6 +29,9 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   let searchStartedAt:number|null=null;
   let lobbyClock:number|null=null;
   let readyClock:number|null=null;
+  let intermissionClock:number|null=null;
+  let intermissionDeadline:number|null=null;
+  let lastIntermissionTick=0;
 
   const esc=(s:any)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]||c));
   const num=(v:string|null|undefined)=>Number(String(v||'0').replace(/[^0-9-]/g,''))||0;
@@ -42,12 +45,12 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
 
   const stopCountdown=()=>{if(countdownTimer!==null){clearInterval(countdownTimer);countdownTimer=null}};
   const removeHud=()=>{hud?.remove();hud=null;document.querySelector('.game')?.classList.remove('brInDanger','brDangerGame')};
-  const closeOverlay=()=>{if(lobbyClock!==null){clearInterval(lobbyClock);lobbyClock=null}if(readyClock!==null){clearInterval(readyClock);readyClock=null}overlay?.remove();overlay=null};
+  const closeOverlay=()=>{if(lobbyClock!==null){clearInterval(lobbyClock);lobbyClock=null}if(readyClock!==null){clearInterval(readyClock);readyClock=null}if(intermissionClock!==null){clearInterval(intermissionClock);intermissionClock=null}overlay?.remove();overlay=null};
   const modal=(html:string)=>{
     closeOverlay();
     const o=document.createElement('div');o.className='brBackdrop';
     o.innerHTML=`<div class="brCard">${html}</div>`;
-    portal().appendChild(o);overlay=o;const card=o.querySelector('.brCard') as HTMLElement;if(!card.querySelector('.brX')){const x=document.createElement('button');x.className='beatforgeModalX';x.type='button';x.textContent='×';x.setAttribute('aria-label','Close');x.onclick=()=>{const action=card.querySelector('.brRoundLeave,.brLeaveLobby,.brClosed') as HTMLButtonElement|null;if(action)action.click();else if(matchId)openLeavePrompt();else closeOverlay()};card.prepend(x)}return card;
+    portal().appendChild(o);overlay=o;const card=o.querySelector('.brCard') as HTMLElement;if(!card.querySelector('.brX')){const x=document.createElement('button');x.className='beatforgeModalX';x.type='button';x.textContent='×';x.setAttribute('aria-label','Close');x.onclick=()=>{const action=card.querySelector('.brRoundLeave,.brLeaveLobby,.brClosed,.brDone') as HTMLButtonElement|null;if(action)action.click();else if(matchId)openLeavePrompt();else closeOverlay()};card.prepend(x)}return card;
   };
   const syncPortal=()=>{
     const host=portal();
@@ -212,6 +215,12 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     return `<div class="brMmrResult"><b class="${rankClass(before)}">${rank(before)} · ${before}</b><span>→</span><b class="${rankClass(after)}">${rank(after)} · ${after}</b><strong class="${delta>=0?'positive':'negative'}">${delta>0?'+':''}${delta} MMR</strong></div>`;
   };
 
+  const roundPerformance=()=>{
+    const result=soloResult?.querySelector('.resultCard')||resultEl()?.querySelector('.resultCard');
+    if(!result)return '<p>Your performance details are unavailable for this round.</p>';
+    const parts=['.finalScore','.scoreLabel','.resultGrid','.resultMeta','.personalBestResult'];
+    return parts.map(selector=>result.querySelector(selector)?.outerHTML||'').join('');
+  };
   const showRoundResult=(state:BRState)=>{
     if(overlay?.dataset.brResult===`${state.round_no}:${state.status}`)return;
     liveActive=false;removeHud();stopCountdown();
@@ -220,15 +229,16 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     const out=!!me.eliminated&&!isWinner;
     const headline=isWinner?'VICTORY ROYALE':out?'ELIMINATED':`ROUND ${state.round_no} COMPLETE`;
     const sub=isWinner?'YOU ARE THE LAST PLAYER STANDING':out?`YOU FINISHED #${me.placement||'?'}`:'YOU SURVIVED';
-    const card=modal(`<small>BATTLE ROYALE</small><h1 class="brVerdict ${isWinner?'win':out?'loss':'survive'}">${headline}</h1><div class="brResultSub">${sub}</div><div class="brResultList">${roundRows(state)}</div>${mmrResult(me)}${state.status==='round_result'&&!out?'<button class="brPrimary brNext">NEXT ROUND</button>':'<button class="brPrimary brDone">DONE</button>'}`);
+    const card=modal(`<small>BATTLE ROYALE</small><h1 class="brVerdict ${isWinner?'win':out?'loss':'survive'}">${headline}</h1><div class="brResultSub">${sub}</div><div class="brResultList">${roundRows(state)}</div>${mmrResult(me)}${state.status==='round_result'&&!out?'<div class="brIntermission">NEXT ROUND IN <b>30</b>s <span>Starting automatically</span></div><button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>':'<button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brDone">DONE</button>'}<div class="brStatsSheet" hidden><h2>YOUR PERFORMANCE</h2>${roundPerformance()}</div>`);
     if(overlay)overlay.dataset.brResult=`${state.round_no}:${state.status}`;
-    const next=card.querySelector('.brNext') as HTMLButtonElement|null;
-    if(next)next.onclick=async()=>{
-      next.disabled=true;next.textContent='LOADING…';dismissSoloResult();
-      const {error}=await db.rpc('battle_royale_next_round',{p_match:matchId});
-      if(error){console.error('battle royale next',error);next.disabled=false;next.textContent='NEXT ROUND'}
-      else{preparedRound=0;startedRound=0;localSubmittedRound=0;closeOverlay()}
-    };
+    const stats=card.querySelector('.brShowStats') as HTMLButtonElement|null;
+    if(stats)stats.onclick=()=>{const sheet=card.querySelector('.brStatsSheet') as HTMLElement;const open=sheet.hidden;sheet.hidden=!open;stats.textContent=open?'SHOW RESULTS':'SEE STATS';card.querySelector('.brResultList')?.classList.toggle('brResultsHidden',open);card.querySelector('.brMmrResult')?.classList.toggle('brResultsHidden',open)};
+    card.querySelector('.brRoundLeave')?.addEventListener('click',openLeavePrompt);
+    if(state.status==='round_result'&&!out){
+      const label=card.querySelector('.brIntermission b');
+      const paint=()=>{if(!label)return;const deadline=intermissionDeadline;label.textContent=String(deadline===null?30:Math.max(0,Math.ceil((deadline-Date.now())/1000)))};
+      paint();intermissionClock=window.setInterval(paint,200);
+    }
     const done=card.querySelector('.brDone') as HTMLButtonElement|null;
     if(done)done.onclick=()=>{dismissSoloResult();matchId=null;lastState=null;closeOverlay();removeHud()};
   };
@@ -251,10 +261,11 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   };
 
   const handleState=async(state:BRState)=>{
+    const wasRoundResult=lastState?.status==='round_result';
     lastState=state;
     if(state.status==='cancelled'){matchId=null;liveActive=false;removeHud();modal('<small>BATTLE ROYALE</small><h2>MATCH CLOSED</h2><button class="brPrimary brClosed">DONE</button>').querySelector('.brClosed')?.addEventListener('click',closeOverlay);return}
     if(state.status==='lobby'){renderLobby(state);return}
-    if(state.status==='loading'){updateReadyCount(state);await prepareRound(state);return}
+    if(state.status==='loading'){if(wasRoundResult){intermissionDeadline=null;dismissSoloResult();if(state.players.find(p=>p.me)?.eliminated){matchId=null;return}}updateReadyCount(state);await prepareRound(state);return}
     if(state.status==='playing'){
       updateReadyCount(state);
       if(startedRound!==state.round_no)startCountdown(state);
@@ -268,6 +279,12 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     if(busy||!matchId)return;busy=true;
     try{
       if(lastState?.status==='lobby'||lastState?.status==='loading')await db.rpc('battle_royale_tick',{p_match:matchId});
+      if(lastState?.status==='round_result'&&Date.now()-lastIntermissionTick>=1000){
+        lastIntermissionTick=Date.now();const sent=Date.now();
+        const {data,error}=await db.rpc('battle_royale_intermission_tick',{p_match:matchId});
+        if(error)console.error('battle royale intermission',error);
+        else if(data?.deadline)intermissionDeadline=new Date(data.deadline).getTime()-(new Date(data.server_now).getTime()-(sent+Date.now())/2);
+      }
       const state=await getState();if(state)await handleState(state);
     }finally{busy=false}
   };
@@ -294,7 +311,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
 
   const leaveMode=async()=>{
     if(matchId)await db.rpc('battle_royale_leave',{p_match:matchId});
-    matchId=null;lastState=null;searchStartedAt=null;liveActive=false;preparedRound=0;startedRound=0;localSubmittedRound=0;stopCountdown();removeHud();closeOverlay();dismissSoloResult();
+    matchId=null;lastState=null;intermissionDeadline=null;searchStartedAt=null;liveActive=false;preparedRound=0;startedRound=0;localSubmittedRound=0;stopCountdown();removeHud();closeOverlay();dismissSoloResult();
   };
 
   const closeLeavePrompt=()=>{leavePrompt?.remove();leavePrompt=null};

@@ -201,3 +201,37 @@
 .casualPickerTop>div:first-child{padding-right:38px}
 :where(.upload,.chartOptions,.settings,.leaderSide,.communityTile){border-radius:18px}
 @media(max-width:600px){:where(.brCard,.brLeaveCard,.rankedCard,.resultCard,.casualPickerCard,.casualInviteCard){padding:22px 18px!important}}
+
+/* Roomier dialogs and readable Battle Royale round results. */
+.brCard{width:min(760px,calc(100vw - 36px))!important;padding:34px 36px!important}
+.rankedCard{width:min(690px,calc(100vw - 36px))!important;padding:34px 36px!important}
+.resultCard{width:min(640px,calc(100vw - 36px))!important;padding:34px 36px!important}
+.uploadChoiceCard,.casualPickerCard{width:min(760px,calc(100vw - 36px))!important}
+.brLeaveCard,.casualInviteCard{width:min(500px,calc(100vw - 36px))!important;padding:30px!important}
+.brCard>p,.rankedCard>p,.resultCard>p{font-size:13px!important;line-height:1.55}
+.brCard>small,.rankedCard>small,.resultCard>small{font-size:10px!important}
+.brCard .brResultList{gap:7px!important;margin:18px 0 22px!important}
+.brCard .brResultRow{min-height:50px!important;padding:6px 14px!important;grid-template-columns:40px minmax(0,1fr) 130px 90px!important;border-radius:10px!important}
+.brCard .brResultRow>i{font-size:11px!important}
+.brCard .brResultRow>b{font-size:12px!important;gap:3px}
+.brCard .brResultRow>b em{font-size:9px!important}
+.brCard .brResultRow>span{font-size:13px!important}
+.brCard .brResultRow>small{font-size:9px!important}
+.brCard .brResultSub{font-size:11px!important}
+.brCard :is(.brPrimary,.brSecondary),.rankedCard :is(.rankedPrimary,.rankedSecondary){min-height:44px;font-size:11px!important}
+.brIntermission{max-width:440px;margin:18px auto 4px;padding:13px;border:1px solid #774361;border-radius:11px;background:#251522;color:#f1a8d4;font-size:11px;font-weight:900;letter-spacing:.06em}
+.brIntermission b{color:#fff;font-size:22px}.brIntermission span{display:block;color:#bba3b6;font-size:9px;margin-top:4px}
+.brStatsSheet{margin:18px 0 0;padding:18px;border:1px solid #343c4c;border-radius:12px;background:#0d121a}
+.brStatsSheet[hidden],.brResultsHidden{display:none!important}
+.brStatsSheet h2{font-size:19px;margin:0 0 14px}.brStatsSheet .resultGrid{margin:18px 0 12px}
+.brStatsSheet .finalScore{font-size:38px}.brStatsSheet :is(.resultGrid,.resultMeta) span{font-size:10px}
+.brCard .brDifficultyGrid button{min-height:76px!important;padding:12px 15px!important}
+.brCard .brLobbyPlayers>span{min-height:44px!important;padding:10px 13px!important}
+.rankedCard .rankDifficulty{min-height:74px!important;padding:12px 15px!important}
+@media(max-width:600px){
+  :is(.brCard,.rankedCard,.resultCard,.brLeaveCard,.casualInviteCard){width:calc(100vw - 24px)!important;padding:24px 18px!important}
+  .brCard .brResultRow{grid-template-columns:27px minmax(0,1fr) 78px 64px!important;min-height:48px!important;padding:6px 8px!important}
+  .brCard .brResultRow>b{font-size:10px!important}.brCard .brResultRow>b em{font-size:8px!important}
+  .brCard .brResultRow>span{font-size:10px!important}.brCard .brResultRow>small{font-size:7px!important}
+  .brStatsSheet{padding:12px}
+}
