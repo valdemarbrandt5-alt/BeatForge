@@ -18,6 +18,8 @@ alter table public.casual_invites add column if not exists invitee_ready boolean
 alter table public.casual_invites add column if not exists start_at timestamptz;
 alter table public.casual_invites add column if not exists inviter_score bigint not null default 0;
 alter table public.casual_invites add column if not exists invitee_score bigint not null default 0;
+alter table public.casual_invites add column if not exists inviter_combo integer not null default 0;
+alter table public.casual_invites add column if not exists invitee_combo integer not null default 0;
 
 create index if not exists casual_invites_invitee_status_idx on public.casual_invites(invitee_id,status,created_at desc);
 create index if not exists casual_invites_inviter_status_idx on public.casual_invites(inviter_id,status,created_at desc);
@@ -85,7 +87,11 @@ begin
   select * into r from public.casual_invites where id=p_invite for update;
   if r.inviter_ready and r.invitee_ready and r.start_at is null then
     update public.casual_invites
-      set start_at=now()+interval '4 seconds', inviter_score=0, invitee_score=0
+      set start_at=now()+interval '4 seconds',
+          inviter_score=0,
+          invitee_score=0,
+          inviter_combo=0,
+          invitee_combo=0
       where id=p_invite
       returning * into r;
   end if;
@@ -133,6 +139,50 @@ begin
 end $$;
 
 grant execute on function public.casual_update_score(uuid,bigint) to authenticated;
+
+create or replace function public.casual_update_live(p_invite uuid,p_score bigint,p_combo integer)
+returns table(
+  invite_id uuid,
+  inviter_score bigint,
+  invitee_score bigint,
+  inviter_combo integer,
+  invitee_combo integer
+)
+language plpgsql
+security definer
+set search_path=public
+as $$
+declare
+  uid uuid := auth.uid();
+  r public.casual_invites%rowtype;
+  clean_score bigint := greatest(coalesce(p_score,0),0);
+  clean_combo integer := greatest(coalesce(p_combo,0),0);
+begin
+  if uid is null then raise exception 'Not authenticated'; end if;
+
+  select * into r from public.casual_invites where id=p_invite for update;
+  if r.id is null then raise exception 'Invite not found'; end if;
+  if uid not in (r.inviter_id,r.invitee_id) then raise exception 'Not in this casual match'; end if;
+  if r.status <> 'accepted' or r.start_at is null then raise exception 'Casual match is not playing'; end if;
+
+  if uid=r.inviter_id then
+    update public.casual_invites as ci
+      set inviter_score=greatest(ci.inviter_score,clean_score),
+          inviter_combo=clean_combo
+      where ci.id=p_invite
+      returning * into r;
+  else
+    update public.casual_invites as ci
+      set invitee_score=greatest(ci.invitee_score,clean_score),
+          invitee_combo=clean_combo
+      where ci.id=p_invite
+      returning * into r;
+  end if;
+
+  return query select r.id,r.inviter_score,r.invitee_score,r.inviter_combo,r.invitee_combo;
+end $$;
+
+grant execute on function public.casual_update_live(uuid,bigint,integer) to authenticated;
 
 create or replace function public.casual_leave_match(p_invite uuid)
 returns void
