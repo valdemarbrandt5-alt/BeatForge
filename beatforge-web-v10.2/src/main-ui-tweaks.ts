@@ -8,7 +8,14 @@ if (typeof window !== 'undefined') {
         .controls>.debug{display:none!important}
         main>header>div:first-child>p{display:none!important}
         .accountArea .accountEmail{display:none!important}
-        .accountArea{align-items:center!important;gap:10px!important;flex-wrap:nowrap!important}
+        main>header{
+          display:flex!important;flex-direction:column!important;align-items:flex-start!important;
+          justify-content:flex-start!important;gap:12px!important;
+        }
+        .accountArea{
+          width:100%!important;align-items:center!important;justify-content:flex-start!important;
+          gap:10px!important;flex-wrap:nowrap!important;
+        }
         .accountArea .accountBtn,.accountArea .rankedNavBtn{
           height:42px!important;min-height:42px!important;padding:0 18px!important;
           display:inline-flex!important;align-items:center!important;justify-content:center!important;
@@ -18,7 +25,10 @@ if (typeof window !== 'undefined') {
         }
         .accountArea .accountBtn:hover,.accountArea .rankedNavBtn:hover{border-color:#6656a6!important;background:#191d2a!important}
         .accountArea .profileNavBtn{white-space:nowrap!important}
-        @media(max-width:1050px){.accountArea{gap:7px!important}.accountArea .accountBtn,.accountArea .rankedNavBtn{padding:0 12px!important}}
+        @media(max-width:1050px){
+          .accountArea{gap:7px!important;overflow-x:auto!important;padding-bottom:2px!important}
+          .accountArea .accountBtn,.accountArea .rankedNavBtn{padding:0 12px!important;flex:0 0 auto!important}
+        }
       `;
       document.head.appendChild(style);
     }
