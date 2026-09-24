@@ -19,13 +19,13 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   let busy=false;
   let hud:HTMLElement|null=null;
   let schemaErrorShown=false;
+  let casualLocked=false;
 
   const numberFrom=(value:string|null|undefined)=>{
     const n=Number(String(value||'0').replace(/[^0-9-]/g,''));
     return Number.isFinite(n)?n:0;
   };
 
-  const currentSong=()=>String(document.querySelector('.upload strong')?.textContent||'').trim().toLowerCase();
   const resultOpen=()=>[...document.querySelectorAll('.resultBackdrop')].some(x=>/SONG COMPLETE/i.test(x.textContent||''));
 
   const loadUid=async()=>{
@@ -36,6 +36,55 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   };
 
   const removeHud=()=>{hud?.remove();hud=null};
+
+  const playbackButtons=()=>Array.from(document.querySelectorAll('.controls button')) as HTMLButtonElement[];
+
+  const setControlLock=(locked:boolean)=>{
+    casualLocked=locked;
+    playbackButtons().forEach(button=>{
+      const label=(button.textContent||'').trim().toUpperCase();
+      const shouldLock=['STOP','RESET','PAUSE','RESUME'].includes(label);
+      button.classList.toggle('casualLockedControl',locked&&shouldLock);
+      if(locked&&shouldLock){
+        button.setAttribute('aria-disabled','true');
+        button.title='Disabled during a synced casual match';
+      }else if(button.classList.contains('casualLockedControl')===false&&button.title==='Disabled during a synced casual match'){
+        button.removeAttribute('aria-disabled');
+        button.removeAttribute('title');
+      }
+    });
+    document.body.classList.toggle('casualMatchPlaying',locked);
+  };
+
+  const getBlockedKeys=()=>{
+    let reset='r',pause='escape';
+    try{
+      const raw=localStorage.getItem('beatforge-settings');
+      if(raw){
+        const settings=JSON.parse(raw);
+        if(typeof settings?.resetKey==='string'&&settings.resetKey)reset=settings.resetKey.toLowerCase();
+        if(typeof settings?.pauseKey==='string'&&settings.pauseKey)pause=settings.pauseKey.toLowerCase();
+      }
+    }catch{}
+    return new Set([reset,pause]);
+  };
+
+  const blockSyncedControlClick=(event:MouseEvent)=>{
+    if(!casualLocked)return;
+    const button=(event.target as HTMLElement|null)?.closest('.controls button') as HTMLButtonElement|null;
+    if(!button)return;
+    const label=(button.textContent||'').trim().toUpperCase();
+    if(!['STOP','RESET','PAUSE','RESUME'].includes(label))return;
+    event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
+  };
+
+  const blockSyncedHotkeys=(event:KeyboardEvent)=>{
+    if(!casualLocked)return;
+    const target=event.target as HTMLElement|null;
+    if(target?.matches('input,textarea,[contenteditable="true"]'))return;
+    if(!getBlockedKeys().has(event.key.toLowerCase()))return;
+    event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
+  };
 
   const addStyles=()=>{
     if(document.getElementById('casual-live-score-style'))return;
@@ -48,12 +97,13 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       .casualLiveHud .casualLiveRow[data-place='1']{border-color:#6f7685}.casualLiveHud .casualLiveRow[data-place='1']:before{color:#ffd43b}
       .casualLiveHud .casualLiveName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;font-weight:1000;color:#fff}
       .casualLiveHud .casualLiveScore{font-size:12px;font-weight:1000;font-variant-numeric:tabular-nums;margin-left:5px;color:#fff}
+      .controls button.casualLockedControl{opacity:.42!important;cursor:not-allowed!important;filter:saturate(.45)!important;pointer-events:none!important}
       @media(max-width:760px){.game>.casualLiveHud,.casualLiveHud .casualLiveRow{width:132px}.casualLiveHud .casualLiveRow{height:36px}}
     `;
     document.head.appendChild(style);
   };
 
-  const ensureHud=(row:CasualLiveRow)=>{
+  const ensureHud=()=>{
     if(document.querySelector('.realRankedLiveHud')){removeHud();return null}
     const game=document.querySelector('.game') as HTMLElement|null;
     if(!game)return null;
@@ -67,7 +117,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   };
 
   const renderHud=(row:CasualLiveRow,inviterScore:number,inviteeScore:number)=>{
-    const root=ensureHud(row);if(!root)return;
+    const root=ensureHud();if(!root)return;
     const players=[
       {name:String(row.inviter?.username||'Player 1'),score:inviterScore,mine:row.inviter_id===uid},
       {name:String(row.invitee?.username||'Player 2'),score:inviteeScore,mine:row.invitee_id===uid},
@@ -98,7 +148,16 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       return null;
     }
     schemaErrorShown=false;
-    return (data||null) as CasualLiveRow|null;
+    if(!data)return null;
+    if(sessionStorage.getItem(`beatforge-casual-finished:${data.id}`))return null;
+    return data as CasualLiveRow;
+  };
+
+  const finishLocalMatch=()=>{
+    if(active)sessionStorage.setItem(`beatforge-casual-finished:${active.id}`,'1');
+    removeHud();
+    setControlLock(false);
+    active=null;
   };
 
   const tick=async()=>{
@@ -106,10 +165,19 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     busy=true;
     try{
       if(!active)active=await findActive();
-      if(!active){removeHud();return}
-      const title=String(active.chart?.title||'').trim().toLowerCase();
+      if(!active){removeHud();setControlLock(false);return}
+
       const starts=active.start_at?new Date(active.start_at).getTime():0;
-      if(!starts||Date.now()<starts-800||!title||currentSong()!==title){removeHud();return}
+      if(!starts||Date.now()<starts-800){removeHud();setControlLock(false);return}
+
+      if(resultOpen()){
+        finishLocalMatch();
+        return;
+      }
+
+      // Once the shared start time is reached, local pause/reset/stop would desync the clients.
+      // Keep both players on the same uninterrupted timeline instead.
+      setControlLock(true);
 
       const score=numberFrom(document.querySelector('.hudScore b')?.textContent);
       const {data,error}=await db.rpc('casual_update_score',{p_invite:active.id,p_score:score});
@@ -123,17 +191,14 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       const inviteeScore=Number(live?.invitee_score??active.invitee_score??0)||0;
       active.inviter_score=inviterScore;active.invitee_score=inviteeScore;
       renderHud(active,inviterScore,inviteeScore);
-
-      if(resultOpen()){
-        sessionStorage.setItem(`beatforge-casual-finished:${active.id}`,'1');
-        removeHud();active=null;
-      }
     }finally{busy=false}
   };
 
   const start=()=>{
     addStyles();void loadUid();
-    window.setInterval(()=>void tick(),350);
+    document.addEventListener('click',blockSyncedControlClick,true);
+    window.addEventListener('keydown',blockSyncedHotkeys,true);
+    window.setInterval(()=>void tick(),250);
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 }
