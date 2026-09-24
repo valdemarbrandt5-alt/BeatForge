@@ -12,6 +12,27 @@ import import_youtube_charts as importer
 
 
 class InstrumentImportTest(unittest.TestCase):
+    def test_export_links_paginates_and_deduplicates_song_instruments(self):
+        with TemporaryDirectory() as tmp:
+            output = Path(tmp) / "beatforge-links.txt"
+            rows = [{"youtube_url": f"https://music.youtube.com/watch?v={n:011d}"} for n in range(500)]
+            second_page = [{"youtube_url": "https://youtu.be/00000000000"},
+                           {"youtube_url": "https://www.youtube.com/watch?v=00000000500"},
+                           {"youtube_url": "https://example.com/not-youtube"}]
+            env = {"SUPABASE_URL": "https://example.supabase.co", "SUPABASE_SERVICE_ROLE_KEY": "sb_secret_example"}
+            with (patch.dict(os.environ, env),
+                  patch.object(sys, "argv", ["import_youtube_charts.py", "--export-links", str(output)]),
+                  patch.object(importer, "request_json", side_effect=[rows, second_page]) as request,
+                  patch.object(importer, "youtube_metadata") as metadata):
+                importer.main()
+
+            exported = output.read_text().splitlines()
+            self.assertEqual(len(exported), 501)
+            self.assertEqual(exported[0], "https://www.youtube.com/watch?v=00000000000")
+            self.assertEqual(exported[-1], "https://www.youtube.com/watch?v=00000000500")
+            self.assertIn("offset=500", request.call_args_list[-1].args[2])
+            metadata.assert_not_called()
+
     def test_rerun_adds_only_missing_instruments(self):
         with TemporaryDirectory() as tmp:
             links = Path(tmp) / "links.txt"

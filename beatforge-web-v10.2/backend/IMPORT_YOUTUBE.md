@@ -41,10 +41,17 @@ the local machine.
 To apply an improved stem analyzer to songs that were already imported, run:
 
 ```powershell
-py .\import_youtube_charts.py .\links.txt --instruments stems --refresh-stems
+py .\import_youtube_charts.py --export-links
+py .\import_youtube_charts.py .\beatforge-links.txt --instruments stems --refresh-stems
 ```
 
-This downloads and separates each listed song again. It updates existing
+The export reads all existing BeatForge charts through your local Supabase
+credentials and writes each unique YouTube song once to `beatforge-links.txt`.
+It handles libraries larger than 500 charts. It only reads the database and
+does not download videos, run Demucs or require ffmpeg. You can also choose
+another filename with `--export-links .\my-links.txt`.
+
+The second command downloads and separates each listed song again. It updates existing
 instrument charts belonging to your admin account, adds missing stems and
 leaves full mix charts and other people's charts untouched. Chart IDs, likes
 and scores remain in place. Existing scores were earned against the previous

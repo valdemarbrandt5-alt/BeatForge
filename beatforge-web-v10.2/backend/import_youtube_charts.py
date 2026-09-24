@@ -63,6 +63,36 @@ def read_links(path: Path) -> list[str]:
     return ids
 
 
+def export_links(base: str, key: str, destination: Path) -> int:
+    """Export all unique song links from charts, including paginated libraries."""
+    ids = []
+    seen = set()
+    offset = 0
+    page_size = 500
+    skipped = 0
+    while True:
+        route = ("charts?select=youtube_url&youtube_url=not.is.null&order=id.asc"
+                 f"&limit={page_size}&offset={offset}")
+        rows = request_json(base, key, route) or []
+        for row in rows:
+            try:
+                video_id = parse_video_id(row.get("youtube_url") or "")
+            except ValueError:
+                skipped += 1
+                continue
+            if video_id not in seen:
+                seen.add(video_id)
+                ids.append(video_id)
+        if len(rows) < page_size:
+            break
+        offset += page_size
+    if not ids:
+        raise RuntimeError("No valid YouTube song links found in BeatForge charts")
+    destination.write_text("".join(f"https://www.youtube.com/watch?v={video_id}\n" for video_id in ids), encoding="utf-8")
+    print(f"Exported {len(ids)} unique songs to {destination} ({skipped} invalid links skipped)")
+    return len(ids)
+
+
 def request_json(base: str, key: str, route: str, method="GET", payload=None):
     data = None if payload is None else json.dumps(payload).encode("utf-8")
     headers = {"apikey": key, "Content-Type": "application/json", "Prefer": "return=minimal"}
@@ -201,13 +231,29 @@ def generate_stem_charts(audio: Path, directory: Path, instruments: set[str]):
 
 def main():
     parser = argparse.ArgumentParser(description="Import YouTube links as BeatForge charts")
-    parser.add_argument("links", type=Path, help="Text file containing one link per line")
+    parser.add_argument("links", type=Path, nargs="?", help="Text file containing one link per line")
+    parser.add_argument("--export-links", type=Path, nargs="?", const=Path("beatforge-links.txt"),
+                        help="Save all unique YouTube links from BeatForge (default: beatforge-links.txt)")
     parser.add_argument("--dry-run", action="store_true", help="Show metadata without downloading or saving")
     parser.add_argument("--instruments", choices=("mix", "stems", "all"), default="mix",
                         help="mix (default), four separated stems, or mix plus all four stems")
     parser.add_argument("--refresh-stems", action="store_true",
                         help="Reanalyze existing admin-owned instrument charts in place; keeps their IDs and scores")
     args = parser.parse_args()
+    if args.export_links is not None:
+        if args.links or args.dry_run or args.refresh_stems or args.instruments != "mix":
+            parser.error("Use --export-links by itself; import the resulting file in a separate command")
+        base = os.environ.get("SUPABASE_URL", "")
+        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        if not base or not key:
+            parser.error("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY")
+        try:
+            export_links(base, key, args.export_links)
+        except (RuntimeError, urllib.error.URLError, OSError) as exc:
+            parser.error(str(exc))
+        return
+    if not args.links:
+        parser.error("Provide a links file or use --export-links")
     if args.refresh_stems and args.instruments == "mix":
         parser.error("--refresh-stems requires --instruments stems or all")
     ids = read_links(args.links)
