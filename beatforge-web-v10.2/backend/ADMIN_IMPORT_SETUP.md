@@ -20,11 +20,15 @@ jobs are kept only in memory and can be lost if the service restarts.
 ## If YouTube requires sign in
 
 The backend optionally reads `YOUTUBE_COOKIES_BASE64` from Railway for both
-metadata and audio download. Export a Netscape `cookies.txt` from a signed in
-browser using yt-dlp on your own computer. In PowerShell:
+metadata and audio download. YouTube may rotate cookies in an ordinary browser
+session even before their printed expiry date. To export a fresh Netscape
+`cookies.txt` that stays valid, open one private browser window, sign in to
+YouTube, navigate in the same tab to `https://www.youtube.com/robots.txt`,
+export only `youtube.com` cookies with a browser cookie export extension,
+then close that private window. Do not reopen the session. In PowerShell:
 
 ```powershell
-python -m yt_dlp --cookies-from-browser chrome --cookies youtube-cookies.txt --skip-download "https://www.youtube.com/watch?v=TAZkHYyio-M"
+cd "$HOME\Downloads"
 [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path .\youtube-cookies.txt))) | Set-Clipboard
 ```
 

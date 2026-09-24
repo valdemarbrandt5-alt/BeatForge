@@ -94,7 +94,7 @@ def youtube_metadata(url: str) -> dict:
              "--dump-single-json", url], capture_output=True, text=True, timeout=90,
         )
     if proc.returncode:
-        raise RuntimeError(f"Metadata failed ({cookie_status}): " + proc.stderr[-190:])
+        raise RuntimeError(f"Metadata failed ({cookie_status}): " + youtube_error(proc.stderr))
     return json.loads(proc.stdout)
 
 
@@ -108,8 +108,20 @@ def download_audio(url: str, directory: Path) -> Path:
             capture_output=True, text=True, timeout=600,
         )
     if proc.returncode or not (directory / "song.wav").is_file():
-        raise RuntimeError(f"Audio failed ({cookie_status}): " + proc.stderr[-190:])
+        raise RuntimeError(f"Audio failed ({cookie_status}): " + youtube_error(proc.stderr))
     return directory / "song.wav"
+
+
+def youtube_error(stderr: str) -> str:
+    """Show the actual yt-dlp error, without echoing cookie contents or paths."""
+    lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+    errors = [line for line in lines if line.startswith("ERROR:")]
+    message = (errors or lines or ["No error details from yt-dlp"])[-1]
+    if "cookies are no longer valid" in stderr.lower() or "cookies have likely been rotated" in stderr.lower():
+        return "YouTube session cookies have expired or rotated. Export fresh YouTube cookies from a private browser session."
+    message = re.sub(r"https?://\S+", "", message)
+    message = re.sub(r"/tmp/\S+|[A-Za-z]:\\\S+", "[temporary path]", message)
+    return message[:190]
 
 
 def youtube_cookie_status(cookie_args: list[str]) -> str:
