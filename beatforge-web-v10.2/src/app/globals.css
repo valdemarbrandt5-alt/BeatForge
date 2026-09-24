@@ -235,3 +235,10 @@
   .brCard .brResultRow>span{font-size:10px!important}.brCard .brResultRow>small{font-size:7px!important}
   .brStatsSheet{padding:12px}
 }
+
+.adminBatchCard{position:relative;max-width:620px;width:min(620px,94vw)}
+.adminBatchCard textarea{display:block;width:100%;min-height:140px;margin:18px 0;resize:vertical;line-height:1.5}
+.adminBatchClose{position:absolute;right:16px;top:16px;width:36px;height:36px;border:1px solid #394253;border-radius:11px;background:#1a202b;color:#fff;font-size:22px;cursor:pointer}
+.adminBatchError{color:#ff92a0;font-size:12px}
+.adminBatchProgress{max-height:180px;overflow:auto;text-align:left;margin:12px 0;color:#c3cad7;font-size:11px}
+.adminBatchProgress p{overflow-wrap:anywhere;margin:7px 0}
