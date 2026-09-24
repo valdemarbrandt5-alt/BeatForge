@@ -21,9 +21,9 @@ begin
   if m.id is null then return; end if;
   if uid not in (m.player_1,m.player_2) then raise exception 'Not in match'; end if;
 
-  -- Only cancel pre-game lobbies. Never touch a playing/finished match,
-  -- so the known-good ranked finish flow remains completely unchanged.
-  if m.status in ('voting','ready') then
+  -- The synchronization window has status 'playing' before the song starts.
+  -- Leaving during that window cancels the match without an MMR result.
+  if m.status in ('voting','ready') or (m.status='playing' and m.start_at is not null and now()<m.start_at) then
     update public.ranked_matches
     set status='cancelled', updated_at=now()
     where id=p_match;
