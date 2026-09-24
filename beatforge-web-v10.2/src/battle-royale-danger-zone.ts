@@ -1,6 +1,4 @@
 if (typeof window !== 'undefined') {
-  const dangerCountFor = (alive:number) => alive <= 2 ? 1 : 2;
-
   const decorate = () => {
     const list = document.querySelector('.brLiveHud .brLiveList') as HTMLElement | null;
     if (!list) return;
@@ -8,7 +6,9 @@ if (typeof window !== 'undefined') {
     if (rows.length < 2) return;
 
     rows.forEach(row => row.classList.remove('brDanger','brDangerStart'));
-    const dangerCount = Math.min(dangerCountFor(rows.length), rows.length - 1);
+    const round = Number(document.querySelector('.brLiveHud>small')?.textContent?.match(/ROUND\s+(\d+)/)?.[1]||1);
+    const target = round === 1 ? 6 : round === 2 ? 4 : round === 3 ? 2 : 1;
+    const dangerCount = Math.min(Math.max(rows.length-target,0),rows.length-1);
     const firstDanger = rows.length - dangerCount;
     rows.slice(firstDanger).forEach((row, index) => {
       row.classList.add('brDanger');
