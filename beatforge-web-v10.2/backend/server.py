@@ -61,7 +61,7 @@ def _run_import(job_id:str,ids:list[str],admin_id:str):
                     directory=Path(temp)
                     notes,duration=generate_chart(download_audio(url,directory),directory)
                     request_json(base,key,'charts','POST',{'user_id':admin_id,'title':title,'artist':artist,
-                        'youtube_url':url,'difficulty':'Expert','lane_count':5,'duration':duration,'notes':notes})
+                        'youtube_url':url,'difficulty':'Medium','lane_count':5,'duration':duration,'notes':notes})
                 result={'url':url,'status':'saved','title':title,'artist':artist,'notes':len(notes)}
             consecutive_auth_errors=0
         except Exception as exc:
