@@ -1,9 +1,9 @@
 # Batch import for BeatForge admins
 
 This is a local admin command, not a public upload endpoint. It downloads each
-recording temporarily, generates a vocal chart using the existing Demucs
-analyzer, saves only the notes and YouTube link to Supabase, and removes the
-temporary audio and stems after each song. Use recordings you are permitted to
+recording temporarily, generates a chart with the same instant analysis approach
+used by the game, saves only the notes and YouTube link to Supabase, and removes the
+temporary audio after each song. Use recordings you are permitted to
 download and analyze. YouTube's developer policies do not permit downloading
 YouTube audiovisual content through the API without prior approval.
 
@@ -23,5 +23,5 @@ YouTube audiovisual content through the API without prior approval.
 Existing video IDs are skipped. Each failure is reported without stopping
 the other imports. You can rerun the same list after fixing a failed entry.
 Generated artist and song titles come from video metadata; review them in the
-BeatForge admin editor afterwards. The import can take several minutes per
-song because it separates and analyzes the vocals.
+BeatForge admin editor afterwards. The import does not require Demucs or a
+Hugging Face token.

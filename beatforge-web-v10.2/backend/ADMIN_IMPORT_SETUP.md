@@ -1,12 +1,11 @@
 # Enable the admin import button
 
 The button is shown to accounts whose `profiles.is_admin` is true. The five
-submitted URLs are prefilled. The importer runs on the Python backend because
-separating vocals is too heavy for the web frontend.
+submitted URLs are prefilled. The importer uses the same instant chart analysis
+approach as the game's audio upload and does not separate vocals.
 
 1. Deploy `backend/` as a **separate Railway service** with its Dockerfile.
-   Keep the web frontend deployed on Vercel. The importer can take several
-   minutes per song and needs enough memory for Demucs.
+   Keep the web frontend deployed on Vercel.
 2. Set these variables on the Railway backend:
    `SUPABASE_URL` (the Supabase project URL), `SUPABASE_SERVICE_ROLE_KEY`
    (paste a new `sb_secret_` key here; server only), and `BEATFORGE_FRONTEND_ORIGINS` (the exact frontend origin,

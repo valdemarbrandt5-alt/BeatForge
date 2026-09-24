@@ -1,6 +1,6 @@
 """Local admin import: python import_youtube_charts.py links.txt [--dry-run].
 
-Requires yt-dlp, ffmpeg, demucs and the packages in requirements.txt.
+Requires yt-dlp, ffmpeg and the packages in requirements.txt.
 Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and BEATFORGE_ADMIN_USER_ID locally.
 Only use for recordings that you have permission to download and analyze.
 """
@@ -151,27 +151,9 @@ def youtube_cookie_args():
 
 
 def generate_chart(audio: Path, directory: Path):
-    from server import analyze_stem
+    from instant_chart import generate_instant_chart
 
-    output = directory / "separated"
-    proc = subprocess.run(
-        [sys.executable, "-m", "demucs", "-n", "htdemucs", "--out", str(output), str(audio)],
-        capture_output=True, text=True, timeout=1800,
-    )
-    if proc.returncode:
-        # The Hub prints a warning even when the real failure is later in the
-        # traceback. Preserve the final error, not the tail of one stream.
-        lines = (proc.stdout + "\n" + proc.stderr).splitlines()
-        details = [line.strip() for line in lines if line.strip() and not line.startswith("Warning: You are sending unauthenticated requests")]
-        error_lines = [line for line in details if re.match(r"^(?:\w+(?:\.\w+)*Error|\w+Exception|OSError|RuntimeError|Killed)(?::|$)", line)]
-        detail = (error_lines or details or ["No error output"])[-1]
-        if proc.returncode < 0:
-            detail = f"Process killed by signal {-proc.returncode} (possibly out of memory). {detail}"
-        raise RuntimeError(f"Chart analysis failed (Demucs exit {proc.returncode}): {detail[:175]}")
-    stem = output / "htdemucs" / "song" / "vocals.wav"
-    if not stem.is_file():
-        raise RuntimeError("Vocal stem missing")
-    notes, duration = analyze_stem(stem, "vocals")
+    notes, duration = generate_instant_chart(audio)
     if len(notes) < 4:
         raise RuntimeError("Too few notes generated; skipped")
     return notes, duration
