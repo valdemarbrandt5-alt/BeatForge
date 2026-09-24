@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -87,17 +88,19 @@ def request_json(base: str, key: str, route: str, method="GET", payload=None):
 
 def youtube_metadata(url: str) -> dict:
     with youtube_cookie_args() as cookie_args:
+        cookie_status = youtube_cookie_status(cookie_args)
         proc = subprocess.run(
             [sys.executable, "-m", "yt_dlp", *cookie_args, "--no-playlist", "--skip-download",
              "--dump-single-json", url], capture_output=True, text=True, timeout=90,
         )
     if proc.returncode:
-        raise RuntimeError("Could not read video metadata: " + proc.stderr[-400:])
+        raise RuntimeError(f"Metadata failed ({cookie_status}): " + proc.stderr[-190:])
     return json.loads(proc.stdout)
 
 
 def download_audio(url: str, directory: Path) -> Path:
     with youtube_cookie_args() as cookie_args:
+        cookie_status = youtube_cookie_status(cookie_args)
         proc = subprocess.run(
             [sys.executable, "-m", "yt_dlp", *cookie_args, "--no-playlist", "--no-progress",
              "-f", "bestaudio", "-x", "--audio-format", "wav",
@@ -105,8 +108,27 @@ def download_audio(url: str, directory: Path) -> Path:
             capture_output=True, text=True, timeout=600,
         )
     if proc.returncode or not (directory / "song.wav").is_file():
-        raise RuntimeError("Audio download failed: " + proc.stderr[-400:])
+        raise RuntimeError(f"Audio failed ({cookie_status}): " + proc.stderr[-190:])
     return directory / "song.wav"
+
+
+def youtube_cookie_status(cookie_args: list[str]) -> str:
+    """Only report counts, never cookie names or values."""
+    if not cookie_args:
+        return "cookies not configured"
+    lines = Path(cookie_args[1]).read_text(encoding="utf-8-sig").splitlines()
+    cookies = []
+    for line in lines:
+        if line.startswith("#HttpOnly_"):
+            line = line[len("#HttpOnly_"):]
+        elif line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) >= 7 and parts[0].lstrip(".").endswith("youtube.com"):
+            cookies.append(parts)
+    now = time.time()
+    usable = sum(1 for parts in cookies if parts[4] == "0" or (parts[4].isdigit() and int(parts[4]) > now))
+    return f"YouTube cookies loaded {len(cookies)}, unexpired {usable}"
 
 
 @contextmanager
