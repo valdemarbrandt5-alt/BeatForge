@@ -16,7 +16,25 @@ separating vocals is too heavy for the web frontend.
 4. Sign in as an admin, click **IMPORT SONGS**, review the five prefilled links,
    and click **IMPORT SONGS** in the dialog. Leave the page open to watch
    progress. The server continues processing if the dialog is closed, but
-   jobs are kept only in memory and can be lost if the service restarts.
+jobs are kept only in memory and can be lost if the service restarts.
+
+## If YouTube requires sign in
+
+The backend optionally reads `YOUTUBE_COOKIES_BASE64` from Railway for both
+metadata and audio download. Export a Netscape `cookies.txt` from a signed in
+browser using yt-dlp on your own computer. In PowerShell:
+
+```powershell
+python -m yt_dlp --cookies-from-browser chrome --cookies youtube-cookies.txt --skip-download "https://www.youtube.com/watch?v=TAZkHYyio-M"
+[Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path .\youtube-cookies.txt))) | Set-Clipboard
+```
+
+Add a private `YOUTUBE_COOKIES_BASE64` variable to the Railway backend service,
+paste the clipboard contents as its value, and deploy the pending changes.
+Never add the cookies file or encoded value to GitHub, Vercel, or the frontend.
+Delete the local file after copying it. If YouTube expires or rejects the
+session, export and replace the value. Sign in may still be blocked on a
+server even with cookies; only import recordings you may download and analyze.
 
 Never put the service role key in Vercel's `NEXT_PUBLIC_` variables or send it
 in chat. Both the backend route and the admin button check the account's

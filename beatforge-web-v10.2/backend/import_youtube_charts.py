@@ -6,6 +6,9 @@ Only use for recordings that you have permission to download and analyze.
 """
 
 import argparse
+import base64
+import binascii
+from contextlib import contextmanager
 import json
 import os
 import re
@@ -83,25 +86,46 @@ def request_json(base: str, key: str, route: str, method="GET", payload=None):
 
 
 def youtube_metadata(url: str) -> dict:
-    proc = subprocess.run(
-        [sys.executable, "-m", "yt_dlp", "--no-playlist", "--skip-download",
-         "--dump-single-json", url], capture_output=True, text=True, timeout=90,
-    )
+    with youtube_cookie_args() as cookie_args:
+        proc = subprocess.run(
+            [sys.executable, "-m", "yt_dlp", *cookie_args, "--no-playlist", "--skip-download",
+             "--dump-single-json", url], capture_output=True, text=True, timeout=90,
+        )
     if proc.returncode:
         raise RuntimeError("Could not read video metadata: " + proc.stderr[-400:])
     return json.loads(proc.stdout)
 
 
 def download_audio(url: str, directory: Path) -> Path:
-    proc = subprocess.run(
-        [sys.executable, "-m", "yt_dlp", "--no-playlist", "--no-progress",
-         "-f", "bestaudio", "-x", "--audio-format", "wav",
-         "-o", str(directory / "song.%(ext)s"), url],
-        capture_output=True, text=True, timeout=600,
-    )
+    with youtube_cookie_args() as cookie_args:
+        proc = subprocess.run(
+            [sys.executable, "-m", "yt_dlp", *cookie_args, "--no-playlist", "--no-progress",
+             "-f", "bestaudio", "-x", "--audio-format", "wav",
+             "-o", str(directory / "song.%(ext)s"), url],
+            capture_output=True, text=True, timeout=600,
+        )
     if proc.returncode or not (directory / "song.wav").is_file():
         raise RuntimeError("Audio download failed: " + proc.stderr[-400:])
     return directory / "song.wav"
+
+
+@contextmanager
+def youtube_cookie_args():
+    encoded = os.getenv("YOUTUBE_COOKIES_BASE64", "").strip()
+    if not encoded:
+        yield []
+        return
+    try:
+        contents = base64.b64decode(encoded, validate=True)
+    except binascii.Error as exc:
+        raise RuntimeError("YOUTUBE_COOKIES_BASE64 is not valid base64") from exc
+    if not contents.startswith((b"# Netscape HTTP Cookie File", b"# HTTP Cookie File")):
+        raise RuntimeError("YouTube cookies must be in Netscape cookies.txt format")
+    with tempfile.TemporaryDirectory(prefix="beatforge_cookies_") as directory:
+        cookie_path = Path(directory) / "cookies.txt"
+        cookie_path.write_bytes(contents)
+        cookie_path.chmod(0o600)
+        yield ["--cookies", str(cookie_path)]
 
 
 def generate_chart(audio: Path, directory: Path):
