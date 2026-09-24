@@ -236,7 +236,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     const note=document.createElement('div');
     note.className='casualFriendLeft';
     note.innerHTML=`<b>${name}</b> left the match · your run continues`;
-    document.body.appendChild(note);
+    (document.fullscreenElement || document.body).appendChild(note);
     window.setTimeout(()=>note.remove(),6500);
   };
 
