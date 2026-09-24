@@ -104,10 +104,14 @@ begin
   insert into public.battle_royale_ratings(user_id) values(uid)
   on conflict(user_id) do nothing;
 
+  -- Only resume a Battle Royale when this player is still alive in it.
+  -- Eliminated players are free to queue again while the old match continues for survivors.
   select p.match_id into existing
   from public.battle_royale_players p
   join public.battle_royale_matches m on m.id=p.match_id
-  where p.user_id=uid and m.status in ('lobby','loading','playing','round_result')
+  where p.user_id=uid
+    and not p.eliminated
+    and m.status in ('lobby','loading','playing','round_result')
   order by m.created_at desc limit 1;
   if existing is not null then return existing; end if;
 
