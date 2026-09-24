@@ -141,6 +141,9 @@
 .communityGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
 .communityTile{display:block;min-width:0;padding:0 0 14px;text-align:left;border:1px solid #242b38;border-radius:15px;background:#0e131b;color:#fff;overflow:hidden;cursor:pointer;transition:transform .16s ease,border-color .16s ease,background .16s ease;box-shadow:0 12px 28px #0003}
 .communityTile:hover{transform:translateY(-4px);border-color:#6651b5;background:#121824}
+.communityTile{position:relative}
+.communityTileHit{position:absolute;inset:0;z-index:2;border:0;background:transparent;cursor:pointer;width:100%;height:100%}
+.communityTileHit:focus-visible{outline:3px solid #ac91ff;outline-offset:-3px;border-radius:15px}
 .communityCover{position:relative;aspect-ratio:16/9;background:#151b26;overflow:hidden}
 .communityCover img{width:100%;height:100%;display:block;object-fit:cover;transition:transform .2s ease}
 .communityTile:hover .communityCover img{transform:scale(1.035)}
@@ -172,6 +175,21 @@
 /* v0.29 Community likes */
 .tileLike{position:absolute;right:10px;top:10px;z-index:3;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(7,10,16,.78);backdrop-filter:blur(8px);color:#d7dce7;padding:6px 9px;font-size:11px;font-weight:900;cursor:pointer}
 .tileLike:hover,.tileLike.liked{background:rgba(135,78,255,.9);border-color:#b398ff;color:#fff}
+.instrumentChoiceCard{max-width:510px}
+.instrumentChoiceBackdrop{z-index:90}
+.instrumentChoices{display:grid;gap:9px;max-height:55vh;overflow:auto;margin:20px 0}
+.instrumentOption{display:flex;gap:8px}
+.instrumentOption>button:first-child{flex:1;text-align:left;display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #3e3760;border-radius:12px;background:#161b28;color:#fff;cursor:pointer}
+.instrumentOption>button:first-child:hover,.instrumentOption>button:first-child:focus-visible{border-color:#a68cff;background:#242037}
+.instrumentOption strong{font-size:15px;min-width:88px}
+.instrumentOption span{font-size:11px;color:#a5acba}
+.instrumentOption em{margin-left:auto;font-size:11px;color:#b9a7ff;font-style:normal;font-weight:900}
+.instrumentOption .instrumentEdit{font-size:10px;border:1px solid #47405f;border-radius:10px;background:#181729;color:#d7caff;padding:0 12px;cursor:pointer}
+.rankInstrumentGrid,.brInstrumentGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:17px 0}
+.rankInstrumentGrid button,.brInstrumentGrid button{padding:14px;border:1px solid #6e5aa4;border-radius:10px;background:#19162b;color:#e8dfff;text-align:center;cursor:pointer;font-weight:900}
+.rankInstrumentGrid button:hover,.brInstrumentGrid button:hover{background:#5e49a4;color:#fff}
+.brInstrumentLabel{display:grid;gap:6px;margin:14px 0;text-align:left;font-size:10px;font-weight:900;color:#bdaaff}
+.brInstrumentLabel select{padding:10px;background:#111622;color:#fff;border:1px solid #7058ab;border-radius:9px}
 
 /* v0.29.1 YouTube-first upload */
 .uploadChoices{grid-template-columns:1.35fr .65fr}

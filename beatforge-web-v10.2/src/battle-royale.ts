@@ -1,5 +1,5 @@
 import { supabase } from './lib/supabase';
-import { instrumentLabel, loadChartById, type ChartInstrument } from './chart-instruments';
+import { instrumentLabel, loadChartById, loadSongInstruments, type ChartInstrument } from './chart-instruments';
 
 type BRPlayer={
   id:string;user_id:string|null;name:string;is_bot:boolean;difficulty:string|null;ready:boolean;
@@ -27,6 +27,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   let leavePrompt:HTMLElement|null=null;
   let liveActive=false;
   let lastState:BRState|null=null;
+  let selectedInstrument:ChartInstrument='mix';
   const instrumentCache=new Map<string,ChartInstrument>();
   let searchStartedAt:number|null=null;
   let lobbyClock:number|null=null;
@@ -113,11 +114,21 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const showDifficulty=async(state:BRState)=>{
     const chart=state.chart;if(!chart)return;
     if(lastState?.status!=='loading'||lastState.round_no!==state.round_no)return;
-    const card=modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><h2>CHOOSE YOUR DIFFICULTY</h2><p>Everyone plays the same song. Difficulty is individual.</p><div class="brReadyClock">TIME LEFT <b>15</b>s <span>Medium is selected automatically at zero.</span></div><div class="brSong"><b>${esc(chart.title)}</b><span>${esc(chart.artist||'')} · ${esc(instrumentLabel(chart.instrument))}</span></div><div class="brDifficultyGrid">${['Easy','Medium','Hard','Expert'].map(d=>`<button data-d="${d}"><b>${d}</b><span>${d==='Easy'?'Safer combos':d==='Medium'?'Balanced':d==='Hard'?'More scoring potential':'Maximum scoring potential'}</span></button>`).join('')}</div>`);
+    const variants=await loadSongInstruments(db,chart);
+    if(lastState?.status!=='loading'||lastState.round_no!==state.round_no)return;
+    const card=modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><h2>CHOOSE YOUR INSTRUMENT AND DIFFICULTY</h2><p>Everyone plays the same song. Choose your own instrument and difficulty.</p><div class="brReadyClock">TIME LEFT <b>15</b>s <span>Default instrument and Medium are selected automatically at zero.</span></div><div class="brSong"><b>${esc(chart.title)}</b><span>${esc(chart.artist||'')}</span></div><label class="brInstrumentLabel">YOUR INSTRUMENT <select class="brInstrument">${variants.map(v=>`<option value="${esc(v.id)}" ${v.id===chart.id?'selected':''}>${esc(instrumentLabel(v.instrument))}</option>`).join('')}</select></label><div class="brDifficultyGrid">${['Easy','Medium','Hard','Expert'].map(d=>`<button data-d="${d}"><b>${d}</b><span>${d==='Easy'?'Safer combos':d==='Medium'?'Balanced':d==='Hard'?'More scoring potential':'Maximum scoring potential'}</span></button>`).join('')}</div>`);
     startReadyClock(card,state);
     card.querySelectorAll<HTMLButtonElement>('[data-d]').forEach(button=>button.onclick=async()=>{
       const d=button.dataset.d||'Medium';
-      card.querySelectorAll('button').forEach((b:any)=>b.disabled=true);
+      card.querySelectorAll('button,select').forEach((b:any)=>b.disabled=true);
+      const selectedId=(card.querySelector('.brInstrument') as HTMLSelectElement).value||chart.id;
+      if(selectedId!==chart.id){
+        if(!await loadChartById(selectedId)){
+          const notice=document.createElement('p');notice.textContent='Could not load that instrument. Please choose another.';notice.setAttribute('role','alert');card.append(notice);
+          card.querySelectorAll('button,select').forEach((b:any)=>b.disabled=false);return;
+        }
+      }
+      selectedInstrument=(variants.find(v=>v.id===selectedId)?.instrument||'mix') as ChartInstrument;
       const pageButton=[...document.querySelectorAll('.chartOptions .seg button')].find(b=>b.textContent?.trim()===d) as HTMLButtonElement|undefined;
       pageButton?.click();
       const {error}=await db.rpc('battle_royale_choose_difficulty',{p_match:matchId,p_difficulty:d});
@@ -127,7 +138,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   };
 
   const showReady=(state:BRState,diff:string)=>{
-    const card=modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><h2>SONG LOADED</h2><div class="brReadyIcon">✓</div><div class="brChosen">YOUR DIFFICULTY <b>${esc(diff)}</b></div><div class="brReadyClock">TIME LEFT <b>15</b>s <span>Ready is automatic at zero.</span></div><p>Survive the round. The lowest scores are eliminated.</p><div class="brReadyStatus">PRESS READY WHEN YOU ARE SET</div><div class="brReadyError" role="alert" hidden></div><button class="brPrimary brReady">READY</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>`);
+    const card=modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><h2>SONG LOADED</h2><div class="brReadyIcon">✓</div><div class="brChosen">YOUR INSTRUMENT <b>${esc(instrumentLabel(selectedInstrument))}</b> · DIFFICULTY <b>${esc(diff)}</b></div><div class="brReadyClock">TIME LEFT <b>15</b>s <span>Ready is automatic at zero.</span></div><p>Survive the round. The lowest scores are eliminated.</p><div class="brReadyStatus">PRESS READY WHEN YOU ARE SET</div><div class="brReadyError" role="alert" hidden></div><button class="brPrimary brReady">READY</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>`);
     startReadyClock(card,state);
     updateReadyCount(lastState?.status==='loading'?lastState:state);
     (card.querySelector('.brReady') as HTMLButtonElement).onclick=async()=>{
@@ -145,7 +156,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const prepareRound=async(state:BRState)=>{
     if(preparedRound===state.round_no||!state.chart)return;
     const me=state.players.find(p=>p.me);if(me?.eliminated)return;
-    preparedRound=state.round_no;startedRound=0;localSubmittedRound=0;liveActive=false;removeHud();stopCountdown();
+    preparedRound=state.round_no;startedRound=0;localSubmittedRound=0;liveActive=false;selectedInstrument=state.chart.instrument||'mix';removeHud();stopCountdown();
     modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><div class="brSpinner"></div><h2>LOADING SONG</h2><p>${esc(state.chart.title)} · ${esc(state.chart.artist||'')} · ${esc(instrumentLabel(state.chart.instrument))}</p>`);
     const loaded=await clickChart(state);
     if(!loaded){
