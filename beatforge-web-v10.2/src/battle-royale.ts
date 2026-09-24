@@ -90,10 +90,11 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const renderLobby=(state:BRState)=>{
     const center=Number(state.rating_center||1000);
     const full=state.players.length>=8;
+    if(full&&overlay?.dataset.brVoteRound==='1')return;
     const signature=`${state.players.map(p=>p.id).join(',')}:${full?state.lobby_deadline:''}`;
     if(overlay?.dataset.brLobby===signature)return;
     const remaining=Math.max(0,Math.ceil((new Date(state.lobby_deadline).getTime()-new Date(state.server_now).getTime())/1000));
-    const card=modal(`<button class="brX">×</button><small>BATTLE ROYALE</small><h1>${full?'MATCH FOUND':'SEARCHING FOR PLAYERS'}</h1><div class="brLobbyCount">${state.players.length}<span>/8 PLAYERS</span></div><div class="brLobbyClock">${full?`STARTING IN <b>${remaining}</b>`:`SEARCHING · <b>${Math.floor((Date.now()-(searchStartedAt||Date.now()))/1000)}s</b>`}</div><div class="brSearchBand">MATCHMAKING NEAR <b class="${rankClass(center)}">${rank(center)} · ${center} MMR</b></div><div class="brLobbyPlayers">${state.players.map(p=>`<span class="${p.me?'me':''}"><b>${esc(p.name)}</b><em class="${rankClass(Number(p.mmr||1000))}">${rank(Number(p.mmr||1000))} · ${Number(p.mmr||1000)} MMR</em></span>`).join('')}</div>${full?'<div class="brSongVote"></div>':''}<button class="brSecondary brLeaveLobby">CANCEL</button>`);
+    const card=modal(`<button class="brX">×</button><small>BATTLE ROYALE</small><h1>${full?'MATCH FOUND':'SEARCHING FOR PLAYERS'}</h1><div class="brLobbyCount">${state.players.length}<span>/8 PLAYERS</span></div><div class="brLobbyClock">${full?`STARTING IN <b>${remaining}</b>`:`SEARCHING · <b>${Math.floor((Date.now()-(searchStartedAt||Date.now()))/1000)}s</b>`}</div><div class="brSearchBand">MATCHMAKING NEAR <b class="${rankClass(center)}">${rank(center)} · ${center} MMR</b></div><div class="brLobbyPlayers">${state.players.map(p=>`<span class="${p.me?'me':''}"><b>${esc(p.name)}</b><em class="${rankClass(Number(p.mmr||1000))}">${rank(Number(p.mmr||1000))} · ${Number(p.mmr||1000)} MMR</em></span>`).join('')}</div><button class="brSecondary brLeaveLobby">CANCEL</button>`);
     if(overlay)overlay.dataset.brLobby=signature;
     if(!full)lobbyClock=window.setInterval(()=>{const b=card.querySelector('.brLobbyClock b');if(b)b.textContent=`${Math.floor((Date.now()-(searchStartedAt||Date.now()))/1000)}s`},1000);
     else{const end=Date.now()+Math.max(0,new Date(state.lobby_deadline).getTime()-new Date(state.server_now).getTime());lobbyClock=window.setInterval(()=>{const b=card.querySelector('.brLobbyClock b');if(b)b.textContent=String(Math.max(0,Math.ceil((end-Date.now())/1000)))},100)}
@@ -102,17 +103,22 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   };
 
   const refreshSongVote=async(state:BRState)=>{
-    if(!matchId||voting||(state.status==='lobby'&&state.players.length<8))return;
+    if(!matchId||voting||(state.status==='lobby'&&state.players.length<8)||state.players.find(p=>p.me)?.eliminated)return;
     const match=matchId;
     const {data,error}=await db.rpc('get_battle_royale_song_vote',{p_match:match});
     if(match!==matchId)return;
+    if(error){console.error('battle royale song vote',error);return}
+    if(!data?.songs?.length)return;
+    if(overlay?.dataset.brVoteRound!==String(data.round_no)){
+      const card=modal(`<small>BATTLE ROYALE · ROUND ${Number(data.round_no)}</small><h2>CHOOSE THE NEXT SONG</h2><p>The countdown is over. Pick one of six songs; bots cannot vote.</p><div class="brSongVote"></div><button class="brSecondary ${state.status==='lobby'?'brLeaveLobby':'brRoundLeave'}">LEAVE BATTLE ROYALE</button>`);
+      if(overlay)overlay.dataset.brVoteRound=String(data.round_no);
+      card.querySelector('.brLeaveLobby')?.addEventListener('click',()=>void leaveMode());
+      card.querySelector('.brRoundLeave')?.addEventListener('click',openLeavePrompt);
+    }
     const panel=overlay?.querySelector<HTMLElement>('.brSongVote');
     if(!panel)return;
-    if(error){panel.textContent='Song voting is unavailable. Apply the Battle Royale song voting migration.';return}
-    if(!data?.songs?.length){panel.textContent='Finding songs to vote on…';return}
-    const allowed=!state.players.find(p=>p.me)?.eliminated;
     const seconds=Math.max(0,Math.ceil((new Date(data.deadline).getTime()-new Date(data.server_now).getTime())/1000));
-    panel.innerHTML=`<div class="brVoteTitle">VOTE FOR ROUND ${Number(data.round_no)} <span>${seconds}s · ONLY PLAYERS VOTE</span></div><div class="brVoteGrid">${data.songs.map((song:{id:string;title:string;artist:string|null;youtube_url:string|null;votes:number})=>{const videoId=youtubeVideoId(song.youtube_url);return `<button class="brVoteOption ${data.my_vote===song.id?'chosen':''}" data-song="${esc(song.id)}" ${!allowed||!seconds?'disabled':''}>${videoId?`<img src="https://i.ytimg.com/vi/${videoId}/mqdefault.jpg" alt="" loading="lazy">`:'<i class="brVoteCoverFallback" aria-hidden="true">♫</i>'}<span class="brVoteInfo"><b>${esc(song.title)}</b><span>${esc(song.artist||'Unknown artist')}</span><em>${Number(song.votes)||0} ${Number(song.votes)===1?'vote':'votes'}${data.my_vote===song.id?' · YOUR VOTE':''}</em></span></button>`}).join('')}</div><p>Most votes wins. A tie is decided at random.</p>`;
+    panel.innerHTML=`<div class="brVoteTitle">VOTE FOR ROUND ${Number(data.round_no)} <span>${seconds}s · ONLY PLAYERS VOTE</span></div><div class="brVoteGrid">${data.songs.map((song:{id:string;title:string;artist:string|null;youtube_url:string|null;votes:number})=>{const videoId=youtubeVideoId(song.youtube_url);return `<button class="brVoteOption ${data.my_vote===song.id?'chosen':''}" data-song="${esc(song.id)}" ${!seconds?'disabled':''}>${videoId?`<img src="https://i.ytimg.com/vi/${videoId}/mqdefault.jpg" alt="" loading="lazy">`:'<i class="brVoteCoverFallback" aria-hidden="true">♫</i>'}<span class="brVoteInfo"><b>${esc(song.title)}</b><span>${esc(song.artist||'Unknown artist')}</span><em>${Number(song.votes)||0} ${Number(song.votes)===1?'vote':'votes'}${data.my_vote===song.id?' · YOUR VOTE':''}</em></span></button>`}).join('')}</div><p>Most votes wins. A tie is decided at random.</p>`;
     panel.querySelectorAll<HTMLButtonElement>('.brVoteOption').forEach(button=>button.onclick=async()=>{
       if(voting||!matchId)return;
       voting=true;panel.querySelectorAll<HTMLButtonElement>('.brVoteOption').forEach(b=>b.disabled=true);
@@ -258,7 +264,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     return parts.map(selector=>result.querySelector(selector)?.outerHTML||'').join('');
   };
   const showRoundResult=(state:BRState)=>{
-    if(overlay?.dataset.brResult===`${state.round_no}:${state.status}`)return;
+    if(overlay?.dataset.brResult===`${state.round_no}:${state.status}`||overlay?.dataset.brVoteRound===String(state.round_no+1))return;
     liveActive=false;removeHud();stopCountdown();
     const me=state.players.find(p=>p.me);if(!me)return;
     const chartId=document.querySelector<HTMLElement>('main')?.dataset.activeChartId||state.chart?.id;
@@ -267,7 +273,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     const out=!!me.eliminated&&!isWinner;
     const headline=isWinner?'VICTORY ROYALE':out?'ELIMINATED':`ROUND ${state.round_no} COMPLETE`;
     const sub=isWinner?'YOU ARE THE LAST PLAYER STANDING':out?`YOU FINISHED #${me.placement||'?'}`:'YOU SURVIVED';
-    const card=modal(`<small>BATTLE ROYALE</small><h1 class="brVerdict ${isWinner?'win':out?'loss':'survive'}">${headline}</h1><div class="brResultSub">${sub}</div><div class="brResultList">${roundRows(state)}</div>${mmrResult(me)}${state.status==='round_result'&&!out?'<div class="brIntermission">NEXT ROUND IN <b>30</b>s <span>Starting automatically</span></div><div class="brSongVote"></div><button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>':'<button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brDone">DONE</button>'}<div class="brStatsSheet" hidden><h2>YOUR PERFORMANCE</h2>${roundPerformance()}</div>`);
+    const card=modal(`<small>BATTLE ROYALE</small><h1 class="brVerdict ${isWinner?'win':out?'loss':'survive'}">${headline}</h1><div class="brResultSub">${sub}</div><div class="brResultList">${roundRows(state)}</div>${mmrResult(me)}${state.status==='round_result'&&!out?'<div class="brIntermission">SONG VOTE IN <b>30</b>s <span>Starting automatically</span></div><button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>':'<button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brDone">DONE</button>'}<div class="brStatsSheet" hidden><h2>YOUR PERFORMANCE</h2>${roundPerformance()}</div>`);
     if(overlay)overlay.dataset.brResult=`${state.round_no}:${state.status}`;
     const stats=card.querySelector('.brShowStats') as HTMLButtonElement|null;
     if(stats)stats.onclick=()=>{const sheet=card.querySelector('.brStatsSheet') as HTMLElement;const open=sheet.hidden;sheet.hidden=!open;stats.textContent=open?'SHOW RESULTS':'SEE STATS';card.querySelector('.brResultList')?.classList.toggle('brResultsHidden',open);card.querySelector('.brMmrResult')?.classList.toggle('brResultsHidden',open)};
