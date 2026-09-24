@@ -36,7 +36,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   let gameStarted=false;
   let playTimer:number|null=null;
 
-  const esc=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
+  const esc=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]||c));
 
   const toast=(message:string)=>{
     document.querySelector('.casualSocialToast')?.remove();
@@ -64,6 +64,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     localReady=false;
     gameStarted=false;
     flowErrorShown=false;
+    shownInviteId='';
   };
 
   const loadSession=async()=>{
@@ -372,6 +373,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   const start=()=>{
     addStyles();void loadSession();
     const observer=new MutationObserver(scan);observer.observe(document.body,{childList:true,subtree:true});scan();
+    window.addEventListener('beatforge:casual-session-ended',resetFlow);
     window.setInterval(()=>void pollInvites(),1500);
     window.setInterval(()=>void pollActiveFlow(),350);
   };
