@@ -3,6 +3,7 @@ import {useEffect,useRef} from 'react';
 import RankedMultiplayer from './RankedMultiplayer';
 import {supabase} from '../lib/supabase';
 import '../ranked-ui-enhancements';
+import '../ranked-home-style';
 import '../ranked-forfeit';
 import '../ranked-bots';
 import '../ranked-bot-ui';
