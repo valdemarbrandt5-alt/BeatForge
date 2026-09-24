@@ -20,6 +20,8 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   let hud:HTMLElement|null=null;
   let schemaErrorShown=false;
   let casualLocked=false;
+  let leavePrompt:HTMLElement|null=null;
+  let leaving=false;
 
   const numberFrom=(value:string|null|undefined)=>{
     const n=Number(String(value||'0').replace(/[^0-9-]/g,''));
@@ -36,6 +38,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   };
 
   const removeHud=()=>{hud?.remove();hud=null};
+  const closeLeavePrompt=()=>{leavePrompt?.remove();leavePrompt=null};
 
   const playbackButtons=()=>Array.from(document.querySelectorAll('.controls button')) as HTMLButtonElement[];
 
@@ -47,16 +50,16 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       button.classList.toggle('casualLockedControl',locked&&shouldLock);
       if(locked&&shouldLock){
         button.setAttribute('aria-disabled','true');
-        button.title='Disabled during a synced casual match';
-      }else if(button.classList.contains('casualLockedControl')===false&&button.title==='Disabled during a synced casual match'){
+        button.title=label==='PAUSE'||label==='RESUME'?'Press ESC to leave the casual match':'Disabled during a synced casual match';
+      }else if(!locked){
         button.removeAttribute('aria-disabled');
-        button.removeAttribute('title');
+        if(button.title==='Disabled during a synced casual match'||button.title==='Press ESC to leave the casual match')button.removeAttribute('title');
       }
     });
     document.body.classList.toggle('casualMatchPlaying',locked);
   };
 
-  const getBlockedKeys=()=>{
+  const getResetAndPauseKeys=()=>{
     let reset='r',pause='escape';
     try{
       const raw=localStorage.getItem('beatforge-settings');
@@ -66,7 +69,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
         if(typeof settings?.pauseKey==='string'&&settings.pauseKey)pause=settings.pauseKey.toLowerCase();
       }
     }catch{}
-    return new Set([reset,pause]);
+    return {reset,pause};
   };
 
   const blockSyncedControlClick=(event:MouseEvent)=>{
@@ -78,11 +81,50 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
   };
 
+  const leaveMatch=async()=>{
+    if(leaving||!active)return;
+    leaving=true;
+    const id=active.id;
+    try{
+      const {error}=await db.rpc('casual_leave_match',{p_invite:id});
+      if(error){
+        const iAmInviter=active.inviter_id===uid;
+        let q=db.from('casual_invites').update({status:iAmInviter?'cancelled':'declined'}).eq('id',id);
+        q=iAmInviter?q.eq('inviter_id',uid):q.eq('invitee_id',uid);
+        await q;
+      }
+      sessionStorage.setItem(`beatforge-casual-finished:${id}`,'1');
+    }finally{
+      window.location.reload();
+    }
+  };
+
+  const showLeavePrompt=()=>{
+    if(leavePrompt||!active)return;
+    const overlay=document.createElement('div');
+    overlay.className='casualLeaveBackdrop';
+    overlay.innerHTML=`<div class="casualLeaveCard"><small>CASUAL MATCH</small><h2>LEAVE MATCH?</h2><p>The match will end for both players. No MMR is gained or lost.</p><div><button class="casualLeaveConfirm">LEAVE MATCH</button><button class="casualLeaveContinue">CONTINUE</button></div></div>`;
+    document.body.appendChild(overlay);
+    leavePrompt=overlay;
+    (overlay.querySelector('.casualLeaveConfirm') as HTMLButtonElement).onclick=()=>void leaveMatch();
+    (overlay.querySelector('.casualLeaveContinue') as HTMLButtonElement).onclick=closeLeavePrompt;
+  };
+
   const blockSyncedHotkeys=(event:KeyboardEvent)=>{
     if(!casualLocked)return;
     const target=event.target as HTMLElement|null;
     if(target?.matches('input,textarea,[contenteditable="true"]'))return;
-    if(!getBlockedKeys().has(event.key.toLowerCase()))return;
+    const key=event.key.toLowerCase();
+    const {reset,pause}=getResetAndPauseKeys();
+
+    if(key==='escape'){
+      event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
+      if(event.repeat)return;
+      if(leavePrompt)closeLeavePrompt();else showLeavePrompt();
+      return;
+    }
+
+    if(key!==reset&&key!==pause)return;
     event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
   };
 
@@ -91,14 +133,17 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     const style=document.createElement('style');
     style.id='casual-live-score-style';
     style.textContent=`
-      .game>.casualLiveHud{position:absolute;left:18px;bottom:304px;width:145px;z-index:12;display:flex;flex-direction:column;gap:4px;pointer-events:none}
-      .casualLiveHud .casualLiveRow{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;width:145px;height:38px;padding:4px 6px 4px 22px;border-radius:9px;background:#0f131c;border:1px solid #303747;box-sizing:border-box}
+      .game>.casualLiveHud{position:absolute!important;left:18px!important;bottom:304px!important;top:auto!important;right:auto!important;width:145px!important;min-width:145px!important;max-width:145px!important;z-index:12!important;display:flex!important;flex-direction:column!important;gap:4px!important;pointer-events:none!important}
+      .casualLiveHud .casualLiveRow{position:relative!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;width:145px!important;min-width:145px!important;max-width:145px!important;height:38px!important;padding:4px 6px 4px 22px!important;border-radius:9px!important;background:#0f131c!important;border:1px solid #303747!important;box-sizing:border-box!important}
       .casualLiveHud .casualLiveRow:before{content:'#' attr(data-place);position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:1000;color:#7e8799}
-      .casualLiveHud .casualLiveRow[data-place='1']{border-color:#6f7685}.casualLiveHud .casualLiveRow[data-place='1']:before{color:#ffd43b}
-      .casualLiveHud .casualLiveName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;font-weight:1000;color:#fff}
-      .casualLiveHud .casualLiveScore{font-size:12px;font-weight:1000;font-variant-numeric:tabular-nums;margin-left:5px;color:#fff}
+      .casualLiveHud .casualLiveRow[data-place='1']{border-color:#6f7685!important}.casualLiveHud .casualLiveRow[data-place='1']:before{color:#ffd43b}
+      .casualLiveHud .casualLiveName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px!important;font-weight:1000;color:#fff}
+      .casualLiveHud .casualLiveScore{font-size:12px!important;font-weight:1000;font-variant-numeric:tabular-nums;margin-left:5px;color:#fff}
       .controls button.casualLockedControl{opacity:.42!important;cursor:not-allowed!important;filter:saturate(.45)!important;pointer-events:none!important}
-      @media(max-width:760px){.game>.casualLiveHud,.casualLiveHud .casualLiveRow{width:132px}.casualLiveHud .casualLiveRow{height:36px}}
+      .casualLeaveBackdrop{position:fixed;inset:0;z-index:16000;background:#03050be8;backdrop-filter:blur(12px);display:grid;place-items:center;padding:20px}
+      .casualLeaveCard{width:min(430px,94vw);background:#111722;border:1px solid #353d4d;border-radius:18px;padding:24px;text-align:center;box-shadow:0 24px 80px #0009}
+      .casualLeaveCard small{font-size:8px;font-weight:1000;letter-spacing:1.7px;color:#9c7cff}.casualLeaveCard h2{margin:8px 0 8px;font-size:24px}.casualLeaveCard p{margin:0 auto 18px;color:#99a3b5;font-size:11px;line-height:1.5}.casualLeaveCard>div{display:flex;justify-content:center;gap:9px}.casualLeaveCard button{min-width:120px;padding:11px 14px;border-radius:10px;font-size:9px;font-weight:1000}.casualLeaveConfirm{background:#2a1118;border:1px solid #7c3343;color:#ff8190}.casualLeaveContinue{background:#7658ff;border:1px solid #8b72ff;color:white}
+      @media(max-width:760px){.game>.casualLiveHud,.casualLiveHud .casualLiveRow{width:132px!important;min-width:132px!important;max-width:132px!important}.casualLiveHud .casualLiveRow{height:36px!important}}
     `;
     document.head.appendChild(style);
   };
@@ -155,13 +200,29 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
 
   const finishLocalMatch=()=>{
     if(active)sessionStorage.setItem(`beatforge-casual-finished:${active.id}`,'1');
+    closeLeavePrompt();
     removeHud();
     setControlLock(false);
     active=null;
   };
 
+  const refreshScoresAndStatus=async()=>{
+    if(!active)return null;
+    const {data,error}=await db.from('casual_invites')
+      .select('status,inviter_score,invitee_score')
+      .eq('id',active.id).maybeSingle();
+    if(error)return null;
+    return data as {status:string;inviter_score:number|null;invitee_score:number|null}|null;
+  };
+
+  const opponentLeft=()=>{
+    if(!active)return;
+    sessionStorage.setItem(`beatforge-casual-finished:${active.id}`,'1');
+    window.location.reload();
+  };
+
   const tick=async()=>{
-    if(busy)return;
+    if(busy||leaving)return;
     busy=true;
     try{
       if(!active)active=await findActive();
@@ -175,21 +236,26 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
         return;
       }
 
-      // Once the shared start time is reached, local pause/reset/stop would desync the clients.
-      // Keep both players on the same uninterrupted timeline instead.
       setControlLock(true);
 
       const score=numberFrom(document.querySelector('.hudScore b')?.textContent);
       const {data,error}=await db.rpc('casual_update_score',{p_invite:active.id,p_score:score});
       if(error){
+        const fresh=await refreshScoresAndStatus();
+        if(fresh&&fresh.status!=='accepted'){opponentLeft();return}
         if(!schemaErrorShown){schemaErrorShown=true;console.error('casual_update_score',error)}
         removeHud();return;
       }
       schemaErrorShown=false;
-      const live=Array.isArray(data)?data[0]:data;
-      const inviterScore=Number(live?.inviter_score??active.inviter_score??0)||0;
-      const inviteeScore=Number(live?.invitee_score??active.invitee_score??0)||0;
-      active.inviter_score=inviterScore;active.invitee_score=inviteeScore;
+
+      const rpcRow=Array.isArray(data)?data[0]:data;
+      const fresh=await refreshScoresAndStatus();
+      if(fresh&&fresh.status!=='accepted'){opponentLeft();return}
+
+      const inviterScore=Number(fresh?.inviter_score??rpcRow?.inviter_score??active.inviter_score??0)||0;
+      const inviteeScore=Number(fresh?.invitee_score??rpcRow?.invitee_score??active.invitee_score??0)||0;
+      active.inviter_score=inviterScore;
+      active.invitee_score=inviteeScore;
       renderHud(active,inviterScore,inviteeScore);
     }finally{busy=false}
   };
