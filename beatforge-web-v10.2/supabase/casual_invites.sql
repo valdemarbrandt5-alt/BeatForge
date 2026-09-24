@@ -118,12 +118,43 @@ begin
   if r.status <> 'accepted' or r.start_at is null then raise exception 'Casual match is not playing'; end if;
 
   if uid=r.inviter_id then
-    update public.casual_invites set inviter_score=greatest(inviter_score,clean_score) where id=p_invite returning * into r;
+    update public.casual_invites as ci
+      set inviter_score=greatest(ci.inviter_score,clean_score)
+      where ci.id=p_invite
+      returning * into r;
   else
-    update public.casual_invites set invitee_score=greatest(invitee_score,clean_score) where id=p_invite returning * into r;
+    update public.casual_invites as ci
+      set invitee_score=greatest(ci.invitee_score,clean_score)
+      where ci.id=p_invite
+      returning * into r;
   end if;
 
   return query select r.id,r.inviter_score,r.invitee_score;
 end $$;
 
 grant execute on function public.casual_update_score(uuid,bigint) to authenticated;
+
+create or replace function public.casual_leave_match(p_invite uuid)
+returns void
+language plpgsql
+security definer
+set search_path=public
+as $$
+declare
+  uid uuid := auth.uid();
+  r public.casual_invites%rowtype;
+begin
+  if uid is null then raise exception 'Not authenticated'; end if;
+
+  select * into r from public.casual_invites where id=p_invite for update;
+  if r.id is null then return; end if;
+  if uid not in (r.inviter_id,r.invitee_id) then raise exception 'Not in this casual match'; end if;
+
+  if r.status in ('pending','accepted') then
+    update public.casual_invites
+      set status='cancelled'
+      where id=p_invite;
+  end if;
+end $$;
+
+grant execute on function public.casual_leave_match(uuid) to authenticated;
