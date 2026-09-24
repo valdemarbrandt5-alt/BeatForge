@@ -111,7 +111,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     overlay.innerHTML=`<div class="rankedCard casualFlowCard">${html}</div>`;
     document.body.appendChild(overlay);
     flowEl=overlay;
-    return overlay.querySelector('.casualFlowCard') as HTMLElement;
+    const card=overlay.querySelector('.casualFlowCard') as HTMLElement;if(!card.querySelector('.beatforgeModalX')){const x=document.createElement('button');x.className='beatforgeModalX';x.type='button';x.textContent='×';x.setAttribute('aria-label','Close');x.onclick=()=>{const action=card.querySelector('.casualCancelInvite,.casualDecline,.casualLeaveBtn,.casualLeave,.casualDone') as HTMLButtonElement|null;if(action)action.click();else if(activeInviteId)void leaveAcceptedMatch();else closeFlow()};card.prepend(x)}return card;
   };
 
   const showWaitingForAccept=()=>{
@@ -312,6 +312,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
         const row:CasualRow={id:String(data.id),inviter_id:String(data.inviter_id),invitee_id:String(data.invitee_id),chart_id:String(data.chart_id),status:'accepted',inviter_ready:false,invitee_ready:false,start_at:null,chart};
         void beginAcceptedFlow(row);
       };
+      const promptCard=overlay.querySelector('.casualInviteCard') as HTMLElement;const x=document.createElement('button');x.type='button';x.className='beatforgeModalX';x.textContent='×';x.setAttribute('aria-label','Close');x.onclick=()=>{(overlay.querySelector('.casualDecline') as HTMLButtonElement)?.click()};promptCard.prepend(x);
       (overlay.querySelector('.casualDecline') as HTMLButtonElement).onclick=async()=>{
         await db.from('casual_invites').update({status:'declined',responded_at:new Date().toISOString()}).eq('id',data.id).eq('invitee_id',uid);
         closeInvitePrompt();

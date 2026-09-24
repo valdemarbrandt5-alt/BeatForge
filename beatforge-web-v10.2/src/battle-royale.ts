@@ -47,7 +47,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     closeOverlay();
     const o=document.createElement('div');o.className='brBackdrop';
     o.innerHTML=`<div class="brCard">${html}</div>`;
-    portal().appendChild(o);overlay=o;return o.querySelector('.brCard') as HTMLElement;
+    portal().appendChild(o);overlay=o;const card=o.querySelector('.brCard') as HTMLElement;if(!card.querySelector('.brX')){const x=document.createElement('button');x.className='beatforgeModalX';x.type='button';x.textContent='×';x.setAttribute('aria-label','Close');x.onclick=()=>{const action=card.querySelector('.brRoundLeave,.brLeaveLobby,.brClosed') as HTMLButtonElement|null;if(action)action.click();else if(matchId)openLeavePrompt();else closeOverlay()};card.prepend(x)}return card;
   };
   const syncPortal=()=>{
     const host=portal();
@@ -301,9 +301,9 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const openLeavePrompt=()=>{
     if(leavePrompt||!matchId)return;
     const o=document.createElement('div');o.className='brLeaveBackdrop';
-    o.innerHTML='<div class="brLeaveCard"><small>BATTLE ROYALE</small><h2>LEAVE MATCH?</h2><p>You will be eliminated from this Battle Royale and receive the MMR for that placement.</p><div><button class="brLeaveConfirm">LEAVE</button><button class="brLeaveCancel">CONTINUE</button></div></div>';
+    o.innerHTML='<div class="brLeaveCard"><button class="beatforgeModalX" type="button" aria-label="Close">×</button><small>BATTLE ROYALE</small><h2>LEAVE MATCH?</h2><p>You will be eliminated from this Battle Royale and receive the MMR for that placement.</p><div><button class="brLeaveConfirm">LEAVE</button><button class="brLeaveCancel">CONTINUE</button></div></div>';
     portal().appendChild(o);leavePrompt=o;
-    (o.querySelector('.brLeaveCancel') as HTMLButtonElement).onclick=closeLeavePrompt;
+    (o.querySelector('.brLeaveCancel') as HTMLButtonElement).onclick=closeLeavePrompt;(o.querySelector('.beatforgeModalX') as HTMLButtonElement).onclick=closeLeavePrompt;
     (o.querySelector('.brLeaveConfirm') as HTMLButtonElement).onclick=async()=>{const b=o.querySelector('.brLeaveConfirm') as HTMLButtonElement;b.disabled=true;await leaveMode();closeLeavePrompt()};
   };
 

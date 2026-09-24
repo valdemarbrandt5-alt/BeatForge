@@ -50,7 +50,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     o.className='rankedBackdrop rankedBotBackdrop';
     o.innerHTML='<div class="rankedCard rankedBotCard">'+html+'</div>';
     portal().appendChild(o);botOverlay=o;
-    return o.querySelector('.rankedCard') as HTMLElement;
+    const card=o.querySelector('.rankedCard') as HTMLElement;if(card.querySelector('.botPreLeave,.botErrorClose')){const x=document.createElement('button');x.type='button';x.className='beatforgeModalX';x.textContent='×';x.setAttribute('aria-label','Close');x.onclick=()=>{(card.querySelector('.botPreLeave,.botErrorClose') as HTMLButtonElement|null)?.click()};card.prepend(x)}return card;
   };
   const syncPortal=()=>{if(botOverlay&&botOverlay.parentElement!==portal())portal().appendChild(botOverlay)};
 

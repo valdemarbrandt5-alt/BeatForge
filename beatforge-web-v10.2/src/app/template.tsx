@@ -52,6 +52,15 @@ export default function Template({children}:{children:React.ReactNode}){
    if(active&&timer.current===null){wasSearching.current=true;void beat();timer.current=window.setInterval(beat,2000)}
    else if(!active&&timer.current!==null)stop();
    installProfileNav();
+   // React dialogs already define their own close actions; mirror them in the corner.
+   document.querySelectorAll('.resultBackdrop .resultCard').forEach(node=>{
+    const card=node as HTMLElement;
+    if(card.querySelector('.beatforgeModalX'))return;
+    const action=Array.from(card.querySelectorAll('button')).find(button=>/^(CLOSE|CANCEL|DONE|BACK)$/.test(button.textContent?.trim()||''));
+    if(!action)return;
+    const x=document.createElement('button');x.type='button';x.className='beatforgeModalX';x.textContent='×';x.setAttribute('aria-label','Close');
+    x.onclick=()=>action.click();card.prepend(x);
+   });
   };
   const observer=new MutationObserver(sync);
   observer.observe(document.body,{childList:true,subtree:true});
