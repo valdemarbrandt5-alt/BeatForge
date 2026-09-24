@@ -9,7 +9,7 @@ separating vocals is too heavy for the web frontend.
    minutes per song and needs enough memory for Demucs.
 2. Set these variables on the Railway backend:
    `SUPABASE_URL` (the Supabase project URL), `SUPABASE_SERVICE_ROLE_KEY`
-   (server only), and `BEATFORGE_FRONTEND_ORIGINS` (the exact frontend origin,
+   (paste a new `sb_secret_` key here; server only), and `BEATFORGE_FRONTEND_ORIGINS` (the exact frontend origin,
    for example `https://your-domain.example`, with no trailing slash).
 3. Set `NEXT_PUBLIC_BEATFORGE_BACKEND_URL` in Vercel to the Railway service's
    public HTTPS origin, without a trailing slash, and redeploy the frontend.

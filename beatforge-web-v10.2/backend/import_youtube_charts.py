@@ -61,12 +61,17 @@ def read_links(path: Path) -> list[str]:
 
 def request_json(base: str, key: str, route: str, method="GET", payload=None):
     data = None if payload is None else json.dumps(payload).encode("utf-8")
+    headers = {"apikey": key, "Content-Type": "application/json", "Prefer": "return=minimal"}
+    # New sb_secret keys are API keys, not JWTs. Sending them as a Bearer token
+    # makes Supabase reject the request with Invalid JWT. Legacy service_role
+    # keys are JWTs and still need the Authorization header.
+    if not key.startswith("sb_secret_"):
+        headers["Authorization"] = "Bearer " + key
     req = urllib.request.Request(
         base.rstrip("/") + "/rest/v1/" + route,
         data=data,
         method=method,
-        headers={"apikey": key, "Authorization": "Bearer " + key,
-                 "Content-Type": "application/json", "Prefer": "return=minimal"},
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as response:

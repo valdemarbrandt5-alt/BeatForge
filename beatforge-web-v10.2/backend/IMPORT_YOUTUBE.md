@@ -11,7 +11,8 @@ YouTube audiovisual content through the API without prior approval.
    and install `ffmpeg` so it is available on your PATH.
 2. Create `links.txt` with one individual YouTube video URL per line. Duplicate
    links and blank or commented lines are ignored.
-3. Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
+3. Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (the new `sb_secret_` key
+   or a legacy service role JWT), and
    `BEATFORGE_ADMIN_USER_ID` in your local environment. Get the admin user ID
    from Supabase Authentication. Keep the service role key private and never
    put it into the browser or a committed file.
