@@ -26,6 +26,8 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   let leavePrompt:HTMLElement|null=null;
   let liveActive=false;
   let lastState:BRState|null=null;
+  let searchStartedAt:number|null=null;
+  let lobbyClock:number|null=null;
 
   const esc=(s:any)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]||c));
   const num=(v:string|null|undefined)=>Number(String(v||'0').replace(/[^0-9-]/g,''))||0;
@@ -38,8 +40,8 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const currentCombo=()=>num(document.querySelector('.hudCombo b')?.textContent);
 
   const stopCountdown=()=>{if(countdownTimer!==null){clearInterval(countdownTimer);countdownTimer=null}};
-  const removeHud=()=>{hud?.remove();hud=null};
-  const closeOverlay=()=>{overlay?.remove();overlay=null};
+  const removeHud=()=>{hud?.remove();hud=null;document.querySelector('.game')?.classList.remove('brInDanger','brDangerGame')};
+  const closeOverlay=()=>{if(lobbyClock!==null){clearInterval(lobbyClock);lobbyClock=null}overlay?.remove();overlay=null};
   const modal=(html:string)=>{
     closeOverlay();
     const o=document.createElement('div');o.className='brBackdrop';
@@ -69,7 +71,14 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
 
   const renderLobby=(state:BRState)=>{
     const center=Number(state.rating_center||1000);
-    const card=modal(`<button class="brX">×</button><small>BATTLE ROYALE</small><h1>SEARCHING FOR PLAYERS</h1><div class="brLobbyCount">${state.players.length}<span>/8 PLAYERS</span></div><div class="brSearchBand">MATCHMAKING NEAR <b class="${rankClass(center)}">${rank(center)} · ${center} MMR</b></div><div class="brLobbyPlayers">${state.players.map(p=>`<span class="${p.me?'me':''}"><b>${esc(p.name)}</b><em class="${rankClass(Number(p.mmr||1000))}">${rank(Number(p.mmr||1000))} · ${Number(p.mmr||1000)} MMR</em></span>`).join('')}</div><button class="brSecondary brLeaveLobby">CANCEL</button>`);
+    const full=state.players.length>=8;
+    const signature=`${state.players.map(p=>p.id).join(',')}:${full?state.lobby_deadline:''}`;
+    if(overlay?.dataset.brLobby===signature)return;
+    const remaining=Math.max(0,Math.ceil((new Date(state.lobby_deadline).getTime()-new Date(state.server_now).getTime())/1000));
+    const card=modal(`<button class="brX">×</button><small>BATTLE ROYALE</small><h1>${full?'MATCH FOUND':'SEARCHING FOR PLAYERS'}</h1><div class="brLobbyCount">${state.players.length}<span>/8 PLAYERS</span></div><div class="brLobbyClock">${full?`STARTING IN <b>${remaining}</b>`:`SEARCHING · <b>${Math.floor((Date.now()-(searchStartedAt||Date.now()))/1000)}s</b>`}</div><div class="brSearchBand">MATCHMAKING NEAR <b class="${rankClass(center)}">${rank(center)} · ${center} MMR</b></div><div class="brLobbyPlayers">${state.players.map(p=>`<span class="${p.me?'me':''}"><b>${esc(p.name)}</b><em class="${rankClass(Number(p.mmr||1000))}">${rank(Number(p.mmr||1000))} · ${Number(p.mmr||1000)} MMR</em></span>`).join('')}</div><button class="brSecondary brLeaveLobby">CANCEL</button>`);
+    if(overlay)overlay.dataset.brLobby=signature;
+    if(!full)lobbyClock=window.setInterval(()=>{const b=card.querySelector('.brLobbyClock b');if(b)b.textContent=`${Math.floor((Date.now()-(searchStartedAt||Date.now()))/1000)}s`},1000);
+    else{const end=Date.now()+Math.max(0,new Date(state.lobby_deadline).getTime()-new Date(state.server_now).getTime());lobbyClock=window.setInterval(()=>{const b=card.querySelector('.brLobbyClock b');if(b)b.textContent=String(Math.max(0,Math.ceil((end-Date.now())/1000)))},100)}
     (card.querySelector('.brX') as HTMLButtonElement).onclick=()=>void leaveMode();
     (card.querySelector('.brLeaveLobby') as HTMLButtonElement).onclick=()=>void leaveMode();
   };
@@ -151,7 +160,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const mountHud=(state:BRState)=>{
     removeHud();const game=document.querySelector('.game') as HTMLElement|null;if(!game)return;
     const h=document.createElement('div');h.className='brLiveHud';h.innerHTML=`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><div class="brLiveList"></div>`;
-    game.appendChild(h);hud=h;renderHud(state);
+    game.appendChild(h);hud=h;game.classList.add('brDangerGame');renderHud(state);
   };
 
   const renderHud=(state:BRState)=>{
@@ -159,6 +168,10 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     const list=hud.querySelector('.brLiveList');if(!list)return;
     const alive=state.players.filter(p=>!p.eliminated).sort((a,b)=>Number(b.score)-Number(a.score));
     list.innerHTML=alive.map((p,i)=>`<div class="brLiveRow ${streak(Number(p.combo)||0)} ${p.me?'me':''}"><i>#${i+1}</i><b>${esc(p.name)}</b><span><strong>${Number(p.score||0).toLocaleString('da-DK')}</strong><small>${Number(p.combo||0)}x</small></span></div>`).join('');
+    const myIndex=alive.findIndex(p=>p.me);
+    const dangerCount=Math.min(alive.length<=2?1:2,alive.length-1);
+    const dangerous=liveActive&&myIndex>=0&&myIndex>=alive.length-dangerCount;
+    document.querySelector('.game')?.classList.toggle('brInDanger',dangerous);
   };
 
   const showWaitingFinish=(state:BRState)=>{
@@ -243,6 +256,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const startPolling=()=>{if(pollTimer===null)pollTimer=window.setInterval(()=>void poll(),250);void poll()};
 
   const join=async()=>{
+    searchStartedAt=Date.now();
     const card=modal('<small>BATTLE ROYALE</small><div class="brSpinner"></div><h2>JOINING LOBBY</h2>');
     const {data,error}=await db.rpc('join_battle_royale');
     if(error){card.innerHTML=`<small>BATTLE ROYALE ERROR</small><h2>${/does not exist|schema cache/i.test(error.message||'')?'RUN battle_royale_v2.sql IN SUPABASE':'COULD NOT JOIN'}</h2><button class="brSecondary brJoinError">BACK</button>`;(card.querySelector('.brJoinError') as HTMLButtonElement).onclick=()=>void openHome();return}
@@ -261,7 +275,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
 
   const leaveMode=async()=>{
     if(matchId)await db.rpc('battle_royale_leave',{p_match:matchId});
-    matchId=null;lastState=null;liveActive=false;preparedRound=0;startedRound=0;localSubmittedRound=0;stopCountdown();removeHud();closeOverlay();dismissSoloResult();
+    matchId=null;lastState=null;searchStartedAt=null;liveActive=false;preparedRound=0;startedRound=0;localSubmittedRound=0;stopCountdown();removeHud();closeOverlay();dismissSoloResult();
   };
 
   const closeLeavePrompt=()=>{leavePrompt?.remove();leavePrompt=null};
@@ -299,10 +313,11 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     if(document.getElementById('battle-royale-style'))return;
     const s=document.createElement('style');s.id='battle-royale-style';s.textContent=`
       .brBackdrop,.brLeaveBackdrop{position:fixed;inset:0;z-index:2147483646;background:#03050bec;backdrop-filter:blur(13px);display:grid;place-items:center;padding:18px}.brCard{position:relative;width:min(620px,94vw);max-height:90vh;overflow:auto;background:linear-gradient(150deg,#151a26,#0c1018);border:1px solid #3b4353;border-radius:20px;padding:28px;text-align:center;box-shadow:0 30px 100px #000b}.brCard>small,.brLeaveCard>small{font-size:8px;font-weight:1000;letter-spacing:2px;color:#ff7bce}.brCard h1{font-size:32px;margin:7px 0}.brCard h2{font-size:23px;margin:8px 0}.brCard>p{max-width:510px;margin:8px auto 17px;color:#a8b0c0;font-size:11px;line-height:1.5}.brX{position:absolute;right:15px;top:15px;width:34px;height:34px;padding:0!important;border:1px solid #343c4c!important;border-radius:9px!important;background:#151b27!important;color:#fff!important}.brPrimary,.brSecondary{padding:12px 18px!important;border-radius:11px!important;font-size:10px!important;font-weight:1000!important;letter-spacing:.05em}.brPrimary{background:#ed4eb9!important;border-color:#ff73cf!important;color:#fff!important}.brSecondary{background:#151b27!important;border-color:#343c4c!important;color:#c2c8d4!important;margin-left:8px}.brModeBadge{display:inline-block;margin:8px 0 4px;padding:8px 13px;border:1px solid #653a61;border-radius:999px;color:#ff83d2;font-size:9px;font-weight:1000}.brFlow{display:flex;justify-content:center;align-items:center;gap:10px;margin:18px 0;color:#8992a5;font-weight:1000}.brFlow span,.brFlow b{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#29172a;border:1px solid #7b3d73;color:#ff83d2}.brFlow b{background:#ed4eb9;color:#fff}.brSpinner{width:46px;height:46px;margin:14px auto;border:4px solid #303747;border-top-color:#ed4eb9;border-radius:50%;animation:brSpin .8s linear infinite}@keyframes brSpin{to{transform:rotate(360deg)}}
-      .brHomeRank{display:grid;justify-items:center;gap:2px;margin:13px auto 15px;padding:13px;border:1px solid #343c4c;border-radius:13px;background:#0c1119;max-width:300px}.brHomeRank small{font-size:7px;color:#7f899c;font-weight:1000;letter-spacing:1px}.brHomeRank b{font-size:18px}.brHomeRank strong{font-size:12px}.brHomeRank span{font-size:7px;color:#7f899c;font-weight:900;margin-top:3px}.brSearchBand{margin:8px 0 14px;font-size:8px;color:#8993a6;font-weight:1000;letter-spacing:.8px}.brSearchBand b{margin-left:4px}.brLobbyCount{font-size:48px;font-weight:1000;color:#ff78cd;margin:10px 0 0}.brLobbyCount span{display:block;font-size:9px;color:#8993a6;letter-spacing:1.5px}.brLobbyPlayers{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:14px 0}.brLobbyPlayers span{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid #303747;border-radius:10px;background:#0c1119;animation:brPlayerIn .22s ease}.brLobbyPlayers span.me{border-color:#ff71cc;box-shadow:inset 2px 0 #ff71cc}.brLobbyPlayers b{font-size:10px}.brLobbyPlayers em{font-size:7px;font-style:normal;font-weight:1000}@keyframes brPlayerIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+      .brHomeRank{display:grid;justify-items:center;gap:2px;margin:13px auto 15px;padding:13px;border:1px solid #343c4c;border-radius:13px;background:#0c1119;max-width:300px}.brHomeRank small{font-size:7px;color:#7f899c;font-weight:1000;letter-spacing:1px}.brHomeRank b{font-size:18px}.brHomeRank strong{font-size:12px}.brHomeRank span{font-size:7px;color:#7f899c;font-weight:900;margin-top:3px}.brSearchBand{margin:8px 0 14px;font-size:8px;color:#8993a6;font-weight:1000;letter-spacing:.8px}.brSearchBand b{margin-left:4px}.brLobbyCount{font-size:48px;font-weight:1000;color:#ff78cd;margin:10px 0 0}.brLobbyCount span{display:block;font-size:9px;color:#8993a6;letter-spacing:1.5px}.brLobbyClock{font-size:10px;font-weight:900;color:#a8b3c5;letter-spacing:1px}.brLobbyClock b{color:#ff78cd;font-size:18px}.brLobbyPlayers{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:14px 0}.brLobbyPlayers span{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid #303747;border-radius:10px;background:#0c1119;animation:brPlayerIn .22s ease}.brLobbyPlayers span.me{border-color:#ff71cc;box-shadow:inset 2px 0 #ff71cc}.brLobbyPlayers b{font-size:10px}.brLobbyPlayers em{font-size:7px;font-style:normal;font-weight:1000}@keyframes brPlayerIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
       .brRankBronze{color:#cd7f32!important}.brRankSilver{color:#c8ced8!important}.brRankGold{color:#ffd43b!important}.brRankPlatinum{color:#57e0d1!important}.brRankDiamond{color:#6aa9ff!important}.brRankMaster{color:#c084fc!important}
       .brSong{display:grid;text-align:left;margin:14px 0;padding:11px 13px;border:1px solid #303747;border-radius:11px;background:#0a0f17}.brSong b{font-size:12px}.brSong span{font-size:8px;color:#8993a7}.brDifficultyGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.brDifficultyGrid button{min-height:62px;text-align:left;background:#121824!important;color:#fff!important;border:1px solid #343c4e!important}.brDifficultyGrid button:hover{border-color:#ff72ce!important}.brDifficultyGrid b{display:block;font-size:13px}.brDifficultyGrid span{font-size:8px;color:#8993a7}.brReadyIcon{margin:14px auto;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;border:1px solid #ff72ce;background:#ff72ce18;color:#ff8bd5;font-size:23px}.brChosen{display:inline-flex;gap:7px;padding:8px 12px;border:1px solid #653a61;border-radius:999px;color:#aab1c1}.brChosen b{color:#fff}.brReadyStatus{margin:14px 0 10px;font-size:8px;color:#9099ab;font-weight:1000;letter-spacing:1.2px}.brCountdown{font-size:54px;font-weight:1000;color:#ff78cd;margin:20px 0}.brWaitingFinish{font-size:18px;font-weight:1000;color:#ff78cd;margin:22px 0}
       .game>.brLiveHud{position:absolute!important;left:16px!important;top:16px!important;width:190px!important;z-index:13!important;background:#080c13eF;border:1px solid #3b4353;border-radius:12px;padding:8px;pointer-events:none;backdrop-filter:blur(8px)}.brLiveHud>small{display:block;text-align:center;font-size:7px;color:#ff7bce;font-weight:1000;letter-spacing:1px;margin-bottom:5px}.brLiveList{display:flex;flex-direction:column;gap:3px}.brLiveRow{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;height:28px;padding:0 6px;border:1px solid #303747;border-radius:7px;background:#10151e}.brLiveRow>i{font-style:normal;font-size:8px;color:#818b9c}.brLiveRow>b{font-size:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left}.brLiveRow>span{display:grid;text-align:right}.brLiveRow strong{font-size:8px}.brLiveRow small{font-size:6px;font-weight:1000}.brLiveRow.me{box-shadow:inset 2px 0 #fff}.brLiveRow.brBase small{color:#8e95a5}.brLiveRow.brGold{border-color:#ffd43b}.brLiveRow.brGold small{color:#ffd43b}.brLiveRow.brBlue{border-color:#58a6ff}.brLiveRow.brBlue small{color:#58a6ff}.brLiveRow.brPink{border-color:#ff72d2}.brLiveRow.brPink small{color:#ff72d2}
+      .game.brInDanger{background:linear-gradient(180deg,#40141c,#220d15 45%,#100b10)!important;border-color:#ff4d5e!important;box-shadow:inset 0 0 110px #ff263e55,0 0 22px #ff263e44!important}.game.brInDanger .lanes{background:linear-gradient(180deg,#ff30401b,#ff304008 65%,#ff30401b)}.game.brInDanger:after{content:'DANGER ZONE';position:absolute;z-index:12;top:10px;left:50%;transform:translateX(-50%);padding:6px 13px;border:1px solid #ff6976;border-radius:8px;background:#260a11e8;color:#ff8791;font-size:10px;font-weight:1000;letter-spacing:2px;white-space:nowrap;pointer-events:none;text-shadow:0 0 10px #ff3146}
       .brVerdict{font-size:34px!important}.brVerdict.win{color:#ffd43b}.brVerdict.loss{color:#ff5a6e}.brVerdict.survive{color:#58e6a7}.brResultSub{margin:-2px 0 13px;font-size:9px;color:#949daf;font-weight:1000;letter-spacing:1px}.brResultList{display:flex;flex-direction:column;gap:4px;margin:12px 0 16px}.brResultRow{display:grid;grid-template-columns:35px minmax(0,1fr) 95px 75px;align-items:center;min-height:38px;padding:0 9px;border:1px solid #303747;border-radius:8px;background:#0d121a;text-align:left}.brResultRow>i{font-style:normal;font-size:9px;color:#8a94a5}.brResultRow>b{font-size:9px;display:grid}.brResultRow>b em{font-size:6px;font-style:normal;margin-top:2px}.brResultRow>span{text-align:right;font-size:10px;font-weight:1000}.brResultRow>small{text-align:right;font-size:6px;font-weight:1000;color:#52df9b}.brResultRow.out{opacity:.58}.brResultRow.out>small{color:#ff6173}.brResultRow.me{border-color:#ff71cc;box-shadow:0 0 10px #ff71cc18}.brMmrResult{display:flex;justify-content:center;align-items:center;gap:10px;padding:13px;border-top:1px solid #303747;border-bottom:1px solid #303747;margin:4px 0 16px;font-size:10px}.brMmrResult span{color:#747d8f}.brMmrResult strong{font-size:11px}.brMmrResult .positive{color:#48df92}.brMmrResult .negative{color:#ff5364}
       .brLeaveCard{width:min(420px,94vw);background:#111722;border:1px solid #3a4353;border-radius:18px;padding:24px;text-align:center}.brLeaveCard h2{margin:8px 0}.brLeaveCard p{color:#9ba5b7;font-size:11px}.brLeaveCard>div{display:flex;justify-content:center;gap:8px}.brLeaveCard button{padding:11px 16px;border-radius:10px;font-size:9px;font-weight:1000}.brLeaveConfirm{background:#38131b;border:1px solid #8b3448;color:#ff7888}.brLeaveCancel{background:#ed4eb9;border:1px solid #ff73cf;color:#fff}
       @media(max-width:760px){.brDifficultyGrid,.brLobbyPlayers{grid-template-columns:1fr}.game>.brLiveHud{width:160px!important}.brResultRow{grid-template-columns:30px minmax(0,1fr) 76px 62px}.brMmrResult{flex-wrap:wrap}}

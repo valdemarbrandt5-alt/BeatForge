@@ -7,6 +7,7 @@ import styles from './profile.module.css';
 type ScoreRow={chart_id:string;score:number;accuracy:number;max_combo:number;perfect:number;great:number;good:number;miss:number;difficulty:string|null;created_at:string};
 type ChartRow={id:string;title:string;artist:string|null;youtube_url:string|null;difficulty:string|null};
 type RankedRow={mmr:number;wins:number;losses:number;draws:number};
+type BattleRoyaleRow={wins:number;games:number;top4:number};
 type ProfileRow={username:string|null;avatar_url:string|null;created_at:string|null};
 type SongPerformance=ScoreRow&{chart?:ChartRow};
 type SortMode='accuracy'|'score'|'streak';
@@ -29,6 +30,7 @@ export default function ProfilePage(){
   const [error,setError]=useState('');
   const [profile,setProfile]=useState<ProfileRow|null>(null);
   const [ranked,setRanked]=useState<RankedRow>({mmr:1000,wins:0,losses:0,draws:0});
+  const [battleRoyale,setBattleRoyale]=useState<BattleRoyaleRow>({wins:0,games:0,top4:0});
   const [scores,setScores]=useState<ScoreRow[]>([]);
   const [charts,setCharts]=useState<ChartRow[]>([]);
   const [signedIn,setSignedIn]=useState(true);
@@ -46,10 +48,11 @@ export default function ProfilePage(){
       const uid=requested||auth.user.id;
       setViewingOwn(uid===auth.user.id);
 
-      const [profileRes,rankedRes,scoresRes]=await Promise.all([
+      const [profileRes,rankedRes,scoresRes,battleRoyaleRes]=await Promise.all([
         supabase.from('profiles').select('username,avatar_url,created_at').eq('id',uid).maybeSingle(),
         supabase.from('ranked_players').select('mmr,wins,losses,draws').eq('user_id',uid).maybeSingle(),
-        supabase.from('scores').select('chart_id,score,accuracy,max_combo,perfect,great,good,miss,difficulty,created_at').eq('user_id',uid).order('created_at',{ascending:false}).limit(500)
+        supabase.from('scores').select('chart_id,score,accuracy,max_combo,perfect,great,good,miss,difficulty,created_at').eq('user_id',uid).order('created_at',{ascending:false}).limit(500),
+        supabase.rpc('get_battle_royale_profile',{p_user:uid})
       ]);
       if(cancelled)return;
       if(profileRes.error){setError(profileRes.error.message);setLoading(false);return}
@@ -58,6 +61,7 @@ export default function ProfilePage(){
 
       setProfile(profileRes.data as ProfileRow);
       if(rankedRes.data)setRanked(rankedRes.data as RankedRow);
+      if(battleRoyaleRes.data){const record=Array.isArray(battleRoyaleRes.data)?battleRoyaleRes.data[0]:battleRoyaleRes.data;if(record)setBattleRoyale(record as BattleRoyaleRow)}
       const scoreRows=(scoresRes.data||[]) as ScoreRow[];
       setScores(scoreRows);
       const ids=Array.from(new Set(scoreRows.map(row=>row.chart_id).filter(Boolean)));
@@ -124,6 +128,8 @@ export default function ProfilePage(){
       </article>
       <article className={styles.rankedPanel}><div className={styles.sectionLabel}><div><small>COMPETITIVE</small><h2>Ranked record</h2></div></div><div className={styles.winDonut} style={{'--winrate':`${winrate*3.6}deg`} as React.CSSProperties}><div><strong>{pct(winrate)}</strong><span>WIN RATE</span></div></div><div className={styles.recordRows}><div><span>Wins</span><b>{ranked.wins}</b></div><div><span>Losses</span><b>{ranked.losses}</b></div><div><span>Draws</span><b>{ranked.draws}</b></div><div><span>MMR</span><b>{ranked.mmr}</b></div></div></article>
     </section>
+
+    <section className={styles.battleRoyalePanel}><div className={styles.sectionLabel}><div><small>COMPETITIVE · SHARED MMR</small><h2>Battle Royale</h2></div></div><div className={styles.battleRoyaleStats}><div><small>VICTORIES</small><strong>{battleRoyale.wins}</strong></div><div><small>TOP 4</small><strong>{battleRoyale.top4}</strong></div><div><small>MATCHES</small><strong>{battleRoyale.games}</strong></div><div><small>WIN RATE</small><strong>{pct(battleRoyale.games?battleRoyale.wins/battleRoyale.games*100:0)}</strong></div></div></section>
 
     <section className={styles.listSection}>
       <div className={styles.performanceHeader}><div className={styles.sectionLabel}><div><small>PERSONAL BESTS</small><h2>Top performances</h2></div></div><div className={styles.sortControls}><span>SORT BY</span><button className={sortMode==='accuracy'?styles.activeSort:''} onClick={()=>setSortMode('accuracy')}>ACCURACY</button><button className={sortMode==='score'?styles.activeSort:''} onClick={()=>setSortMode('score')}>SCORE</button><button className={sortMode==='streak'?styles.activeSort:''} onClick={()=>setSortMode('streak')}>STREAK</button></div></div>
