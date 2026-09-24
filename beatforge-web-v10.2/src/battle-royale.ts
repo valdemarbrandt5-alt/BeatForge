@@ -128,11 +128,13 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const showReady=(state:BRState,diff:string)=>{
     const card=modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><h2>SONG LOADED</h2><div class="brReadyIcon">✓</div><div class="brChosen">YOUR DIFFICULTY <b>${esc(diff)}</b></div><div class="brReadyClock">TIME LEFT <b>15</b>s <span>Ready is automatic at zero.</span></div><p>Survive the round. The lowest scores are eliminated.</p><div class="brReadyStatus">PRESS READY WHEN YOU ARE SET</div><button class="brPrimary brReady">READY</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>`);
     startReadyClock(card,state);
+    updateReadyCount(lastState?.status==='loading'?lastState:state);
     (card.querySelector('.brReady') as HTMLButtonElement).onclick=async()=>{
       const b=card.querySelector('.brReady') as HTMLButtonElement;b.disabled=true;b.textContent='READY ✓';
       const {error}=await db.rpc('battle_royale_ready',{p_match:matchId});
       if(error){console.error('battle royale ready',error);b.disabled=false;b.textContent='READY';return}
-      const status=card.querySelector('.brReadyStatus');if(status)status.textContent='WAITING FOR SURVIVORS…';
+      const current=lastState?.status==='loading'?lastState:state;
+      updateReadyCount({...current,players:current.players.map(p=>p.me?{...p,ready:true}:p)});
     };
     (card.querySelector('.brRoundLeave') as HTMLButtonElement).onclick=()=>openLeavePrompt();
   };
@@ -242,8 +244,10 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const updateReadyCount=(state:BRState)=>{
     const el=overlay?.querySelector('.brReadyStatus');if(!el)return;
     const survivors=state.players.filter(p=>!p.eliminated);
-    const ready=survivors.filter(p=>p.ready).length;
-    el.textContent=`${ready} / ${survivors.length} READY`;
+    const humans=survivors.filter(p=>!p.is_bot);
+    const total=state.round_no===1&&state.players.length<8?8:survivors.length;
+    const ready=humans.filter(p=>p.ready).length+total-humans.length;
+    el.textContent=`${ready} / ${total} READY`;
   };
 
   const handleState=async(state:BRState)=>{
