@@ -33,17 +33,21 @@ if (typeof window !== 'undefined') {
       document.head.appendChild(style);
     }
 
-    const removeSubtitle = () => {
+    const polish = () => {
       document.querySelectorAll('main header p,main header small,main header span,main header div').forEach(node => {
         const el=node as HTMLElement;
         const text=(el.textContent||'').replace(/\s+/g,' ').trim();
         const simple=Array.from(el.children).every(child=>child.tagName==='BR');
         if(/5 lane browser rhythm game/i.test(text)&&simple)el.style.setProperty('display','none','important');
       });
+
+      document.querySelectorAll('.brHomeRank small').forEach(node=>{
+        if((node.textContent||'').trim().toUpperCase()==='YOUR BATTLE ROYALE RANK')node.textContent='YOUR RANK';
+      });
     };
 
-    removeSubtitle();
-    new MutationObserver(removeSubtitle).observe(document.body,{childList:true,subtree:true,characterData:true});
+    polish();
+    new MutationObserver(polish).observe(document.body,{childList:true,subtree:true,characterData:true});
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',install,{once:true}); else install();
 }
