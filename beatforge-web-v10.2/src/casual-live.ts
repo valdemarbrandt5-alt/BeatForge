@@ -4,6 +4,7 @@ type CasualLiveRow = {
   id:string;
   inviter_id:string;
   invitee_id:string;
+  status?:string|null;
   start_at:string|null;
   inviter_score:number|null;
   invitee_score:number|null;
@@ -217,7 +218,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     if(!uid)return null;
     const cutoff=new Date(Date.now()-20*60*1000).toISOString();
     const {data,error}=await db.from('casual_invites')
-      .select('id,inviter_id,invitee_id,start_at,inviter_score,invitee_score,inviter_combo,invitee_combo,inviter_finished,invitee_finished,inviter_perfect,invitee_perfect,inviter_great,invitee_great,inviter_good,invitee_good,inviter_miss,invitee_miss,inviter_max_combo,invitee_max_combo,chart:charts!casual_invites_chart_id_fkey(title),inviter:profiles!casual_invites_inviter_id_fkey(username),invitee:profiles!casual_invites_invitee_id_fkey(username)')
+      .select('id,inviter_id,invitee_id,status,start_at,inviter_score,invitee_score,inviter_combo,invitee_combo,inviter_finished,invitee_finished,inviter_perfect,invitee_perfect,inviter_great,invitee_great,inviter_good,invitee_good,inviter_miss,invitee_miss,inviter_max_combo,invitee_max_combo,chart:charts!casual_invites_chart_id_fkey(title),inviter:profiles!casual_invites_inviter_id_fkey(username),invitee:profiles!casual_invites_invitee_id_fkey(username)')
       .eq('status','accepted').not('start_at','is',null)
       .or(`inviter_id.eq.${uid},invitee_id.eq.${uid}`)
       .gt('created_at',cutoff).order('created_at',{ascending:false}).limit(1).maybeSingle();
@@ -237,7 +238,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       .select('status,inviter_score,invitee_score,inviter_combo,invitee_combo,inviter_finished,invitee_finished,inviter_perfect,invitee_perfect,inviter_great,invitee_great,inviter_good,invitee_good,inviter_miss,invitee_miss,inviter_max_combo,invitee_max_combo')
       .eq('id',active.id).maybeSingle();
     if(error)return null;
-    return data as CasualLiveRow|null;
+    return data as Partial<CasualLiveRow>|null;
   };
 
   const opponentName=()=>{
@@ -357,7 +358,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     if(!active||!localFinished||comparisonRendered)return;
     const fresh=await refreshLiveAndStatus();
     if(!fresh)return;
-    if(fresh.status!=='accepted'){opponentLeft();return}
+    if(fresh.status&&fresh.status!=='accepted'){opponentLeft();return}
     Object.assign(active,fresh);
     if(active.inviter_finished&&active.invitee_finished){
       renderComparison(active);
@@ -393,7 +394,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       const {data,error}=await db.rpc('casual_update_live',{p_invite:active.id,p_score:score,p_combo:combo});
       if(error){
         const fresh=await refreshLiveAndStatus();
-        if(fresh&&fresh.status!=='accepted'){opponentLeft();return}
+        if(fresh?.status&&fresh.status!=='accepted'){opponentLeft();return}
         if(!schemaErrorShown){schemaErrorShown=true;console.error('casual_update_live',error)}
         removeHud();return;
       }
@@ -401,7 +402,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
 
       const rpcRow=Array.isArray(data)?data[0]:data;
       const fresh=await refreshLiveAndStatus();
-      if(fresh&&fresh.status!=='accepted'){opponentLeft();return}
+      if(fresh?.status&&fresh.status!=='accepted'){opponentLeft();return}
 
       const inviterScore=Number(fresh?.inviter_score??rpcRow?.inviter_score??active.inviter_score??0)||0;
       const inviteeScore=Number(fresh?.invitee_score??rpcRow?.invitee_score??active.invitee_score??0)||0;
