@@ -24,7 +24,7 @@ if (typeof window !== 'undefined') {
       .brLiveHud .brLiveList{overflow:visible!important}
       .brLiveHud .brLiveRow.brDanger{border-color:#ff4d5e!important;background:linear-gradient(90deg,#2a1018,#12131a)!important;box-shadow:inset 2px 0 #ff4d5e,0 0 8px #ff4d5e24!important}
       .brLiveHud .brLiveRow.brDanger>i,.brLiveHud .brLiveRow.brDanger>b,.brLiveHud .brLiveRow.brDanger>span>strong{color:#ff6676!important}
-      .brLiveHud .brLiveRow.brDangerStart{margin-top:20px!important}
+      .brLiveHud .brLiveRow.brDangerStart{position:relative;margin-top:20px!important}
       .brLiveHud .brLiveRow.brDangerStart:before{content:'DANGER ZONE';position:absolute;left:0;right:0;top:-16px;height:13px;display:flex;align-items:center;justify-content:center;border-top:1px solid #ff4d5e88;color:#ff6676;font-size:6px;font-weight:1000;letter-spacing:1.3px;text-shadow:0 0 8px #ff4d5e66}
       .brLiveHud .brLiveRow.brDangerStart:after{content:'';position:absolute;left:0;right:0;top:-1px;border-top:1px solid #ff4d5e44}
     `;
