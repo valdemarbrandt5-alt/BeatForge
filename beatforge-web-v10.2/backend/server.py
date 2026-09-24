@@ -44,6 +44,7 @@ def _admin_from_token(authorization:str|None):
 def _run_import(job_id:str,ids:list[str],admin_id:str):
     from import_youtube_charts import request_json, youtube_metadata, download_audio, generate_chart
     base=os.environ['SUPABASE_URL'];key=os.environ['SUPABASE_SERVICE_ROLE_KEY']
+    consecutive_auth_errors=0
     for video_id in ids:
         url='https://www.youtube.com/watch?v='+video_id
         with _import_lock:
@@ -62,11 +63,20 @@ def _run_import(job_id:str,ids:list[str],admin_id:str):
                     request_json(base,key,'charts','POST',{'user_id':admin_id,'title':title,'artist':artist,
                         'youtube_url':url,'difficulty':'Medium','lane_count':5,'duration':duration,'notes':notes})
                 result={'url':url,'status':'saved','title':title,'artist':artist,'notes':len(notes)}
+            consecutive_auth_errors=0
         except Exception as exc:
             result={'url':url,'status':'failed','error':str(exc)[:240]}
+            message=str(exc).lower()
+            if 'sign in to confirm you' in message or 'youtube session cookies have expired or rotated' in message:
+                consecutive_auth_errors+=1
+            else:
+                consecutive_auth_errors=0
         with _import_lock:
             _import_jobs[job_id]['results'].append(result)
             _import_jobs[job_id]['current']=None
+            if consecutive_auth_errors>=3:
+                _import_jobs[job_id]['stop_reason']='YouTube rejected three songs in a row. Replace the Railway YouTube cookies, then start the import again.'
+                break
     with _import_lock:
         _import_jobs[job_id]['done']=True
 
@@ -82,7 +92,7 @@ def start_admin_import(payload:ImportLinks,authorization:str|None=Header(default
             raise HTTPException(409,'An import is already running')
         job_id=uuid.uuid4().hex
         _import_jobs.clear()
-        _import_jobs[job_id]={'owner':admin_id,'total':len(ids),'results':[],'current':None,'done':False}
+        _import_jobs[job_id]={'owner':admin_id,'total':len(ids),'results':[],'current':None,'done':False,'stop_reason':None}
     _import_executor.submit(_run_import,job_id,ids,admin_id)
     return {'job_id':job_id}
 

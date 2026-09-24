@@ -4,7 +4,7 @@ import {useEffect,useState} from 'react';
 import {supabase} from '../lib/supabase';
 
 type Result={url:string;status:'saved'|'exists'|'failed';title?:string;artist?:string;notes?:number;error?:string};
-type Status={total:number;results:Result[];current:string|null;done:boolean};
+type Status={total:number;results:Result[];current:string|null;done:boolean;stop_reason?:string|null};
 
 const initialLinks=[
   'https://music.youtube.com/watch?v=oG-4Uvhm4lI', // Lady Gaga — Poker Face
@@ -144,7 +144,7 @@ export default function AdminBatchImport({onClose}:{onClose:()=>void}){
   async function start(){
     const list=links.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
     if(!list.length||list.length>100){setError('Add 1 to 100 links, one per line.');return}
-    setError('');setSubmitting(true);setStatus(null);
+    setError('');setSubmitting(true);setJobId(null);setStatus(null);
     try{
       const result=await adminRequest('/admin/import',{method:'POST',body:JSON.stringify({links:list})});
       setJobId(result.job_id);
@@ -157,14 +157,15 @@ export default function AdminBatchImport({onClose}:{onClose:()=>void}){
       <button className="adminBatchClose" type="button" onClick={onClose} aria-label="Close">×</button>
       <small>BEATFORGE ADMIN</small><h2>Import songs</h2>
       <p>100 songs are ready to import. Edit the list if you like. Existing songs are skipped.</p>
-      <textarea className="authInput" aria-label="YouTube links" value={links} onChange={e=>setLinks(e.target.value)} disabled={!!jobId} rows={7}/>
+      <textarea className="authInput" aria-label="YouTube links" value={links} onChange={e=>setLinks(e.target.value)} disabled={!!jobId&&!status?.done} rows={7}/>
       {error&&<p className="adminBatchError" role="alert">{error}</p>}
       {status&&<div className="adminBatchProgress" aria-live="polite">
-        <strong>{status.done?'Import finished':`Processing ${status.results.length+1} of ${status.total}`}</strong>
+        <strong>{status.stop_reason?`Import stopped after ${status.results.length} of ${status.total}`:status.done?'Import finished':`Processing ${status.results.length+1} of ${status.total}`}</strong>
+        {status.stop_reason&&<p className="adminBatchError" role="alert">{status.stop_reason}</p>}
         {status.current&&<p>{status.current}</p>}
         {status.results.map((entry,i)=><p key={entry.url+i}>{entry.status==='saved'?'✓':entry.status==='exists'?'↷':'!'} {entry.title||entry.url}: {entry.status==='saved'?`${entry.notes} notes saved`:entry.status==='exists'?'Already in BeatForge':entry.error}</p>)}
       </div>}
-      <div className="resultActions"><button disabled={submitting||!!jobId} onClick={start}>{submitting?'STARTING…':'IMPORT SONGS'}</button><button className="secondary" onClick={onClose}>CLOSE</button></div>
+      <div className="resultActions"><button disabled={submitting||(!!jobId&&!status?.done)} onClick={start}>{submitting?'STARTING…':status?.done?'RETRY IMPORT':'IMPORT SONGS'}</button><button className="secondary" onClick={onClose}>CLOSE</button></div>
     </div>
   </div>
 }
