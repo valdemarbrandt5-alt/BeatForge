@@ -37,3 +37,18 @@ script does not replace existing charts or scores. BeatForge's browser,
 Community, profile, invitations, Ranked and Battle Royale use the same chart
 IDs. The hosted admin importer still creates full mix charts; Demucs runs on
 the local machine.
+
+To apply an improved stem analyzer to songs that were already imported, run:
+
+```powershell
+py .\import_youtube_charts.py .\links.txt --instruments stems --refresh-stems
+```
+
+This downloads and separates each listed song again. It updates existing
+instrument charts belonging to your admin account, adds missing stems and
+leaves full mix charts and other people's charts untouched. Chart IDs, likes
+and scores remain in place. Existing scores were earned against the previous
+note pattern, so compare new scores only with plays made after the refresh.
+The change becomes visible on BeatForge once each updated song is saved; reload
+the page before playing it again. The command needs the updated local
+`stem_chart.py`; a Railway redeploy is not needed for local imports.

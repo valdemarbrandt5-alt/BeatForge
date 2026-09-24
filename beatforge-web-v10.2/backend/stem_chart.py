@@ -41,6 +41,12 @@ def analyze_stem(path: Path, instrument: str):
         prev = mag
     rms = gaussian_filter1d(rms, 1.0)
     flux = gaussian_filter1d(flux, 1.0)
+    # Soft piano attacks and fresh vocal syllables can raise the volume without
+    # producing a large spectral change. Keep this extra cue on those stems only.
+    if instrument in ("vocals", "melody"):
+        rise = np.maximum(0, rms - np.roll(rms, 3)) / (rms + 1e-5)
+        rise[:3] = 0
+        flux = np.maximum(flux, rise * .24)
     radius = max(8, int(sr / hop * 2.0))
     local = np.empty_like(rms)
     for i in range(frames):
@@ -48,13 +54,18 @@ def analyze_stem(path: Path, instrument: str):
     activity = rms / (local + np.percentile(rms, 20) + 1e-5)
     score = flux * (0.55 + 0.45 * np.clip(activity, 0, 3))
     base = np.percentile(score, {"vocals": 72, "drums": 62, "bass": 70, "melody": 70}[instrument])
-    min_gap = {"vocals": .20, "drums": .12, "bass": .20, "melody": .18}[instrument]
+    min_gap = {"vocals": .14, "drums": .12, "bass": .20, "melody": .13}[instrument]
     candidates, last = [], -99
     quiet = np.percentile(rms, 18)
     for i in range(2, frames - 2):
-        t = i * hop / sr
+        # The melodic onset belongs to the center of the FFT window. The
+        # other instruments keep their existing timing and thresholds.
+        t = (i * hop + (win / 2 if instrument in ("vocals", "melody") else 0)) / sr
         local_score = np.median(score[max(0, i - radius):min(frames, i + radius + 1)])
-        threshold = max(base * .38, local_score * 1.45)
+        if instrument in ("vocals", "melody"):
+            threshold = max(base * .25, local_score * 1.2)
+        else:
+            threshold = max(base * .38, local_score * 1.45)
         if score[i] > threshold and score[i] >= score[i - 1] and score[i] >= score[i + 1] and t - last >= min_gap and rms[i] > quiet:
             candidates.append((i, t))
             last = t

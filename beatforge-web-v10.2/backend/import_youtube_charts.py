@@ -205,7 +205,11 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Show metadata without downloading or saving")
     parser.add_argument("--instruments", choices=("mix", "stems", "all"), default="mix",
                         help="mix (default), four separated stems, or mix plus all four stems")
+    parser.add_argument("--refresh-stems", action="store_true",
+                        help="Reanalyze existing admin-owned instrument charts in place; keeps their IDs and scores")
     args = parser.parse_args()
+    if args.refresh_stems and args.instruments == "mix":
+        parser.error("--refresh-stems requires --instruments stems or all")
     ids = read_links(args.links)
     if not ids:
         parser.error("No links found")
@@ -238,11 +242,17 @@ def main():
         try:
             if not args.dry_run:
                 # Include alternate YouTube URLs with the same video id.
-                query = "charts?select=id,instrument&youtube_url=ilike." + urllib.parse.quote("*" + video_id + "*", safe="") + "&limit=100"
+                query = "charts?select=id,instrument,user_id&youtube_url=ilike." + urllib.parse.quote("*" + video_id + "*", safe="") + "&limit=100"
                 existing = request_json(base, key, query) or []
                 found = {row["instrument"] for row in existing}
                 missing = requested - found
-                if not missing:
+                refresh = {
+                    row["instrument"]: row["id"] for row in existing
+                    if args.refresh_stems and row.get("instrument") in requested - {"mix"}
+                    and row.get("user_id") == admin_id
+                }
+                pending = missing | set(refresh)
+                if not pending:
                     print(f"[{index}/{len(ids)}] All requested instruments already exist: {url}", flush=True)
                     continue
             metadata = youtube_metadata(url)
@@ -251,16 +261,21 @@ def main():
             if args.dry_run:
                 print(f"[{index}/{len(ids)}] {artist} - {title} ({url})", flush=True)
                 continue
-            print(f"[{index}/{len(ids)}] Generating {artist} - {title} ({', '.join(sorted(missing))})", flush=True)
+            print(f"[{index}/{len(ids)}] Generating {artist} - {title} ({', '.join(sorted(pending))})", flush=True)
             with tempfile.TemporaryDirectory(prefix="beatforge_import_") as temp:
                 directory = Path(temp)
                 audio = download_audio(url, directory)
                 charts = {}
                 if "mix" in missing:
                     charts["mix"] = generate_chart(audio, directory)
-                if missing - {"mix"}:
-                    charts.update(generate_stem_charts(audio, directory, missing - {"mix"}))
+                if pending - {"mix"}:
+                    charts.update(generate_stem_charts(audio, directory, pending - {"mix"}))
                 for instrument, (notes, duration) in charts.items():
+                    if instrument in refresh:
+                        route = "charts?id=eq." + urllib.parse.quote(str(refresh[instrument]), safe="") + "&user_id=eq." + admin_id
+                        request_json(base, key, route, "PATCH", {"notes": notes, "duration": duration})
+                        print(f"  Refreshed {instrument}: {len(notes)} notes", flush=True)
+                        continue
                     row = {"user_id": admin_id, "title": title, "artist": artist,
                            "youtube_url": url, "difficulty": "Medium", "lane_count": 5,
                            "duration": duration, "notes": notes}
@@ -268,8 +283,8 @@ def main():
                         row["instrument"] = instrument
                     request_json(base, key, "charts", "POST", row)
                     print(f"  Saved {instrument}: {len(notes)} notes", flush=True)
-                if set(charts) != missing:
-                    raise RuntimeError("Missing playable stems: " + ", ".join(sorted(missing - set(charts))))
+                if set(charts) != pending:
+                    raise RuntimeError("Missing playable stems: " + ", ".join(sorted(pending - set(charts))))
         except (RuntimeError, subprocess.TimeoutExpired, urllib.error.URLError, ValueError) as exc:
             failed += 1
             print(f"  Failed {url}: {exc}", file=sys.stderr, flush=True)
