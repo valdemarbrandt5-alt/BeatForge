@@ -4,6 +4,7 @@ import RankedMultiplayer from './RankedMultiplayer';
 import {supabase} from '../lib/supabase';
 import '../ranked-ui-enhancements';
 import '../ranked-forfeit';
+import '../ranked-bots';
 import '../main-ui-tweaks';
 import '../solo-ui-enhancements';
 import '../casual-social';
