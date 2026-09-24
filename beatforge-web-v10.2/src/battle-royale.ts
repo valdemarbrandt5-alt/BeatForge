@@ -1,5 +1,6 @@
 import { supabase } from './lib/supabase';
 import { instrumentLabel, loadChartById, loadSongInstruments, type ChartInstrument } from './chart-instruments';
+import {liveCompetitionPoints} from './competitive-score';
 
 type BRPlayer={
   id:string;user_id:string|null;name:string;is_bot:boolean;difficulty:string|null;ready:boolean;
@@ -35,6 +36,8 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   let intermissionClock:number|null=null;
   let intermissionDeadline:number|null=null;
   let lastIntermissionTick=0;
+  let lastVotePoll=0;
+  let voting=false;
 
   const esc=(s:any)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]||c));
   const num=(v:string|null|undefined)=>Number(String(v||'0').replace(/[^0-9-]/g,''))||0;
@@ -90,12 +93,34 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     const signature=`${state.players.map(p=>p.id).join(',')}:${full?state.lobby_deadline:''}`;
     if(overlay?.dataset.brLobby===signature)return;
     const remaining=Math.max(0,Math.ceil((new Date(state.lobby_deadline).getTime()-new Date(state.server_now).getTime())/1000));
-    const card=modal(`<button class="brX">×</button><small>BATTLE ROYALE</small><h1>${full?'MATCH FOUND':'SEARCHING FOR PLAYERS'}</h1><div class="brLobbyCount">${state.players.length}<span>/8 PLAYERS</span></div><div class="brLobbyClock">${full?`STARTING IN <b>${remaining}</b>`:`SEARCHING · <b>${Math.floor((Date.now()-(searchStartedAt||Date.now()))/1000)}s</b>`}</div><div class="brSearchBand">MATCHMAKING NEAR <b class="${rankClass(center)}">${rank(center)} · ${center} MMR</b></div><div class="brLobbyPlayers">${state.players.map(p=>`<span class="${p.me?'me':''}"><b>${esc(p.name)}</b><em class="${rankClass(Number(p.mmr||1000))}">${rank(Number(p.mmr||1000))} · ${Number(p.mmr||1000)} MMR</em></span>`).join('')}</div><button class="brSecondary brLeaveLobby">CANCEL</button>`);
+    const card=modal(`<button class="brX">×</button><small>BATTLE ROYALE</small><h1>${full?'MATCH FOUND':'SEARCHING FOR PLAYERS'}</h1><div class="brLobbyCount">${state.players.length}<span>/8 PLAYERS</span></div><div class="brLobbyClock">${full?`STARTING IN <b>${remaining}</b>`:`SEARCHING · <b>${Math.floor((Date.now()-(searchStartedAt||Date.now()))/1000)}s</b>`}</div><div class="brSearchBand">MATCHMAKING NEAR <b class="${rankClass(center)}">${rank(center)} · ${center} MMR</b></div><div class="brLobbyPlayers">${state.players.map(p=>`<span class="${p.me?'me':''}"><b>${esc(p.name)}</b><em class="${rankClass(Number(p.mmr||1000))}">${rank(Number(p.mmr||1000))} · ${Number(p.mmr||1000)} MMR</em></span>`).join('')}</div><div class="brSongVote"></div><button class="brSecondary brLeaveLobby">CANCEL</button>`);
     if(overlay)overlay.dataset.brLobby=signature;
     if(!full)lobbyClock=window.setInterval(()=>{const b=card.querySelector('.brLobbyClock b');if(b)b.textContent=`${Math.floor((Date.now()-(searchStartedAt||Date.now()))/1000)}s`},1000);
     else{const end=Date.now()+Math.max(0,new Date(state.lobby_deadline).getTime()-new Date(state.server_now).getTime());lobbyClock=window.setInterval(()=>{const b=card.querySelector('.brLobbyClock b');if(b)b.textContent=String(Math.max(0,Math.ceil((end-Date.now())/1000)))},100)}
     (card.querySelector('.brX') as HTMLButtonElement).onclick=()=>void leaveMode();
     (card.querySelector('.brLeaveLobby') as HTMLButtonElement).onclick=()=>void leaveMode();
+  };
+
+  const refreshSongVote=async(state:BRState)=>{
+    if(!matchId||voting)return;
+    const match=matchId;
+    const {data,error}=await db.rpc('get_battle_royale_song_vote',{p_match:match});
+    if(match!==matchId)return;
+    const panel=overlay?.querySelector<HTMLElement>('.brSongVote');
+    if(!panel)return;
+    if(error){panel.textContent='Song voting is unavailable. Apply the Battle Royale song voting migration.';return}
+    if(!data?.songs?.length){panel.textContent='Finding songs to vote on…';return}
+    const allowed=!state.players.find(p=>p.me)?.eliminated;
+    const seconds=Math.max(0,Math.ceil((new Date(data.deadline).getTime()-new Date(data.server_now).getTime())/1000));
+    panel.innerHTML=`<div class="brVoteTitle">VOTE FOR ROUND ${Number(data.round_no)} <span>${seconds}s · ONLY PLAYERS VOTE</span></div><div class="brVoteGrid">${data.songs.map((song:{id:string;title:string;artist:string|null;votes:number})=>`<button class="brVoteOption ${data.my_vote===song.id?'chosen':''}" data-song="${esc(song.id)}" ${!allowed||!seconds?'disabled':''}><b>${esc(song.title)}</b><span>${esc(song.artist||'Unknown artist')}</span><em>${Number(song.votes)||0} ${Number(song.votes)===1?'vote':'votes'}${data.my_vote===song.id?' · YOUR VOTE':''}</em></button>`).join('')}</div><p>Most votes wins. A tie is decided at random.</p>`;
+    panel.querySelectorAll<HTMLButtonElement>('.brVoteOption').forEach(button=>button.onclick=async()=>{
+      if(voting||!matchId)return;
+      voting=true;panel.querySelectorAll<HTMLButtonElement>('.brVoteOption').forEach(b=>b.disabled=true);
+      const {error:voteError}=await db.rpc('vote_battle_royale_song',{p_match:matchId,p_chart:button.dataset.song});
+      voting=false;
+      if(voteError){panel.insertAdjacentHTML('beforeend',`<p role="alert">${esc(voteError.message)}</p>`);return}
+      await refreshSongVote(state);
+    });
   };
 
   const clickChart=async(state:BRState)=>{
@@ -236,11 +261,13 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     if(overlay?.dataset.brResult===`${state.round_no}:${state.status}`)return;
     liveActive=false;removeHud();stopCountdown();
     const me=state.players.find(p=>p.me);if(!me)return;
+    const chartId=document.querySelector<HTMLElement>('main')?.dataset.activeChartId||state.chart?.id;
+    if(matchId&&chartId){void db.rpc('record_competitive_result',{p_mode:'battle_royale',p_match:matchId,p_round:state.round_no,p_chart:chartId,p_difficulty:document.querySelector<HTMLElement>('main')?.dataset.competitionDifficulty||me.difficulty||'Medium',p_song_points:currentScore()}).then(({error}:{error:any})=>{if(error)console.error('battle royale result save',error)})}
     const isWinner=state.status==='finished'&&me.placement===1;
     const out=!!me.eliminated&&!isWinner;
     const headline=isWinner?'VICTORY ROYALE':out?'ELIMINATED':`ROUND ${state.round_no} COMPLETE`;
     const sub=isWinner?'YOU ARE THE LAST PLAYER STANDING':out?`YOU FINISHED #${me.placement||'?'}`:'YOU SURVIVED';
-    const card=modal(`<small>BATTLE ROYALE</small><h1 class="brVerdict ${isWinner?'win':out?'loss':'survive'}">${headline}</h1><div class="brResultSub">${sub}</div><div class="brResultList">${roundRows(state)}</div>${mmrResult(me)}${state.status==='round_result'&&!out?'<div class="brIntermission">NEXT ROUND IN <b>30</b>s <span>Starting automatically</span></div><button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>':'<button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brDone">DONE</button>'}<div class="brStatsSheet" hidden><h2>YOUR PERFORMANCE</h2>${roundPerformance()}</div>`);
+    const card=modal(`<small>BATTLE ROYALE</small><h1 class="brVerdict ${isWinner?'win':out?'loss':'survive'}">${headline}</h1><div class="brResultSub">${sub}</div><div class="brResultList">${roundRows(state)}</div>${mmrResult(me)}${state.status==='round_result'&&!out?'<div class="brIntermission">NEXT ROUND IN <b>30</b>s <span>Starting automatically</span></div><div class="brSongVote"></div><button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>':'<button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brDone">DONE</button>'}<div class="brStatsSheet" hidden><h2>YOUR PERFORMANCE</h2>${roundPerformance()}</div>`);
     if(overlay)overlay.dataset.brResult=`${state.round_no}:${state.status}`;
     const stats=card.querySelector('.brShowStats') as HTMLButtonElement|null;
     if(stats)stats.onclick=()=>{const sheet=card.querySelector('.brStatsSheet') as HTMLElement;const open=sheet.hidden;sheet.hidden=!open;stats.textContent=open?'SHOW RESULTS':'SEE STATS';card.querySelector('.brResultList')?.classList.toggle('brResultsHidden',open);card.querySelector('.brMmrResult')?.classList.toggle('brResultsHidden',open)};
@@ -258,7 +285,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     if(!matchId||state.status!=='playing'||!liveActive)return;
     const r=resultEl();const finished=!!r;
     if(finished&&localSubmittedRound!==state.round_no){localSubmittedRound=state.round_no;hideSoloResult()}
-    const {error}=await db.rpc('battle_royale_update',{p_match:matchId,p_score:currentScore(),p_combo:currentCombo(),p_finished:finished});
+    const {error}=await db.rpc('battle_royale_update',{p_match:matchId,p_score:liveCompetitionPoints(),p_combo:currentCombo(),p_finished:finished});
     if(error)console.error('battle royale score',error);
   };
 
@@ -296,7 +323,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
         if(error)console.error('battle royale intermission',error);
         else if(data?.deadline)intermissionDeadline=new Date(data.deadline).getTime()-(new Date(data.server_now).getTime()-(sent+Date.now())/2);
       }
-      const state=await getState();if(state)await handleState(state);
+      const state=await getState();if(state){await handleState(state);if((state.status==='lobby'||state.status==='round_result')&&Date.now()-lastVotePoll>=1000){lastVotePoll=Date.now();await refreshSongVote(state)}}
     }finally{busy=false}
   };
 
@@ -368,6 +395,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
       .brVerdict{font-size:34px!important}.brVerdict.win{color:#ffd43b}.brVerdict.loss{color:#ff5a6e}.brVerdict.survive{color:#58e6a7}.brResultSub{margin:-2px 0 13px;font-size:9px;color:#949daf;font-weight:1000;letter-spacing:1px}.brResultList{display:flex;flex-direction:column;gap:4px;margin:12px 0 16px}.brResultRow{display:grid;grid-template-columns:35px minmax(0,1fr) 95px 75px;align-items:center;min-height:38px;padding:0 9px;border:1px solid #303747;border-radius:8px;background:#0d121a;text-align:left}.brResultRow>i{font-style:normal;font-size:9px;color:#8a94a5}.brResultRow>b{font-size:9px;display:grid}.brResultRow>b em{font-size:6px;font-style:normal;margin-top:2px}.brResultRow>span{text-align:right;font-size:10px;font-weight:1000}.brResultRow>small{text-align:right;font-size:6px;font-weight:1000;color:#52df9b}.brResultRow.out{opacity:.58}.brResultRow.out>small{color:#ff6173}.brResultRow.me{border-color:#ff71cc;box-shadow:0 0 10px #ff71cc18}.brMmrResult{display:flex;justify-content:center;align-items:center;gap:10px;padding:13px;border-top:1px solid #303747;border-bottom:1px solid #303747;margin:4px 0 16px;font-size:10px}.brMmrResult span{color:#747d8f}.brMmrResult strong{font-size:11px}.brMmrResult .positive{color:#48df92}.brMmrResult .negative{color:#ff5364}
       .brLeaveCard{width:min(420px,94vw);background:#111722;border:1px solid #3a4353;border-radius:18px;padding:24px;text-align:center}.brLeaveCard h2{margin:8px 0}.brLeaveCard p{color:#9ba5b7;font-size:11px}.brLeaveCard>div{display:flex;justify-content:center;gap:8px}.brLeaveCard button{padding:11px 16px;border-radius:10px;font-size:9px;font-weight:1000}.brLeaveConfirm{background:#38131b;border:1px solid #8b3448;color:#ff7888}.brLeaveCancel{background:#ed4eb9;border:1px solid #ff73cf;color:#fff}
       .brReadyClock{margin:12px auto;padding:9px 12px;border:1px solid #774361;border-radius:10px;background:#251522;color:#f1a8d4;font-size:10px;font-weight:900;letter-spacing:.7px}.brReadyClock b{color:#fff;font-size:18px}.brReadyClock span{display:block;margin-top:3px;color:#bba3b6;font-size:8px;font-weight:700;letter-spacing:0}.brReadyError:not([hidden]){margin:0 auto 12px;color:#ff8d9c;font-size:11px}
+      .brSongVote{margin:12px 0;color:#c8c1d7;font-size:10px}.brVoteTitle{display:flex;justify-content:space-between;gap:8px;font-size:10px;font-weight:1000;color:#ff8bd5}.brVoteTitle span{color:#9fa9b9;font-size:8px}.brVoteGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:10px 0}.brVoteOption{display:flex;flex-direction:column;gap:3px;padding:10px;text-align:left;background:#0d1420!important;border:1px solid #394053!important;border-radius:9px!important;color:#fff!important;cursor:pointer}.brVoteOption.chosen{border-color:#ff83d1!important;background:#392238!important}.brVoteOption b{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}.brVoteOption span,.brVoteOption em{font-size:8px;color:#b8b2c2;font-style:normal}.brVoteOption:disabled{cursor:default;opacity:.65}.brSongVote>p{font-size:9px;color:#9fa9b9}
       @media(max-width:760px){.brDifficultyGrid,.brLobbyPlayers{grid-template-columns:1fr}.game>.brLiveHud{width:160px!important}.brResultRow{grid-template-columns:30px minmax(0,1fr) 76px 62px}.brMmrResult{flex-wrap:wrap}}
     `;document.head.appendChild(s);
   };

@@ -11,6 +11,7 @@ type RankedRow={mmr:number;wins:number;losses:number;draws:number};
 type BattleRoyaleRow={wins:number;games:number;top4:number};
 type ProfileRow={username:string|null;avatar_url:string|null;created_at:string|null};
 type SongPerformance=ScoreRow&{chart?:ChartRow};
+type CompetitionRow={mode:string;round_no:number;chart_id:string;difficulty:string;competition_points:number;song_points:number;created_at:string};
 type SortMode='accuracy'|'score'|'streak';
 
 const rankInfo=(mmr:number)=>{
@@ -33,6 +34,7 @@ export default function ProfilePage(){
   const [ranked,setRanked]=useState<RankedRow>({mmr:1000,wins:0,losses:0,draws:0});
   const [battleRoyale,setBattleRoyale]=useState<BattleRoyaleRow>({wins:0,games:0,top4:0});
   const [scores,setScores]=useState<ScoreRow[]>([]);
+  const [competition,setCompetition]=useState<CompetitionRow[]>([]);
   const [charts,setCharts]=useState<ChartRow[]>([]);
   const [signedIn,setSignedIn]=useState(true);
   const [viewingOwn,setViewingOwn]=useState(true);
@@ -68,11 +70,18 @@ export default function ProfilePage(){
       if(scoreError){setError(scoreError);setLoading(false);return}
       if(!profileRes.data){setError('Player profile not found.');setLoading(false);return}
 
+      const {data:competitionRows,error:competitionError}=await supabase.from('competitive_results')
+        .select('mode,round_no,chart_id,difficulty,competition_points,song_points,created_at')
+        .eq('user_id',uid).order('created_at',{ascending:false}).limit(500);
+      if(competitionError)console.warn('Competitive results are not available yet:',competitionError.message);
+      if(cancelled)return;
+      setCompetition((competitionRows||[]) as CompetitionRow[]);
+
       setProfile(profileRes.data as ProfileRow);
       if(rankedRes.data)setRanked(rankedRes.data as RankedRow);
       if(battleRoyaleRes.data){const record=Array.isArray(battleRoyaleRes.data)?battleRoyaleRes.data[0]:battleRoyaleRes.data;if(record)setBattleRoyale(record as BattleRoyaleRow)}
       setScores(scoreRows);
-      const ids=Array.from(new Set(scoreRows.map(row=>row.chart_id).filter(Boolean)));
+      const ids=Array.from(new Set([...scoreRows.map(row=>row.chart_id),...(competitionRows||[]).map(row=>row.chart_id)].filter(Boolean)));
       if(ids.length){
         const chartResults=await Promise.all(Array.from({length:Math.ceil(ids.length/100)},(_,page)=>supabase!.from('charts').select('id,title,artist,youtube_url,instrument,difficulty').in('id',ids.slice(page*100,(page+1)*100))));
         if(cancelled)return;
@@ -103,6 +112,9 @@ export default function ProfilePage(){
   const uniqueSongs=new Set(instrumentPerformances.map(row=>youtubeId(row.chart?.youtube_url)||row.chart_id)).size;
   const averageAccuracy=instrumentPerformances.length?instrumentPerformances.reduce((sum,row)=>sum+(Number(row.accuracy)||0),0)/instrumentPerformances.length:0;
   const highestScore=instrumentPerformances.reduce((best,row)=>Math.max(best,Number(row.score)||0),0);
+  const instrumentCompetition=competition.filter(row=>selectedInstrument==='all'||(chartMap.get(row.chart_id)?.instrument||'mix')===selectedInstrument);
+  const bestBattle=Math.max(0,...instrumentCompetition.filter(row=>row.mode==='battle_royale').map(row=>Number(row.competition_points)||0));
+  const bestRanked=Math.max(0,...instrumentCompetition.filter(row=>row.mode!=='battle_royale').map(row=>Number(row.competition_points)||0));
   const rankedGames=ranked.wins+ranked.losses+ranked.draws;
   const decisiveGames=ranked.wins+ranked.losses;
   const winrate=decisiveGames?ranked.wins/decisiveGames*100:0;
@@ -126,11 +138,11 @@ export default function ProfilePage(){
 
     <section className={styles.instrumentPanel}>
       <div className={styles.sectionLabel}><div><small>YOUR INSTRUMENTS</small><h2>Performance by instrument</h2></div></div>
-      <p className={styles.instrumentHint}>Filter your song results. Ranked and Battle Royale share one MMR across instruments.</p>
+      <p className={styles.instrumentHint}>Song points count toward your personal best in every mode. Competitive points determine match placement; Ranked and Battle Royale share one MMR.</p>
       <div className={styles.instrumentTabs} role="group" aria-label="Filter profile by instrument">
         {(['all',...instrumentOrder] as const).map(instrument=><button key={instrument} type="button" className={selectedInstrument===instrument?styles.activeInstrument:''} aria-pressed={selectedInstrument===instrument} onClick={()=>setSelectedInstrument(instrument)}>{instrument==='all'?'All instruments':instrumentLabel(instrument)}<span>{instrument==='all'?performances.length:performances.filter(row=>(row.chart?.instrument||'mix')===instrument).length}</span></button>)}
       </div>
-      <div className={styles.instrumentNumbers}><div><small>PLAYS</small><strong>{instrumentPerformances.length}</strong></div><div><small>SONGS</small><strong>{uniqueSongs}</strong></div><div><small>AVERAGE ACCURACY</small><strong>{pct(averageAccuracy)}</strong></div><div><small>HIGHEST SCORE</small><strong>{highestScore.toLocaleString()}</strong></div></div>
+      <div className={styles.instrumentNumbers}><div><small>PLAYS</small><strong>{instrumentPerformances.length}</strong></div><div><small>SONGS</small><strong>{uniqueSongs}</strong></div><div><small>AVERAGE ACCURACY</small><strong>{pct(averageAccuracy)}</strong></div><div><small>BEST SONG POINTS</small><strong>{highestScore.toLocaleString()}</strong></div></div>
     </section>
 
     <section className={styles.statsGrid}>
@@ -150,7 +162,9 @@ export default function ProfilePage(){
       <article className={styles.rankedPanel}><div className={styles.sectionLabel}><div><small>COMPETITIVE</small><h2>Ranked record</h2></div></div><div className={styles.winDonut} style={{'--winrate':`${winrate*3.6}deg`} as React.CSSProperties}><div><strong>{pct(winrate)}</strong><span>WIN RATE</span></div></div><div className={styles.recordRows}><div><span>Wins</span><b>{ranked.wins}</b></div><div><span>Losses</span><b>{ranked.losses}</b></div><div><span>Draws</span><b>{ranked.draws}</b></div><div><span>MMR</span><b>{ranked.mmr}</b></div></div></article>
     </section>
 
-    <section className={styles.battleRoyalePanel}><div className={styles.sectionLabel}><div><small>COMPETITIVE · SHARED MMR</small><h2>Battle Royale</h2></div></div><div className={styles.battleRoyaleStats}><div><small>VICTORIES</small><strong>{battleRoyale.wins}</strong></div><div><small>TOP 4</small><strong>{battleRoyale.top4}</strong></div><div><small>MATCHES</small><strong>{battleRoyale.games}</strong></div><div><small>WIN RATE</small><strong>{pct(battleRoyale.games?battleRoyale.wins/battleRoyale.games*100:0)}</strong></div></div></section>
+    <section className={styles.battleRoyalePanel}><div className={styles.sectionLabel}><div><small>COMPETITIVE · SHARED MMR</small><h2>Battle Royale</h2></div></div><div className={styles.battleRoyaleStats}><div><small>VICTORIES</small><strong>{battleRoyale.wins}</strong></div><div><small>TOP 4</small><strong>{battleRoyale.top4}</strong></div><div><small>BEST BATTLE POINTS</small><strong>{bestBattle.toLocaleString()}</strong></div><div><small>BEST RANKED POINTS</small><strong>{bestRanked.toLocaleString()}</strong></div></div></section>
+
+    <section className={styles.listSection}><div className={styles.sectionLabel}><div><small>YOUR TWO SCORES</small><h2>Competitive rounds</h2></div></div><div className={styles.recentGrid}>{instrumentCompetition.slice(0,8).map((row,index)=><div className={styles.recentCard} key={`${row.created_at}-${index}`}><small>{row.mode==='battle_royale'?`BATTLE ROYALE · ROUND ${row.round_no}`:'RANKED'} · {row.difficulty}</small><strong>{chartMap.get(row.chart_id)?.title||'Song'}</strong><span>{instrumentLabel(chartMap.get(row.chart_id)?.instrument)}</span><b>{Number(row.competition_points).toLocaleString()} battle points</b><em>{Number(row.song_points).toLocaleString()} song points · personal record eligible</em></div>)}{!instrumentCompetition.length&&<div className={styles.noData}>No competitive rounds recorded for this instrument yet.</div>}</div></section>
 
     <section className={styles.listSection}>
       <div className={styles.performanceHeader}><div className={styles.sectionLabel}><div><small>PERSONAL BESTS</small><h2>Top performances</h2></div></div><div className={styles.sortControls}><span>SORT BY</span><button className={sortMode==='accuracy'?styles.activeSort:''} onClick={()=>setSortMode('accuracy')}>ACCURACY</button><button className={sortMode==='score'?styles.activeSort:''} onClick={()=>setSortMode('score')}>SCORE</button><button className={sortMode==='streak'?styles.activeSort:''} onClick={()=>setSortMode('streak')}>STREAK</button></div></div>

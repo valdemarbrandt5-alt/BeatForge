@@ -1,4 +1,5 @@
 import { supabase } from './lib/supabase';
+import {liveCompetitionPoints} from './competitive-score';
 import {groupSongs, instrumentLabel, loadChartById, loadSongInstruments, type ChartInstrument} from './chart-instruments';
 
 if (typeof window !== 'undefined' && supabase && window.location.pathname === '/') {
@@ -131,7 +132,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       try{
         const result=resultEl();
         const finished=!!result;
-        lastScore=finalScore();
+        lastScore=Math.max(lastScore,liveCompetitionPoints());
         const {data,error}=await db.rpc('update_ranked_bot_score',{p_match:active.id,p_score:lastScore,p_finished:finished});
         if(error){console.error('ranked bot score',error);return}
         const row=Array.isArray(data)?data[0]:data;
@@ -175,6 +176,8 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   const showResult=async(row:any,perf:any)=>{
     if(!active)return;
     clearLive();
+    const playedChart=document.querySelector<HTMLElement>('main')?.dataset.activeChartId||active.selected_chart_id;
+    if(playedChart){void db.rpc('record_competitive_result',{p_mode:'ranked_bot',p_match:active.id,p_round:1,p_chart:playedChart,p_difficulty:active.user_difficulty||'Medium',p_song_points:numberFrom(soloResult?.querySelector('.finalScore')?.textContent)}).then(({error}:{error:any})=>{if(error)console.error('ranked bot result save',error)})}
     const mine=lastScore,theirs=Number(row?.bot_score??active.bot_score??0),before=active.user_mmr_before,delta=Number(row?.mmr_delta??0),after=Number(row?.my_mmr??before+delta);
     const verdict=mine===theirs?'DRAW':mine>theirs?'VICTORY':'DEFEAT',cls=verdict==='VICTORY'?'win':verdict==='DEFEAT'?'loss':'draw';
     const card=modal('<small>RANKED DUEL COMPLETE · BOT</small><h1 class="rankedVerdict '+cls+'">'+verdict+'</h1><div class="rankedFinalScores"><span><small>YOU · '+esc(active.user_difficulty||'Medium')+'</small><b>'+mine.toLocaleString()+'</b></span><i>VS</i><span><small>'+esc(active.bot_name)+' · BOT · '+esc(active.bot_difficulty)+'</small><b>'+theirs.toLocaleString()+'</b></span></div><div class="rankedPerformance"><div data-stat="perfect"><b>'+esc(perf.perfect)+'</b><span>PERFECT</span></div><div data-stat="great"><b>'+esc(perf.great)+'</b><span>GREAT</span></div><div data-stat="good"><b>'+esc(perf.good)+'</b><span>GOOD</span></div><div data-stat="miss"><b>'+esc(perf.miss)+'</b><span>MISS</span></div><div data-stat="accuracy"><b>'+esc(perf.accuracy)+'</b><span>ACCURACY</span></div><div data-stat="combo"><b>'+esc(perf.combo)+'</b><span>MAX COMBO</span></div><div data-stat="timing"><b>'+esc(perf.timing)+'</b><span>'+esc(perf.timingLabel)+'</span></div></div><div class="rankedMmrResult"><b>'+rank(before)+' · '+before+'</b><span>→</span><b>'+rank(after)+' · '+after+'</b><strong class="'+(delta>=0?'positive':'negative')+'">'+(delta>0?'+':'')+delta+' MMR</strong></div><button class="rankedPrimary botAgain">PLAY ANOTHER RANKED</button><button class="rankedSecondary botDone">DONE</button>');
