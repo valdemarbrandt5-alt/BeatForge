@@ -1,9 +1,15 @@
 if (typeof window !== 'undefined' && window.location.pathname === '/') {
   let stableLobby: HTMLElement | null = null;
+  const nativeRemove = HTMLElement.prototype.remove;
 
   const playerKey = (row: Element) => {
     const name = row.querySelector('b')?.textContent?.trim() || '';
     return name.toLowerCase();
+  };
+
+  const hardRemove = (node: HTMLElement | null) => {
+    if (!node) return;
+    try { nativeRemove.call(node); } catch { node.parentElement?.removeChild(node); }
   };
 
   const syncLobby = (incoming: HTMLElement) => {
@@ -35,11 +41,10 @@ if (typeof window !== 'undefined' && window.location.pathname === '/') {
         existing.set(playerKey(row), row);
       });
 
-      const keep = new Set<string>();
+      const ordered: HTMLElement[] = [];
       [...nextList.children].forEach(child => {
         const nextRow = child as HTMLElement;
         const key = playerKey(nextRow);
-        keep.add(key);
         let row = existing.get(key);
         if (!row) {
           row = nextRow.cloneNode(true) as HTMLElement;
@@ -47,18 +52,21 @@ if (typeof window !== 'undefined' && window.location.pathname === '/') {
           row.innerHTML = nextRow.innerHTML;
           row.className = nextRow.className;
         }
-        currentList.appendChild(row);
+        ordered.push(row);
       });
 
-      [...currentList.children].forEach(child => {
-        const row = child as HTMLElement;
-        if (!keep.has(playerKey(row))) row.remove();
-      });
+      // Only touch the list when its actual player set/order changed. This keeps
+      // every existing row mounted through the 250 ms polling loop.
+      const currentOrder = [...currentList.children].map(playerKey).join('|');
+      const nextOrder = ordered.map(playerKey).join('|');
+      if (currentOrder !== nextOrder) {
+        currentList.replaceChildren(...ordered);
+      }
     }
 
-    // battle-royale.ts redraws the whole lobby every 250 ms. Keep the first
-    // lobby mounted and discard the replacement before the browser paints it.
-    incoming.remove();
+    // battle-royale.ts creates a replacement backdrop every poll. Copy its new
+    // data into the original lobby and discard the replacement before paint.
+    hardRemove(incoming);
   };
 
   const processBackdrop = (backdrop: HTMLElement) => {
@@ -67,9 +75,9 @@ if (typeof window !== 'undefined' && window.location.pathname === '/') {
       return;
     }
 
-    // A real mode transition (loading song, difficulty, results, etc.) should
-    // replace the lobby normally.
-    if (stableLobby?.isConnected) stableLobby.remove();
+    // A genuine transition (loading, difficulty, results, etc.) is allowed to
+    // replace the preserved lobby.
+    if (stableLobby?.isConnected) hardRemove(stableLobby);
     stableLobby = null;
   };
 
@@ -82,12 +90,23 @@ if (typeof window !== 'undefined' && window.location.pathname === '/') {
       .brBackdrop .brLobbyPlayers span {
         opacity: 1 !important;
         transform: none !important;
-      }
-      .brBackdrop[data-br-stable-lobby="1"] .brLobbyPlayers span {
         animation: none !important;
+        transition: none !important;
+      }
+      .brBackdrop[data-br-stable-lobby="1"] .brLobbyPlayers {
+        min-height: 0;
       }
     `;
     document.head.appendChild(style);
+
+    // The BR core calls overlay.remove() before drawing the next polling frame.
+    // Keep the one real lobby mounted. Its replacement is caught by the
+    // observer below, used only as fresh data, then removed with nativeRemove.
+    const patchedRemove = function(this: HTMLElement) {
+      if (stableLobby === this && this.isConnected && this.querySelector('.brLobbyPlayers')) return;
+      nativeRemove.call(this);
+    };
+    HTMLElement.prototype.remove = patchedRemove;
 
     const observer = new MutationObserver(records => {
       for (const record of records) {
@@ -100,14 +119,12 @@ if (typeof window !== 'undefined' && window.location.pathname === '/') {
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // If CANCEL/X is clicked on the preserved lobby, battle-royale.ts no
-    // longer owns that exact DOM node after the first poll, so clean it up too.
     document.addEventListener('click', event => {
       const target = event.target as HTMLElement | null;
       if (!stableLobby || !target || !stableLobby.contains(target)) return;
       if (!target.closest('.brLeaveLobby,.brX')) return;
       window.setTimeout(() => {
-        if (stableLobby?.isConnected) stableLobby.remove();
+        if (stableLobby?.isConnected) hardRemove(stableLobby);
         stableLobby = null;
       }, 0);
     }, true);
