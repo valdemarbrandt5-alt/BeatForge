@@ -6,6 +6,7 @@ import '../ranked-ui-enhancements';
 import '../ranked-forfeit';
 import '../ranked-bots';
 import '../ranked-bot-ui';
+import '../ranked-result-compare';
 import '../main-ui-tweaks';
 import '../solo-ui-enhancements';
 import '../casual-social';
