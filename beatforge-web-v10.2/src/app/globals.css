@@ -176,6 +176,7 @@
 .tileLike{position:absolute;right:10px;top:10px;z-index:3;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(7,10,16,.78);backdrop-filter:blur(8px);color:#d7dce7;padding:6px 9px;font-size:11px;font-weight:900;cursor:pointer}
 .tileLike:hover,.tileLike.liked{background:rgba(135,78,255,.9);border-color:#b398ff;color:#fff}
 .instrumentChoiceCard{max-width:510px}
+.chooserDifficulty{margin:14px 0}.chooserDifficulty small{display:block;color:#8e95a5;font-size:10px;font-weight:800;margin-bottom:6px}
 .instrumentChoiceBackdrop{z-index:90}
 .instrumentChoices{display:grid;gap:9px;max-height:55vh;overflow:auto;margin:20px 0}
 .instrumentOption{display:flex;gap:8px}
