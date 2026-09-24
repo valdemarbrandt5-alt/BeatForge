@@ -9,6 +9,7 @@ if (typeof window !== 'undefined' && supabase) {
   let promptEl: HTMLElement | null = null;
   let forfeitBy: string | null = null;
   let unloadSent = false;
+  let leavingNow = false;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -21,9 +22,14 @@ if (typeof window !== 'undefined' && supabase) {
   };
 
   const stopCurrentGameplay = () => {
-    const reset = Array.from(document.querySelectorAll('.controls button'))
-      .find(button => button.textContent?.trim() === 'RESET') as HTMLButtonElement | undefined;
-    reset?.click();
+    document.querySelectorAll('audio').forEach(node => {
+      const audio = node as HTMLAudioElement;
+      try { audio.pause(); } catch {}
+    });
+    document.querySelectorAll('iframe[src*="youtube.com/embed"]').forEach(node => {
+      const frame = node as HTMLIFrameElement;
+      try { frame.contentWindow?.postMessage(JSON.stringify({event:'command',func:'pauseVideo',args:[]}), '*'); } catch {}
+    });
   };
 
   const findPlayingMatch = async () => {
@@ -41,6 +47,7 @@ if (typeof window !== 'undefined' && supabase) {
       if (activeMatchId !== data.id) {
         forfeitBy = null;
         unloadSent = false;
+        leavingNow = false;
       }
       activeMatchId = String(data.id);
     }
@@ -54,7 +61,7 @@ if (typeof window !== 'undefined' && supabase) {
   };
 
   const heartbeat = async () => {
-    if (heartbeatBusy || !inRankedPlayContext()) return;
+    if (heartbeatBusy || leavingNow || !inRankedPlayContext()) return;
     heartbeatBusy = true;
     try {
       if (!activeMatchId) await findPlayingMatch();
@@ -82,17 +89,20 @@ if (typeof window !== 'undefined' && supabase) {
   };
 
   const reloadAfterForfeit = async () => {
+    leavingNow = true;
     unloadSent = true;
     activeMatchId = null;
     closePrompt();
+    stopCurrentGameplay();
     if (document.fullscreenElement) {
       try { await document.exitFullscreen(); } catch {}
     }
-    window.setTimeout(() => window.location.reload(), 80);
+    const destination = window.location.pathname + window.location.search;
+    window.setTimeout(() => window.location.replace(destination), 120);
   };
 
   const openForfeitPrompt = async () => {
-    if (promptEl || !document.querySelector('.realRankedLiveHud')) return;
+    if (leavingNow || promptEl || !document.querySelector('.realRankedLiveHud')) return;
     if (!activeMatchId) await findPlayingMatch();
     if (!activeMatchId) return;
 
@@ -108,6 +118,7 @@ if (typeof window !== 'undefined' && supabase) {
     const confirm = overlay.querySelector('.confirmForfeit') as HTMLButtonElement | null;
     if (cancel) cancel.onclick = closePrompt;
     if (confirm) confirm.onclick = async () => {
+      if (leavingNow) return;
       confirm.disabled = true;
       confirm.textContent = 'LEAVING…';
       const id = activeMatchId;
@@ -126,7 +137,7 @@ if (typeof window !== 'undefined' && supabase) {
   };
 
   const sendUnloadForfeit = () => {
-    if (unloadSent || !activeMatchId || !accessToken || !supabaseUrl || !anonKey) return;
+    if (leavingNow || unloadSent || !activeMatchId || !accessToken || !supabaseUrl || !anonKey) return;
     unloadSent = true;
     void fetch(`${supabaseUrl}/rest/v1/rpc/forfeit_ranked_match`,{
       method:'POST',
@@ -166,7 +177,7 @@ if (typeof window !== 'undefined' && supabase) {
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== 'Escape' || !document.querySelector('.realRankedLiveHud')) return;
+    if (event.key !== 'Escape' || leavingNow || !document.querySelector('.realRankedLiveHud')) return;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
