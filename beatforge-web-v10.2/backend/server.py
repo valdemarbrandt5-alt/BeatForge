@@ -74,7 +74,7 @@ def _run_import(job_id:str,ids:list[str],admin_id:str):
 def start_admin_import(payload:ImportLinks,authorization:str|None=Header(default=None)):
     admin_id=_admin_from_token(authorization)
     from import_youtube_charts import parse_video_id
-    if not payload.links or len(payload.links)>30: raise HTTPException(400,'Add 1 to 30 video links')
+    if not payload.links or len(payload.links)>100: raise HTTPException(400,'Add 1 to 100 video links')
     try: ids=list(dict.fromkeys(parse_video_id(link) for link in payload.links))
     except ValueError as exc: raise HTTPException(400,str(exc)) from exc
     with _import_lock:
