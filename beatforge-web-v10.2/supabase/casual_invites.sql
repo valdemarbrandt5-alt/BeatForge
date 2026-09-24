@@ -20,6 +20,18 @@ alter table public.casual_invites add column if not exists inviter_score bigint 
 alter table public.casual_invites add column if not exists invitee_score bigint not null default 0;
 alter table public.casual_invites add column if not exists inviter_combo integer not null default 0;
 alter table public.casual_invites add column if not exists invitee_combo integer not null default 0;
+alter table public.casual_invites add column if not exists inviter_finished boolean not null default false;
+alter table public.casual_invites add column if not exists invitee_finished boolean not null default false;
+alter table public.casual_invites add column if not exists inviter_perfect integer not null default 0;
+alter table public.casual_invites add column if not exists invitee_perfect integer not null default 0;
+alter table public.casual_invites add column if not exists inviter_great integer not null default 0;
+alter table public.casual_invites add column if not exists invitee_great integer not null default 0;
+alter table public.casual_invites add column if not exists inviter_good integer not null default 0;
+alter table public.casual_invites add column if not exists invitee_good integer not null default 0;
+alter table public.casual_invites add column if not exists inviter_miss integer not null default 0;
+alter table public.casual_invites add column if not exists invitee_miss integer not null default 0;
+alter table public.casual_invites add column if not exists inviter_max_combo integer not null default 0;
+alter table public.casual_invites add column if not exists invitee_max_combo integer not null default 0;
 
 create index if not exists casual_invites_invitee_status_idx on public.casual_invites(invitee_id,status,created_at desc);
 create index if not exists casual_invites_inviter_status_idx on public.casual_invites(inviter_id,status,created_at desc);
@@ -91,7 +103,19 @@ begin
           inviter_score=0,
           invitee_score=0,
           inviter_combo=0,
-          invitee_combo=0
+          invitee_combo=0,
+          inviter_finished=false,
+          invitee_finished=false,
+          inviter_perfect=0,
+          invitee_perfect=0,
+          inviter_great=0,
+          invitee_great=0,
+          inviter_good=0,
+          invitee_good=0,
+          inviter_miss=0,
+          invitee_miss=0,
+          inviter_max_combo=0,
+          invitee_max_combo=0
       where id=p_invite
       returning * into r;
   end if;
@@ -183,6 +207,56 @@ begin
 end $$;
 
 grant execute on function public.casual_update_live(uuid,bigint,integer) to authenticated;
+
+create or replace function public.casual_finish_match(
+  p_invite uuid,
+  p_score bigint,
+  p_perfect integer,
+  p_great integer,
+  p_good integer,
+  p_miss integer,
+  p_max_combo integer
+)
+returns void
+language plpgsql
+security definer
+set search_path=public
+as $$
+declare
+  uid uuid := auth.uid();
+  r public.casual_invites%rowtype;
+begin
+  if uid is null then raise exception 'Not authenticated'; end if;
+
+  select * into r from public.casual_invites where id=p_invite for update;
+  if r.id is null then raise exception 'Invite not found'; end if;
+  if uid not in (r.inviter_id,r.invitee_id) then raise exception 'Not in this casual match'; end if;
+  if r.status <> 'accepted' then raise exception 'Casual match is not active'; end if;
+
+  if uid=r.inviter_id then
+    update public.casual_invites as ci set
+      inviter_finished=true,
+      inviter_score=greatest(ci.inviter_score,greatest(coalesce(p_score,0),0)),
+      inviter_perfect=greatest(coalesce(p_perfect,0),0),
+      inviter_great=greatest(coalesce(p_great,0),0),
+      inviter_good=greatest(coalesce(p_good,0),0),
+      inviter_miss=greatest(coalesce(p_miss,0),0),
+      inviter_max_combo=greatest(coalesce(p_max_combo,0),0)
+    where ci.id=p_invite;
+  else
+    update public.casual_invites as ci set
+      invitee_finished=true,
+      invitee_score=greatest(ci.invitee_score,greatest(coalesce(p_score,0),0)),
+      invitee_perfect=greatest(coalesce(p_perfect,0),0),
+      invitee_great=greatest(coalesce(p_great,0),0),
+      invitee_good=greatest(coalesce(p_good,0),0),
+      invitee_miss=greatest(coalesce(p_miss,0),0),
+      invitee_max_combo=greatest(coalesce(p_max_combo,0),0)
+    where ci.id=p_invite;
+  end if;
+end $$;
+
+grant execute on function public.casual_finish_match(uuid,bigint,integer,integer,integer,integer,integer) to authenticated;
 
 create or replace function public.casual_leave_match(p_invite uuid)
 returns void
