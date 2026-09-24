@@ -241,9 +241,9 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
 
   const updateReadyCount=(state:BRState)=>{
     const el=overlay?.querySelector('.brReadyStatus');if(!el)return;
-    const aliveHumans=state.players.filter(p=>!p.eliminated&&!p.is_bot);
-    const ready=aliveHumans.filter(p=>p.ready).length;
-    if(ready)el.textContent=`${ready} / ${aliveHumans.length} READY`;
+    const survivors=state.players.filter(p=>!p.eliminated);
+    const ready=survivors.filter(p=>p.ready).length;
+    el.textContent=`${ready} / ${survivors.length} READY`;
   };
 
   const handleState=async(state:BRState)=>{
