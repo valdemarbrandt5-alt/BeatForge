@@ -1,7 +1,8 @@
 import { supabase } from './lib/supabase';
+import { instrumentLabel, loadChartById, type ChartInstrument } from './chart-instruments';
 
 type FriendInfo={id:string;username:string};
-type ChartInfo={id:string;title:string;artist:string|null;youtube_url:string|null;play_count:number|null};
+type ChartInfo={id:string;title:string;artist:string|null;youtube_url:string|null;instrument?:ChartInstrument;play_count:number|null};
 type CasualRow={
   id:string;
   inviter_id:string;
@@ -124,32 +125,15 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   };
 
   const showLoadingMatch=()=>{
-    casualModal(`<small>CASUAL MATCH</small><div class="casualWaitSpinner"></div><h2>LOADING SONG</h2><p>Preparing <b>${esc(activeChart?.title||'the selected song')}</b> for both players…</p>`);
+    casualModal(`<small>CASUAL MATCH</small><div class="casualWaitSpinner"></div><h2>LOADING SONG</h2><p>Preparing <b>${esc(activeChart?.title||'the selected song')} · ${esc(instrumentLabel(activeChart?.instrument))}</b> for both players…</p>`);
   };
 
   const loadChart=async(chartId:string)=>{
-    const {data:chart}=await db.from('charts').select('id,title,artist,youtube_url,play_count').eq('id',chartId).maybeSingle();
+    const {data:chart}=await db.from('charts').select('id,title,artist,youtube_url,instrument,play_count').eq('id',chartId).maybeSingle();
     if(!chart)return false;
     activeChart=chart as ChartInfo;
     closeFriendsModal();
-    const community=Array.from(document.querySelectorAll('button')).find((b:any)=>b.textContent?.trim()==='COMMUNITY') as HTMLButtonElement|undefined;
-    community?.click();
-    return await new Promise<boolean>(resolve=>{
-      let tries=0;
-      const timer=window.setInterval(()=>{
-        tries++;
-        const title=String(chart.title||'').trim().toLowerCase();
-        const artist=String(chart.artist||'').trim().toLowerCase();
-        const cards=Array.from(document.querySelectorAll('.communityTile')) as HTMLElement[];
-        const target=cards.find(card=>{
-          const t=(card.querySelector('.tileInfo strong')?.textContent||'').trim().toLowerCase();
-          const a=(card.querySelector('.tileInfo span')?.textContent||'').trim().toLowerCase();
-          return t===title&&(!artist||a===artist);
-        });
-        if(target){window.clearInterval(timer);target.click();window.setTimeout(()=>resolve(true),220)}
-        else if(tries>55){window.clearInterval(timer);resolve(false)}
-      },120);
-    });
+    return loadChartById(chartId);
   };
 
   const applyDifficulty=(difficulty:string)=>{
@@ -242,7 +226,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
 
   const openSongPicker=async(friend:FriendInfo)=>{
     closePicker();
-    const {data,error}=await db.from('charts').select('id,title,artist,youtube_url,play_count').order('play_count',{ascending:false}).limit(120);
+    const {data,error}=await db.from('charts').select('id,title,artist,youtube_url,instrument,play_count').order('play_count',{ascending:false}).limit(120);
     if(error){toast('Could not load songs.');return}
     const charts=(data||[]) as ChartInfo[];
     const overlay=document.createElement('div');
@@ -254,7 +238,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     const render=()=>{
       const q=input.value.trim().toLowerCase();
       const visible=charts.filter(c=>!q||c.title.toLowerCase().includes(q)||(c.artist||'').toLowerCase().includes(q)).slice(0,30);
-      list.innerHTML=visible.map(c=>{const y=ytId(c.youtube_url);return `<button class="casualSong" data-id="${esc(c.id)}">${y?`<img src="https://i.ytimg.com/vi/${esc(y)}/mqdefault.jpg" alt="">`:'<span class="casualSongFallback">BF</span>'}<span><b>${esc(c.title)}</b><em>${esc(c.artist||'Unknown artist')}</em></span><strong>INVITE</strong></button>`}).join('')||'<div class="casualEmpty">No songs found.</div>';
+      list.innerHTML=visible.map(c=>{const y=ytId(c.youtube_url);return `<button class="casualSong" data-id="${esc(c.id)}">${y?`<img src="https://i.ytimg.com/vi/${esc(y)}/mqdefault.jpg" alt="">`:'<span class="casualSongFallback">BF</span>'}<span><b>${esc(c.title)}</b><em>${esc(c.artist||'Unknown artist')} · ${esc(instrumentLabel(c.instrument))}</em></span><strong>INVITE</strong></button>`}).join('')||'<div class="casualEmpty">No songs found.</div>';
       list.querySelectorAll('.casualSong').forEach(button=>button.addEventListener('click',()=>{const chart=charts.find(c=>c.id===(button as HTMLElement).dataset.id);if(chart)void sendInvite(friend,chart)}));
     };
     input.addEventListener('input',render);render();input.focus();
@@ -290,7 +274,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       if(!uid||invitePrompt||activeInviteId)return;
       const now=new Date().toISOString();
       const {data,error}=await db.from('casual_invites')
-        .select('id,inviter_id,invitee_id,chart_id,created_at,inviter:profiles!casual_invites_inviter_id_fkey(username),chart:charts!casual_invites_chart_id_fkey(id,title,artist,youtube_url,play_count)')
+        .select('id,inviter_id,invitee_id,chart_id,created_at,inviter:profiles!casual_invites_inviter_id_fkey(username),chart:charts!casual_invites_chart_id_fkey(id,title,artist,youtube_url,instrument,play_count)')
         .eq('invitee_id',uid).eq('status','pending').gt('expires_at',now)
         .order('created_at',{ascending:false}).limit(1).maybeSingle();
       if(error||!data||data.id===shownInviteId)return;
@@ -300,7 +284,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       const overlay=document.createElement('div');
       overlay.className='casualInvitePrompt';
       const y=ytId(chart?.youtube_url||null);
-      overlay.innerHTML=`<div class="casualInviteCard"><small>CASUAL INVITE</small><h2>${esc(inviter)} wants to play</h2><div class="casualInviteSong">${y?`<img src="https://i.ytimg.com/vi/${esc(y)}/mqdefault.jpg" alt="">`:'<span>BF</span>'}<div><b>${esc(chart?.title||'Unknown song')}</b><em>${esc(chart?.artist||'Unknown artist')}</em></div></div><p>No MMR. You will both choose difficulty and ready up before the song starts.</p><div><button class="casualAccept">ACCEPT</button><button class="casualDecline">DECLINE</button></div></div>`;
+      overlay.innerHTML=`<div class="casualInviteCard"><small>CASUAL INVITE</small><h2>${esc(inviter)} wants to play</h2><div class="casualInviteSong">${y?`<img src="https://i.ytimg.com/vi/${esc(y)}/mqdefault.jpg" alt="">`:'<span>BF</span>'}<div><b>${esc(chart?.title||'Unknown song')}</b><em>${esc(chart?.artist||'Unknown artist')} · ${esc(instrumentLabel(chart?.instrument))}</em></div></div><p>No MMR. You will both choose difficulty and ready up before the song starts.</p><div><button class="casualAccept">ACCEPT</button><button class="casualDecline">DECLINE</button></div></div>`;
       document.body.appendChild(overlay);invitePrompt=overlay;
       (overlay.querySelector('.casualAccept') as HTMLButtonElement).onclick=async()=>{
         const {error:acceptError}=await db.from('casual_invites').update({status:'accepted',responded_at:new Date().toISOString()}).eq('id',data.id).eq('invitee_id',uid);
@@ -325,7 +309,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     flowPollBusy=true;
     try{
       const {data,error}=await db.from('casual_invites')
-        .select('id,inviter_id,invitee_id,chart_id,status,inviter_ready,invitee_ready,start_at,chart:charts!casual_invites_chart_id_fkey(id,title,artist,youtube_url,play_count)')
+        .select('id,inviter_id,invitee_id,chart_id,status,inviter_ready,invitee_ready,start_at,chart:charts!casual_invites_chart_id_fkey(id,title,artist,youtube_url,instrument,play_count)')
         .eq('id',activeInviteId).maybeSingle();
       if(error){
         if(!flowErrorShown){

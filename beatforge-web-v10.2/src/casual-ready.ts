@@ -1,4 +1,5 @@
 import { supabase } from './lib/supabase';
+import { instrumentLabel, type ChartInstrument } from './chart-instruments';
 
 type CasualRow={
   id:string;
@@ -8,7 +9,7 @@ type CasualRow={
   invitee_ready:boolean;
   start_at:string|null;
   created_at:string;
-  chart?:{id:string;title:string;artist:string|null}|null;
+  chart?:{id:string;title:string;artist:string|null;instrument?:ChartInstrument}|null;
   inviter?:{username:string|null}|null;
   invitee?:{username:string|null}|null;
 };
@@ -30,7 +31,6 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   };
 
   const playButton=()=>Array.from(document.querySelectorAll('.controls button')).find((b:any)=>b.textContent?.trim()==='PLAY') as HTMLButtonElement|undefined;
-  const currentSong=()=>String(document.querySelector('.upload strong')?.textContent||'').trim().toLowerCase();
 
   const closeOverlay=()=>{
     overlay?.remove();
@@ -100,7 +100,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   const ensureOverlay=(row:CasualRow)=>{
     if(sessionStorage.getItem(`beatforge-casual-started:${row.id}`))return;
     const title=String(row.chart?.title||'Casual song');
-    if(currentSong()!==title.trim().toLowerCase()||document.querySelector('.communityOverlay'))return;
+    if(document.querySelector('main')?.getAttribute('data-active-chart-id')!==row.chart?.id||document.querySelector('.communityOverlay'))return;
     if(!overlay){
       const iAmInviter=row.inviter_id===uid;
       const meName=iAmInviter?(row.inviter?.username||'You'):(row.invitee?.username||'You');
@@ -109,7 +109,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       el.className='casualReadyBackdrop';
       el.innerHTML=`<div class="casualReadyCard"><small>CASUAL MATCH</small><h2>READY UP</h2><p>You both start together. No Ranked, no MMR.</p><div class="casualReadySong"><strong></strong><span></span></div><div class="casualReadyPlayers"><div class="casualReadyPlayer casualReadyMe"><span>YOU</span><b></b></div><div class="casualReadyPlayer casualReadyOpp"><span>FRIEND</span><b></b></div></div><button class="casualReadyButton">READY</button><div class="casualReadyStatus">PRESS READY WHEN YOU ARE SET</div></div>`;
       (el.querySelector('.casualReadySong strong') as HTMLElement).textContent=title;
-      (el.querySelector('.casualReadySong span') as HTMLElement).textContent=String(row.chart?.artist||'Unknown artist');
+      (el.querySelector('.casualReadySong span') as HTMLElement).textContent=String(row.chart?.artist||'Unknown artist')+' · '+instrumentLabel(row.chart?.instrument);
       (el.querySelector('.casualReadyMe b') as HTMLElement).textContent=String(meName);
       (el.querySelector('.casualReadyOpp b') as HTMLElement).textContent=String(oppName);
       (el.querySelector('.casualReadyButton') as HTMLButtonElement).onclick=async()=>{
@@ -133,7 +133,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       if(!uid)return;
       const cutoff=new Date(Date.now()-10*60*1000).toISOString();
       const {data,error}=await db.from('casual_invites')
-        .select('id,inviter_id,invitee_id,inviter_ready,invitee_ready,start_at,created_at,chart:charts!casual_invites_chart_id_fkey(id,title,artist),inviter:profiles!casual_invites_inviter_id_fkey(username),invitee:profiles!casual_invites_invitee_id_fkey(username)')
+        .select('id,inviter_id,invitee_id,inviter_ready,invitee_ready,start_at,created_at,chart:charts!casual_invites_chart_id_fkey(id,title,artist,instrument),inviter:profiles!casual_invites_inviter_id_fkey(username),invitee:profiles!casual_invites_invitee_id_fkey(username)')
         .eq('status','accepted')
         .or(`inviter_id.eq.${uid},invitee_id.eq.${uid}`)
         .gt('created_at',cutoff)

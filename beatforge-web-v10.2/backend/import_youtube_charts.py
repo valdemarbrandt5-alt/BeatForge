@@ -1,4 +1,4 @@
-"""Local admin import: python import_youtube_charts.py links.txt [--dry-run].
+"""Local admin import: python import_youtube_charts.py links.txt [--instruments all].
 
 Requires yt-dlp, ffmpeg and the packages in requirements.txt.
 Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and BEATFORGE_ADMIN_USER_ID locally.
@@ -171,10 +171,40 @@ def generate_chart(audio: Path, directory: Path):
     return notes, duration
 
 
+def generate_stem_charts(audio: Path, directory: Path, instruments: set[str]):
+    """Separate audio once, then analyze the requested original Demucs stems."""
+    from stem_chart import STEMS, analyze_stem
+
+    output = directory / "separated"
+    print("  Separating vocals, drums, bass and melody with Demucs…", flush=True)
+    proc = subprocess.run(
+        [sys.executable, "-m", "demucs", "-n", "htdemucs", "--out", str(output), str(audio)],
+        capture_output=True, text=True, timeout=1800,
+    )
+    if proc.returncode:
+        raise RuntimeError("Demucs separation failed: " + proc.stderr[-900:])
+    stem_directory = output / "htdemucs" / audio.stem
+    charts = {}
+    for instrument in STEMS:
+        if instrument not in instruments:
+            continue
+        path = stem_directory / STEMS[instrument]
+        if not path.is_file():
+            raise RuntimeError(f"Demucs did not produce {STEMS[instrument]}")
+        notes, duration = analyze_stem(path, instrument)
+        if len(notes) < 4:
+            print(f"  Skipped {instrument}: fewer than four detected notes", flush=True)
+            continue
+        charts[instrument] = (notes, duration)
+    return charts
+
+
 def main():
     parser = argparse.ArgumentParser(description="Import YouTube links as BeatForge charts")
     parser.add_argument("links", type=Path, help="Text file containing one link per line")
     parser.add_argument("--dry-run", action="store_true", help="Show metadata without downloading or saving")
+    parser.add_argument("--instruments", choices=("mix", "stems", "all"), default="mix",
+                        help="mix (default), four separated stems, or mix plus all four stems")
     args = parser.parse_args()
     ids = read_links(args.links)
     if not ids:
@@ -194,16 +224,26 @@ def main():
             parser.error("The specified account is not an admin")
         if not shutil.which("ffmpeg"):
             parser.error("ffmpeg is required to extract audio")
+        if args.instruments != "mix":
+            import importlib.util
+            if importlib.util.find_spec("demucs") is None:
+                parser.error("Install Demucs in this Python environment: py -m pip install demucs")
 
     failed = 0
+    requested = ({"mix"} if args.instruments == "mix" else
+                 {"vocals", "drums", "bass", "melody"} if args.instruments == "stems" else
+                 {"mix", "vocals", "drums", "bass", "melody"})
     for index, video_id in enumerate(ids, 1):
         url = "https://www.youtube.com/watch?v=" + video_id
         try:
             if not args.dry_run:
                 # Include alternate YouTube URLs with the same video id.
-                query = "charts?select=id&youtube_url=ilike." + urllib.parse.quote("*" + video_id + "*", safe="") + "&limit=1"
-                if request_json(base, key, query):
-                    print(f"[{index}/{len(ids)}] Already exists: {url}", flush=True)
+                query = "charts?select=id,instrument&youtube_url=ilike." + urllib.parse.quote("*" + video_id + "*", safe="") + "&limit=100"
+                existing = request_json(base, key, query) or []
+                found = {row["instrument"] for row in existing}
+                missing = requested - found
+                if not missing:
+                    print(f"[{index}/{len(ids)}] All requested instruments already exist: {url}", flush=True)
                     continue
             metadata = youtube_metadata(url)
             title = (metadata.get("track") or metadata.get("title") or video_id).strip()
@@ -211,17 +251,25 @@ def main():
             if args.dry_run:
                 print(f"[{index}/{len(ids)}] {artist} - {title} ({url})", flush=True)
                 continue
-            print(f"[{index}/{len(ids)}] Generating {artist} - {title}", flush=True)
+            print(f"[{index}/{len(ids)}] Generating {artist} - {title} ({', '.join(sorted(missing))})", flush=True)
             with tempfile.TemporaryDirectory(prefix="beatforge_import_") as temp:
                 directory = Path(temp)
                 audio = download_audio(url, directory)
-                notes, duration = generate_chart(audio, directory)
-                request_json(base, key, "charts", "POST", {
-                    "user_id": admin_id, "title": title, "artist": artist,
-                    "youtube_url": url, "difficulty": "Medium", "lane_count": 5,
-                    "duration": duration, "notes": notes,
-                })
-            print(f"  Saved {len(notes)} notes", flush=True)
+                charts = {}
+                if "mix" in missing:
+                    charts["mix"] = generate_chart(audio, directory)
+                if missing - {"mix"}:
+                    charts.update(generate_stem_charts(audio, directory, missing - {"mix"}))
+                for instrument, (notes, duration) in charts.items():
+                    row = {"user_id": admin_id, "title": title, "artist": artist,
+                           "youtube_url": url, "difficulty": "Medium", "lane_count": 5,
+                           "duration": duration, "notes": notes}
+                    if instrument != "mix":
+                        row["instrument"] = instrument
+                    request_json(base, key, "charts", "POST", row)
+                    print(f"  Saved {instrument}: {len(notes)} notes", flush=True)
+                if set(charts) != missing:
+                    raise RuntimeError("Missing playable stems: " + ", ".join(sorted(missing - set(charts))))
         except (RuntimeError, subprocess.TimeoutExpired, urllib.error.URLError, ValueError) as exc:
             failed += 1
             print(f"  Failed {url}: {exc}", file=sys.stderr, flush=True)

@@ -1,4 +1,5 @@
 import { supabase } from './lib/supabase';
+import { instrumentLabel, loadChartById, type ChartInstrument } from './chart-instruments';
 
 type BRPlayer={
   id:string;user_id:string|null;name:string;is_bot:boolean;difficulty:string|null;ready:boolean;
@@ -8,7 +9,7 @@ type BRPlayer={
 type BRState={
   id:string;status:'lobby'|'loading'|'playing'|'round_result'|'finished'|'cancelled';round_no:number;
   start_at:string|null;server_now:string;lobby_deadline:string;ready_deadline:string|null;rating_center:number;
-  chart:null|{id:string;title:string;artist:string|null;youtube_url:string|null};players:BRPlayer[];
+  chart:null|{id:string;title:string;artist:string|null;youtube_url:string|null;instrument?:ChartInstrument};players:BRPlayer[];
 };
 
 if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
@@ -26,6 +27,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   let leavePrompt:HTMLElement|null=null;
   let liveActive=false;
   let lastState:BRState|null=null;
+  const instrumentCache=new Map<string,ChartInstrument>();
   let searchStartedAt:number|null=null;
   let lobbyClock:number|null=null;
   let readyClock:number|null=null;
@@ -70,7 +72,15 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     if(!matchId)return null;
     const {data,error}=await db.rpc('get_battle_royale_state',{p_match:matchId});
     if(error){console.error('battle royale state',error);return null}
-    return data as BRState|null;
+    const state=data as BRState|null;
+    if(state?.chart){
+      if(!instrumentCache.has(state.chart.id)){
+        const {data:chart}=await db.from('charts').select('instrument').eq('id',state.chart.id).maybeSingle();
+        instrumentCache.set(state.chart.id,(chart?.instrument||'mix') as ChartInstrument);
+      }
+      state.chart.instrument=instrumentCache.get(state.chart.id);
+    }
+    return state;
   };
 
   const renderLobby=(state:BRState)=>{
@@ -89,19 +99,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
 
   const clickChart=async(state:BRState)=>{
     const chart=state.chart;if(!chart)return false;
-    const community=[...document.querySelectorAll('button')].find(b=>b.textContent?.trim()==='COMMUNITY') as HTMLButtonElement|undefined;
-    community?.click();
-    return await new Promise<boolean>(resolve=>{
-      let tries=0;
-      const timer=window.setInterval(()=>{
-        tries++;
-        const cards=[...document.querySelectorAll('.communityTile')] as HTMLElement[];
-        const title=String(chart.title||'').trim().toLowerCase(),artist=String(chart.artist||'').trim().toLowerCase();
-        const target=cards.find(c=>(c.querySelector('.tileInfo strong')?.textContent?.trim().toLowerCase()||'')===title&&(!artist||(c.querySelector('.tileInfo span')?.textContent?.trim().toLowerCase()||'')===artist));
-        if(target){clearInterval(timer);target.click();resolve(true)}
-        else if(tries>45){clearInterval(timer);resolve(false)}
-      },150);
-    });
+    return loadChartById(chart.id);
   };
 
   const startReadyClock=(card:HTMLElement,state:BRState)=>{
@@ -115,7 +113,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const showDifficulty=async(state:BRState)=>{
     const chart=state.chart;if(!chart)return;
     if(lastState?.status!=='loading'||lastState.round_no!==state.round_no)return;
-    const card=modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><h2>CHOOSE YOUR DIFFICULTY</h2><p>Everyone plays the same song. Difficulty is individual.</p><div class="brReadyClock">TIME LEFT <b>15</b>s <span>Medium is selected automatically at zero.</span></div><div class="brSong"><b>${esc(chart.title)}</b><span>${esc(chart.artist||'')}</span></div><div class="brDifficultyGrid">${['Easy','Medium','Hard','Expert'].map(d=>`<button data-d="${d}"><b>${d}</b><span>${d==='Easy'?'Safer combos':d==='Medium'?'Balanced':d==='Hard'?'More scoring potential':'Maximum scoring potential'}</span></button>`).join('')}</div>`);
+    const card=modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><h2>CHOOSE YOUR DIFFICULTY</h2><p>Everyone plays the same song. Difficulty is individual.</p><div class="brReadyClock">TIME LEFT <b>15</b>s <span>Medium is selected automatically at zero.</span></div><div class="brSong"><b>${esc(chart.title)}</b><span>${esc(chart.artist||'')} · ${esc(instrumentLabel(chart.instrument))}</span></div><div class="brDifficultyGrid">${['Easy','Medium','Hard','Expert'].map(d=>`<button data-d="${d}"><b>${d}</b><span>${d==='Easy'?'Safer combos':d==='Medium'?'Balanced':d==='Hard'?'More scoring potential':'Maximum scoring potential'}</span></button>`).join('')}</div>`);
     startReadyClock(card,state);
     card.querySelectorAll<HTMLButtonElement>('[data-d]').forEach(button=>button.onclick=async()=>{
       const d=button.dataset.d||'Medium';
@@ -148,7 +146,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     if(preparedRound===state.round_no||!state.chart)return;
     const me=state.players.find(p=>p.me);if(me?.eliminated)return;
     preparedRound=state.round_no;startedRound=0;localSubmittedRound=0;liveActive=false;removeHud();stopCountdown();
-    modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><div class="brSpinner"></div><h2>LOADING SONG</h2><p>${esc(state.chart.title)} · ${esc(state.chart.artist||'')}</p>`);
+    modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><div class="brSpinner"></div><h2>LOADING SONG</h2><p>${esc(state.chart.title)} · ${esc(state.chart.artist||'')} · ${esc(instrumentLabel(state.chart.instrument))}</p>`);
     const loaded=await clickChart(state);
     if(!loaded){
       preparedRound=0;
