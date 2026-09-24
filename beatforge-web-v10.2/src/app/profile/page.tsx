@@ -2,7 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import {supabase} from '../../lib/supabase';
-import {instrumentLabel, type ChartInstrument} from '../../chart-instruments';
+import {instrumentLabel, instrumentOrder, type ChartInstrument} from '../../chart-instruments';
 import styles from './profile.module.css';
 
 type ScoreRow={chart_id:string;score:number;accuracy:number;max_combo:number;perfect:number;great:number;good:number;miss:number;difficulty:string|null;created_at:string};
@@ -37,6 +37,7 @@ export default function ProfilePage(){
   const [signedIn,setSignedIn]=useState(true);
   const [viewingOwn,setViewingOwn]=useState(true);
   const [sortMode,setSortMode]=useState<SortMode>('accuracy');
+  const [selectedInstrument,setSelectedInstrument]=useState<'all'|ChartInstrument>('all');
 
   useEffect(()=>{
     let cancelled=false;
@@ -49,28 +50,35 @@ export default function ProfilePage(){
       const uid=requested||auth.user.id;
       setViewingOwn(uid===auth.user.id);
 
-      const [profileRes,rankedRes,scoresRes,battleRoyaleRes]=await Promise.all([
+      const [profileRes,rankedRes,battleRoyaleRes]=await Promise.all([
         supabase.from('profiles').select('username,avatar_url,created_at').eq('id',uid).maybeSingle(),
         supabase.from('ranked_players').select('mmr,wins,losses,draws').eq('user_id',uid).maybeSingle(),
-        supabase.from('scores').select('chart_id,score,accuracy,max_combo,perfect,great,good,miss,difficulty,created_at').eq('user_id',uid).order('created_at',{ascending:false}).limit(500),
         supabase.rpc('get_battle_royale_profile',{p_user:uid})
       ]);
+      const scoreRows:ScoreRow[]=[];
+      let scoreError='';
+      for(let offset=0;!scoreError;offset+=500){
+        const page=await supabase.from('scores').select('chart_id,score,accuracy,max_combo,perfect,great,good,miss,difficulty,created_at').eq('user_id',uid).order('created_at',{ascending:false}).range(offset,offset+499);
+        if(page.error){scoreError=page.error.message;break}
+        scoreRows.push(...(page.data||[]) as ScoreRow[]);
+        if((page.data||[]).length<500)break;
+      }
       if(cancelled)return;
       if(profileRes.error){setError(profileRes.error.message);setLoading(false);return}
-      if(scoresRes.error){setError(scoresRes.error.message);setLoading(false);return}
+      if(scoreError){setError(scoreError);setLoading(false);return}
       if(!profileRes.data){setError('Player profile not found.');setLoading(false);return}
 
       setProfile(profileRes.data as ProfileRow);
       if(rankedRes.data)setRanked(rankedRes.data as RankedRow);
       if(battleRoyaleRes.data){const record=Array.isArray(battleRoyaleRes.data)?battleRoyaleRes.data[0]:battleRoyaleRes.data;if(record)setBattleRoyale(record as BattleRoyaleRow)}
-      const scoreRows=(scoresRes.data||[]) as ScoreRow[];
       setScores(scoreRows);
       const ids=Array.from(new Set(scoreRows.map(row=>row.chart_id).filter(Boolean)));
       if(ids.length){
-        const {data:chartData,error:chartError}=await supabase.from('charts').select('id,title,artist,youtube_url,instrument,difficulty').in('id',ids);
+        const chartResults=await Promise.all(Array.from({length:Math.ceil(ids.length/100)},(_,page)=>supabase!.from('charts').select('id,title,artist,youtube_url,instrument,difficulty').in('id',ids.slice(page*100,(page+1)*100))));
         if(cancelled)return;
+        const chartError=chartResults.find(result=>result.error)?.error;
         if(chartError){setError(chartError.message);setLoading(false);return}
-        setCharts((chartData||[]) as ChartRow[]);
+        setCharts(chartResults.flatMap(result=>(result.data||[]) as ChartRow[]));
       }
       setLoading(false);
     };
@@ -79,19 +87,22 @@ export default function ProfilePage(){
 
   const chartMap=useMemo(()=>new Map(charts.map(chart=>[chart.id,chart])),[charts]);
   const performances=useMemo<SongPerformance[]>(()=>scores.map(score=>({...score,chart:chartMap.get(score.chart_id)})),[scores,chartMap]);
+  const instrumentPerformances=useMemo(()=>performances.filter(row=>selectedInstrument==='all'||(row.chart?.instrument||'mix')===selectedInstrument),[performances,selectedInstrument]);
   const topSongs=useMemo(()=>{
     const best=new Map<string,SongPerformance>();
-    performances.forEach(row=>{
+    instrumentPerformances.forEach(row=>{
       const current=best.get(row.chart_id);
       if(!current||valueFor(row,sortMode)>valueFor(current,sortMode)||(valueFor(row,sortMode)===valueFor(current,sortMode)&&Number(row.score)>Number(current.score)))best.set(row.chart_id,row);
     });
     return Array.from(best.values()).sort((a,b)=>valueFor(b,sortMode)-valueFor(a,sortMode)||Number(b.score)-Number(a.score)).slice(0,8);
-  },[performances,sortMode]);
+  },[instrumentPerformances,sortMode]);
 
   const bestSong=topSongs[0];
-  const bestAccuracy=performances.reduce((best,row)=>Math.max(best,Number(row.accuracy)||0),0);
-  const bestCombo=performances.reduce((best,row)=>Math.max(best,Number(row.max_combo)||0),0);
-  const uniqueSongs=new Set(scores.map(score=>score.chart_id)).size;
+  const bestAccuracy=instrumentPerformances.reduce((best,row)=>Math.max(best,Number(row.accuracy)||0),0);
+  const bestCombo=instrumentPerformances.reduce((best,row)=>Math.max(best,Number(row.max_combo)||0),0);
+  const uniqueSongs=new Set(instrumentPerformances.map(row=>youtubeId(row.chart?.youtube_url)||row.chart_id)).size;
+  const averageAccuracy=instrumentPerformances.length?instrumentPerformances.reduce((sum,row)=>sum+(Number(row.accuracy)||0),0)/instrumentPerformances.length:0;
+  const highestScore=instrumentPerformances.reduce((best,row)=>Math.max(best,Number(row.score)||0),0);
   const rankedGames=ranked.wins+ranked.losses+ranked.draws;
   const decisiveGames=ranked.wins+ranked.losses;
   const winrate=decisiveGames?ranked.wins/decisiveGames*100:0;
@@ -113,13 +124,22 @@ export default function ProfilePage(){
       <div className={`${styles.rankCard} ${styles[rank.cls]}`}><div className={styles.rankGlow}/><small>CURRENT RANK</small><strong>{rank.name}</strong><b>{ranked.mmr.toLocaleString()} MMR</b><div className={styles.rankRail}><i style={{width:`${rankProgress}%`}}/></div><span>{rank.next===null?'Top rank reached':`${Math.max(0,rank.next-ranked.mmr)} MMR to ${rankInfo(rank.next).name}`}</span></div>
     </section>
 
+    <section className={styles.instrumentPanel}>
+      <div className={styles.sectionLabel}><div><small>YOUR INSTRUMENTS</small><h2>Performance by instrument</h2></div></div>
+      <p className={styles.instrumentHint}>Filter your song results. Ranked and Battle Royale share one MMR across instruments.</p>
+      <div className={styles.instrumentTabs} role="group" aria-label="Filter profile by instrument">
+        {(['all',...instrumentOrder] as const).map(instrument=><button key={instrument} type="button" className={selectedInstrument===instrument?styles.activeInstrument:''} aria-pressed={selectedInstrument===instrument} onClick={()=>setSelectedInstrument(instrument)}>{instrument==='all'?'All instruments':instrumentLabel(instrument)}<span>{instrument==='all'?performances.length:performances.filter(row=>(row.chart?.instrument||'mix')===instrument).length}</span></button>)}
+      </div>
+      <div className={styles.instrumentNumbers}><div><small>PLAYS</small><strong>{instrumentPerformances.length}</strong></div><div><small>SONGS</small><strong>{uniqueSongs}</strong></div><div><small>AVERAGE ACCURACY</small><strong>{pct(averageAccuracy)}</strong></div><div><small>HIGHEST SCORE</small><strong>{highestScore.toLocaleString()}</strong></div></div>
+    </section>
+
     <section className={styles.statsGrid}>
       <article><small>WIN RATE</small><strong>{pct(winrate)}</strong><span>{ranked.wins}W · {ranked.losses}L · {ranked.draws}D</span></article>
       <article><small>RANKED MATCHES</small><strong>{rankedGames}</strong><span>Competitive games</span></article>
       <article><small>BEST STREAK</small><strong>{bestCombo.toLocaleString()}x</strong><span>Highest combo</span></article>
       <article><small>BEST ACCURACY</small><strong>{pct(bestAccuracy)}</strong><span>Across all scores</span></article>
       <article><small>SONGS PLAYED</small><strong>{uniqueSongs}</strong><span>Unique community charts</span></article>
-      <article><small>PERFORMANCES</small><strong>{scores.length}</strong><span>Scores recorded</span></article>
+      <article><small>PERFORMANCES</small><strong>{instrumentPerformances.length}</strong><span>Scores recorded</span></article>
     </section>
 
     <section className={styles.contentGrid}>
@@ -137,6 +157,6 @@ export default function ProfilePage(){
       <div className={styles.songList}>{topSongs.length?topSongs.map((song,index)=>{const yid=youtubeId(song.chart?.youtube_url);return <div className={styles.songRow} key={`${song.chart_id}-${song.difficulty||'all'}`}><b className={styles.place}>#{index+1}</b><div className={styles.thumb}>{yid?<img src={`https://i.ytimg.com/vi/${yid}/mqdefault.jpg`} alt=""/>:<span>BF</span>}</div><div className={styles.songIdentity}><strong>{song.chart?.title||'Unknown chart'}</strong><span>{song.chart?.artist||'Unknown artist'} · {instrumentLabel(song.chart?.instrument)} · {song.difficulty||song.chart?.difficulty||'Medium'}</span></div><div className={`${styles.songStat} ${sortMode==='score'?styles.primaryStat:''}`}><b>{Number(song.score).toLocaleString()}</b><span>SCORE</span></div><div className={`${styles.songStat} ${sortMode==='accuracy'?styles.primaryStat:''}`}><b>{pct(Number(song.accuracy)||0)}</b><span>ACCURACY</span></div><div className={`${styles.songStat} ${sortMode==='streak'?styles.primaryStat:''}`}><b>{Number(song.max_combo||0).toLocaleString()}x</b><span>STREAK</span></div></div>}):<div className={styles.noData}>No song scores yet.</div>}</div>
     </section>
 
-    <section className={styles.listSection}><div className={styles.sectionLabel}><div><small>ACTIVITY</small><h2>Recent performances</h2></div></div><div className={styles.recentGrid}>{performances.slice(0,6).map((row,index)=><div className={styles.recentCard} key={`${row.chart_id}-${row.created_at}-${index}`}><small>{row.difficulty||row.chart?.difficulty||'Medium'}</small><strong>{row.chart?.title||'Unknown chart'}</strong><span>{row.chart?.artist||'Unknown artist'} · {instrumentLabel(row.chart?.instrument)}</span><b>{Number(row.score).toLocaleString()}</b><em>{pct(Number(row.accuracy)||0)} · {Number(row.max_combo||0)}x streak</em></div>)}{!performances.length&&<div className={styles.noData}>Recent scores will appear here.</div>}</div></section>
+    <section className={styles.listSection}><div className={styles.sectionLabel}><div><small>ACTIVITY</small><h2>Recent performances</h2></div></div><div className={styles.recentGrid}>{instrumentPerformances.slice(0,6).map((row,index)=><div className={styles.recentCard} key={`${row.chart_id}-${row.created_at}-${index}`}><small>{row.difficulty||row.chart?.difficulty||'Medium'}</small><strong>{row.chart?.title||'Unknown chart'}</strong><span>{row.chart?.artist||'Unknown artist'} · {instrumentLabel(row.chart?.instrument)}</span><b>{Number(row.score).toLocaleString()}</b><em>{pct(Number(row.accuracy)||0)} · {Number(row.max_combo||0)}x streak</em></div>)}{!instrumentPerformances.length&&<div className={styles.noData}>No scores for this instrument yet.</div>}</div></section>
   </div></main>;
 }
