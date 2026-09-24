@@ -10,6 +10,7 @@ import '../ranked-bot-ui';
 import '../ranked-bot-fullscreen-fix';
 import '../ranked-result-compare';
 import '../battle-royale';
+import '../battle-royale-lobby-fix';
 import '../main-ui-tweaks';
 import '../solo-ui-enhancements';
 import '../casual-social';
