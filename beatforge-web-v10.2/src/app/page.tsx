@@ -31,9 +31,9 @@ export default function Home(){
   if(discoverInstrument!=='all')query=query.eq('instrument',discoverInstrument);
   if(q){const {data:creators}=await db.from('profiles').select('id').ilike('username',`%${q}%`).limit(50);if(request!==discoverRequest.current)return;const names=(creators||[]).map(row=>row.id);const parts=[`title.ilike.%${q}%`,`artist.ilike.%${q}%`];if(names.length)parts.push(`user_id.in.(${names.join(',')})`);query=query.or(parts.join(','))}
   const sortField=discoverSort.startsWith('duration')?'duration':discoverSort==='default'&&(discoverTab==='played'||discoverTab==='trending')?'play_count':'created_at';
-  query=query.order(sortField,{ascending:discoverSort==='durationAsc'}).order('id',{ascending:false}).range(discoverPage*30,discoverPage*30+29);
+  query=query.order(sortField,{ascending:discoverSort==='durationAsc'}).order('id',{ascending:false}).range(discoverPage*30,discoverPage*30+30);
   const {data,error}=await query;if(request!==discoverRequest.current)return;setDiscoverLoading(false);if(error){setCloudMessage(error.message);return}
-  setDiscoverCharts((data||[]).map(ch=>({...ch,like_count:ch.chart_likes?.length||0,liked_by_me:!!user&&ch.chart_likes?.some((l:any)=>l.user_id===user.id)})) as SavedChart[]);setDiscoverHasMore((data||[]).length===30);
+  setDiscoverCharts((data||[]).slice(0,30).map(ch=>({...ch,like_count:ch.chart_likes?.length||0,liked_by_me:!!user&&ch.chart_likes?.some((l:any)=>l.user_id===user.id)})) as SavedChart[]);setDiscoverHasMore((data||[]).length>30);
  },discoverSearch.trim()?350:0);return()=>{window.clearTimeout(timer);discoverRequest.current++};
  },[discoverOpen,discoverPage,discoverSearch,discoverInstrument,discoverTab,discoverSort,user?.id]);
  const saveProfile=async()=>{if(!user||!supabase)return;const clean=username.trim();if(clean.length<3){setCloudMessage('Username must be at least 3 characters.');return}const {error}=await supabase.from('profiles').upsert({id:user.id,username:clean},{onConflict:'id'});if(error){setCloudMessage(error.message);return}setCloudMessage('Profile saved ✓');setTimeout(()=>setProfileOpen(false),500)};
