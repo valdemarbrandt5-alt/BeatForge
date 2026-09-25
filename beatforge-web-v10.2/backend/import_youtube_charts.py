@@ -108,7 +108,7 @@ def request_json(base: str, key: str, route: str, method="GET", payload=None):
         headers=headers,
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with urllib.request.urlopen(req, timeout=60) as response:
             body = response.read()
             return json.loads(body) if body else None
     except urllib.error.HTTPError as exc:
@@ -331,11 +331,12 @@ def main():
                     print(f"  Saved {instrument}: {len(notes)} notes", flush=True)
                 if set(charts) != pending:
                     raise RuntimeError("Missing playable stems: " + ", ".join(sorted(pending - set(charts))))
-        except (RuntimeError, subprocess.TimeoutExpired, urllib.error.URLError, ValueError) as exc:
+        except (RuntimeError, subprocess.TimeoutExpired, urllib.error.URLError, OSError, ValueError) as exc:
             failed += 1
             print(f"  Failed {url}: {exc}", file=sys.stderr, flush=True)
     print(f"Finished: {len(ids) - failed} processed, {failed} failed")
     if failed:
+        print("Run the same command again to retry failed songs; already saved instruments are skipped.", file=sys.stderr)
         sys.exit(1)
 
 
