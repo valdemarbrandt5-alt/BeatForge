@@ -139,6 +139,9 @@
 .sectionHeading h3{font-size:24px;margin:4px 0 0}
 .sectionHeading>span{font-size:10px;letter-spacing:.14em;color:#697386}
 .communityGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.communityPagination{display:flex;align-items:center;justify-content:center;gap:18px;margin:26px 0 50px;color:#aeb5c5;font-size:12px;font-weight:800;letter-spacing:.08em}
+.communityPagination button{border:1px solid #353d4d;border-radius:12px;background:#202634;color:#f3f4f8;padding:11px 18px;font:inherit;cursor:pointer}
+.communityPagination button:disabled{opacity:.4;cursor:default}
 .communityTile{display:block;min-width:0;padding:0 0 14px;text-align:left;border:1px solid #242b38;border-radius:15px;background:#0e131b;color:#fff;overflow:hidden;cursor:pointer;transition:transform .16s ease,border-color .16s ease,background .16s ease;box-shadow:0 12px 28px #0003}
 .communityTile:hover{transform:translateY(-4px);border-color:#6651b5;background:#121824}
 .communityTile{position:relative}
