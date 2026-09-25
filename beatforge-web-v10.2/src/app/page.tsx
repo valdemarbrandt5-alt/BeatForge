@@ -4,6 +4,7 @@ import type {User} from '@supabase/supabase-js';
 import {supabase} from '../lib/supabase';
 import AdminBatchImport from './AdminBatchImport';
 import {distinctInstruments, groupSongs, instrumentLabel, type ChartInstrument} from '../chart-instruments';
+import {assignPhraseLanes} from '../phrase-lanes';
 type Note={id:number,time:number,lane:number,duration?:number,hit?:boolean,miss?:boolean,holding?:boolean,completed?:boolean};
 type Feedback='READY'|'PERFECT'|'GREAT'|'GOOD'|'MISS';
 type Difficulty='Easy'|'Medium'|'Hard'|'Expert';
@@ -97,7 +98,7 @@ export default function Home(){
  },[user]);
  const buildChart=(source:Note[],lanes:number,diff:Difficulty)=>{
   const keep={Easy:.38,Medium:.62,Hard:.82,Expert:1}[diff];
-  const kept=source.filter((_,i)=>keep===1||((i*37)%100)/100<keep);
+  const kept=assignPhraseLanes(source.filter((_,i)=>keep===1||((i*37)%100)/100<keep),lanes);
   const blocked=Array(lanes).fill(-Infinity) as number[];
   const built:Note[]=[];
   const cfg={Easy:{chord:0,triple:0,overlap:0},Medium:{chord:35,triple:0,overlap:45},Hard:{chord:25,triple:0,overlap:32},Expert:{chord:18,triple:97,overlap:24}}[diff];
