@@ -148,6 +148,49 @@ class InstrumentImportTest(unittest.TestCase):
                              [(f"charts?id=eq.vocals-1&user_id=eq.{admin_id}", "PATCH")])
             self.assertEqual({payload["instrument"] for _, method, payload in writes if method == "POST"}, {"drums", "bass"})
 
+    def test_refresh_existing_updates_mix_and_stems_and_resumes(self):
+        with TemporaryDirectory() as tmp:
+            links = Path(tmp) / "links.txt"
+            done = Path(tmp) / "completed.txt"
+            links.write_text("https://www.youtube.com/watch?v=TAZkHYyio-M\n")
+            admin_id = "1f7c311c-227e-4bea-8791-5dcb32f8c953"
+            rows = [{"id": "mix-1", "instrument": "mix", "user_id": admin_id},
+                    {"id": "vocals-1", "instrument": "vocals", "user_id": admin_id}]
+            writes = []
+
+            def fake_request(_base, _key, route, method="GET", payload=None):
+                if route.startswith("profiles?"):
+                    return [{"id": admin_id}]
+                if route.startswith("charts?select="):
+                    return rows
+                writes.append((route, method, payload))
+
+            notes = [{"id": 0, "time": 1., "lane": 0}]
+            env = {"SUPABASE_URL": "https://example.supabase.co",
+                   "SUPABASE_SERVICE_ROLE_KEY": "sb_secret_example",
+                   "BEATFORGE_ADMIN_USER_ID": admin_id}
+            argv = ["import_youtube_charts.py", str(links), "--instruments", "all",
+                    "--refresh-existing", "--completed-file", str(done)]
+            with (patch.dict(os.environ, env), patch.object(sys, "argv", argv),
+                  patch.object(importer, "request_json", side_effect=fake_request),
+                  patch.object(importer, "youtube_metadata", return_value={"title": "Song", "artist": "Artist"}),
+                  patch.object(importer, "download_audio", side_effect=lambda _url, directory: directory / "song.wav") as download,
+                  patch.object(importer, "generate_chart", return_value=(notes, 120.)) as mix,
+                  patch.object(importer, "generate_stem_charts", return_value={key: (notes, 120.) for key in ("vocals", "drums", "bass", "melody")}) as stems,
+                  patch.object(importer.shutil, "which", return_value="ffmpeg"),
+                  patch("importlib.util.find_spec", return_value=object())):
+                importer.main()
+                importer.main()
+            self.assertEqual(mix.call_count, 1)
+            self.assertEqual(stems.call_count, 1)
+            self.assertEqual(download.call_count, 1)
+            self.assertEqual([(route, method) for route, method, _ in writes if method == "PATCH"],
+                             [(f"charts?id=eq.mix-1&user_id=eq.{admin_id}", "PATCH"),
+                              (f"charts?id=eq.vocals-1&user_id=eq.{admin_id}", "PATCH")])
+            self.assertEqual({payload["instrument"] for _, method, payload in writes if method == "POST"},
+                             {"drums", "bass", "melody"})
+            self.assertEqual(done.read_text().splitlines(), ["TAZkHYyio-M"])
+
 
 if __name__ == "__main__":
     unittest.main()
