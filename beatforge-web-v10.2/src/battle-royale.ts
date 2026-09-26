@@ -48,6 +48,17 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const resultEl=()=>[...document.querySelectorAll('.resultBackdrop')].find(x=>/SONG COMPLETE/i.test(x.textContent||'')) as HTMLElement|undefined;
   const currentScore=()=>Math.max(num(resultEl()?.querySelector('.finalScore')?.textContent),num(document.querySelector('.hudScore b')?.textContent));
   const currentCombo=()=>num(document.querySelector('.hudCombo b')?.textContent);
+  const roundHits=()=>{
+    const result=soloResult||resultEl();
+    if(!result)return null;
+    return {
+      p_perfect:num(result.querySelector('.perfectStat b')?.textContent),
+      p_great:num(result.querySelector('.greatStat b')?.textContent),
+      p_good:num(result.querySelector('.goodStat b')?.textContent),
+      p_miss:num(result.querySelector('.missStat b')?.textContent),
+      p_max_combo:num(result.querySelector('.resultMeta>div:nth-child(2) b')?.textContent),
+    };
+  };
 
   const stopCountdown=()=>{if(countdownTimer!==null){clearInterval(countdownTimer);countdownTimer=null}};
   const removeHud=()=>{hud?.remove();hud=null;document.documentElement.classList.remove('brInDangerActive');document.querySelector('.game')?.classList.remove('brInDanger','brDangerGame')};
@@ -268,7 +279,17 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     liveActive=false;removeHud();stopCountdown();
     const me=state.players.find(p=>p.me);if(!me)return;
     const chartId=document.querySelector<HTMLElement>('main')?.dataset.activeChartId||state.chart?.id;
-    if(matchId&&chartId){void db.rpc('record_competitive_result',{p_mode:'battle_royale',p_match:matchId,p_round:state.round_no,p_chart:chartId,p_difficulty:document.querySelector<HTMLElement>('main')?.dataset.competitionDifficulty||me.difficulty||'Medium',p_song_points:currentScore()}).then(({error}:{error:any})=>{if(error)console.error('battle royale result save',error)})}
+    if(matchId&&chartId){
+      const roundMatch=matchId,round=state.round_no,hits=roundHits();
+      void (async()=>{
+        const {error}=await db.rpc('record_competitive_result',{p_mode:'battle_royale',p_match:roundMatch,p_round:round,p_chart:chartId,p_difficulty:document.querySelector<HTMLElement>('main')?.dataset.competitionDifficulty||me.difficulty||'Medium',p_song_points:currentScore()});
+        if(error){console.error('battle royale result save',error);return}
+        if(hits){
+          const {error:hitError}=await db.rpc('record_competitive_hit_stats',{p_mode:'battle_royale',p_match:roundMatch,p_round:round,...hits});
+          if(hitError)console.error('battle royale hit stats save',hitError);
+        }
+      })();
+    }
     const isWinner=state.status==='finished'&&me.placement===1;
     const out=!!me.eliminated&&!isWinner;
     const headline=isWinner?'VICTORY ROYALE':out?'ELIMINATED':`ROUND ${state.round_no} COMPLETE`;
