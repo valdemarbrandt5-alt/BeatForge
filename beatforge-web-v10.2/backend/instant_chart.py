@@ -101,12 +101,12 @@ def generate_instant_chart(path: Path):
             lane = choices[(seed + 2) % len(choices)]
 
         base = env[frame]
-        soft_floor = max(max_env * .0065, base * .20)
+        soft_floor = max(max_env * .012, base * .45)
         k = frame + 1
         last_voiced = frame
         quiet_frames = 0
         next_attack = peaks[idx + 1][2] if idx + 1 < len(peaks) else frames
-        while k < frames and (k - frame) * hop / sr < 4.5:
+        while k < frames and (k - frame) * hop / sr < 3:
             if env[k] > soft_floor:
                 last_voiced, quiet_frames = k, 0
             else:
@@ -114,11 +114,11 @@ def generate_instant_chart(path: Path):
             age = (k - frame) * hop / sr
             strong_attack = (age > .28 and k < next_attack + 2 and novelty[k] > max_novelty * .14
                              and novelty[k] > novelty[max(0, k - 2)] * 1.45)
-            if strong_attack or quiet_frames > 7 or k >= next_attack:
+            if strong_attack or quiet_frames > 4 or k >= next_attack:
                 break
             k += 1
         sustained = (last_voiced - frame) * hop / sr
-        note_duration = min(4.5, max(.45, sustained - .06)) if sustained >= .46 else 0
+        note_duration = min(3, sustained - .06) if sustained >= .96 else 0
         notes.append({"id": len(notes), "time": max(.02, t), "lane": lane, "duration": note_duration})
         prev_prev, prev_lane = prev_lane, lane
 

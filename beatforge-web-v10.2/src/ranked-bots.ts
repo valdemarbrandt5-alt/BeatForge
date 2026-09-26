@@ -1,4 +1,6 @@
 import { supabase } from './lib/supabase';
+import {liveCompetitionPoints} from './competitive-score';
+import {groupSongs, instrumentLabel, loadChartById, loadSongInstruments, type ChartInstrument} from './chart-instruments';
 
 if (typeof window !== 'undefined' && supabase && window.location.pathname === '/') {
   const db:any=supabase;
@@ -7,7 +9,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     candidate_chart_ids:string[];selected_chart_id:string|null;bot_difficulty:string;user_difficulty:string|null;
     start_at:string|null;bot_score:number;bot_target_score:number;mmr_delta:number|null;
   };
-  type Chart={id:string;title:string;artist:string|null;youtube_url:string|null;play_count:number|null};
+  type Chart={id:string;title:string;artist:string|null;youtube_url:string|null;instrument?:ChartInstrument;play_count:number|null};
 
   let queueButton:Element|null=null;
   let queueDeadline=0;
@@ -81,25 +83,21 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
 
   const loadSelectedChart=async(chartId:string)=>{
     if(!active)return;
-    const {data:selected}=await db.from('charts').select('id,title,artist').eq('id',chartId).single();
+    const {data:selected}=await db.from('charts').select('id,title,artist,instrument').eq('id',chartId).single();
     if(!selected)return;
-    modal('<small>RANKED DUEL · BOT</small><div class="queueSpinner"></div><h2>LOADING SONG</h2><p>'+esc(selected.title)+' · '+esc(selected.artist||'')+'</p>');
-    const community=[...document.querySelectorAll('button')].find(b=>b.textContent?.trim()==='COMMUNITY') as HTMLButtonElement|undefined;
-    community?.click();
-    let tries=0;
-    const timer=window.setInterval(()=>{
-      tries++;
-      const cards=[...document.querySelectorAll('.communityTile')] as HTMLElement[];
-      const title=String(selected.title||'').trim().toLowerCase(),artist=String(selected.artist||'').trim().toLowerCase();
-      const target=cards.find(c=>(c.querySelector('.tileInfo strong')?.textContent?.trim().toLowerCase()||'')===title&&(!artist||(c.querySelector('.tileInfo span')?.textContent?.trim().toLowerCase()||'')===artist));
-      if(target){
-        window.clearInterval(timer);target.click();window.setTimeout(showDifficulty,550);
-      }else if(tries>40){
-        window.clearInterval(timer);
-        const card=modal('<small>RANKED BOT ERROR</small><h2>COULD NOT LOAD SELECTED SONG</h2><button class="rankedSecondary botErrorClose">BACK</button>');
-        (card.querySelector('.botErrorClose') as HTMLButtonElement).onclick=()=>void cancelBot();
-      }
-    },150);
+    modal('<small>RANKED DUEL · BOT</small><div class="queueSpinner"></div><h2>LOADING SONG</h2><p>'+esc(selected.title)+' · '+esc(selected.artist||'')+' · '+esc(instrumentLabel(selected.instrument))+'</p>');
+    if(await loadChartById(chartId)){window.setTimeout(showDifficulty,550);return}
+    const card=modal('<small>RANKED BOT ERROR</small><h2>COULD NOT LOAD SELECTED SONG</h2><button class="rankedSecondary botErrorClose">BACK</button>');
+    (card.querySelector('.botErrorClose') as HTMLButtonElement).onclick=()=>void cancelBot();
+  };
+
+  const chooseInstrument=async(chartId:string)=>{
+    const {data:chart}=await db.from('charts').select('id,title,artist,youtube_url,instrument').eq('id',chartId).single();
+    if(!chart)return;
+    const choices=await loadSongInstruments(db,chart);
+    const card=modal('<small>RANKED DUEL · BOT</small><h2>CHOOSE YOUR INSTRUMENT</h2><p>'+esc(chart.title)+' · '+esc(chart.artist||'')+'</p><div class="rankInstrumentGrid">'+choices.map(c=>'<button data-chart="'+esc(c.id)+'">'+esc(instrumentLabel(c.instrument))+'</button>').join('')+'</div><button class="rankedSecondary botPreLeave">LEAVE</button>');
+    card.querySelectorAll<HTMLButtonElement>('[data-chart]').forEach(button=>button.onclick=()=>void loadSelectedChart(button.dataset.chart||chartId));
+    (card.querySelector('.botPreLeave') as HTMLButtonElement).onclick=()=>void cancelBot();
   };
 
   const showDifficulty=()=>{
@@ -134,7 +132,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       try{
         const result=resultEl();
         const finished=!!result;
-        lastScore=finalScore();
+        lastScore=Math.max(lastScore,liveCompetitionPoints());
         const {data,error}=await db.rpc('update_ranked_bot_score',{p_match:active.id,p_score:lastScore,p_finished:finished});
         if(error){console.error('ranked bot score',error);return}
         const row=Array.isArray(data)?data[0]:data;
@@ -178,6 +176,8 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   const showResult=async(row:any,perf:any)=>{
     if(!active)return;
     clearLive();
+    const playedChart=document.querySelector<HTMLElement>('main')?.dataset.activeChartId||active.selected_chart_id;
+    if(playedChart){void db.rpc('record_competitive_result',{p_mode:'ranked_bot',p_match:active.id,p_round:1,p_chart:playedChart,p_difficulty:active.user_difficulty||'Medium',p_song_points:numberFrom(soloResult?.querySelector('.finalScore')?.textContent)}).then(({error}:{error:any})=>{if(error)console.error('ranked bot result save',error)})}
     const mine=lastScore,theirs=Number(row?.bot_score??active.bot_score??0),before=active.user_mmr_before,delta=Number(row?.mmr_delta??0),after=Number(row?.my_mmr??before+delta);
     const verdict=mine===theirs?'DRAW':mine>theirs?'VICTORY':'DEFEAT',cls=verdict==='VICTORY'?'win':verdict==='DEFEAT'?'loss':'draw';
     const card=modal('<small>RANKED DUEL COMPLETE · BOT</small><h1 class="rankedVerdict '+cls+'">'+verdict+'</h1><div class="rankedFinalScores"><span><small>YOU · '+esc(active.user_difficulty||'Medium')+'</small><b>'+mine.toLocaleString()+'</b></span><i>VS</i><span><small>'+esc(active.bot_name)+' · BOT · '+esc(active.bot_difficulty)+'</small><b>'+theirs.toLocaleString()+'</b></span></div><div class="rankedPerformance"><div data-stat="perfect"><b>'+esc(perf.perfect)+'</b><span>PERFECT</span></div><div data-stat="great"><b>'+esc(perf.great)+'</b><span>GREAT</span></div><div data-stat="good"><b>'+esc(perf.good)+'</b><span>GOOD</span></div><div data-stat="miss"><b>'+esc(perf.miss)+'</b><span>MISS</span></div><div data-stat="accuracy"><b>'+esc(perf.accuracy)+'</b><span>ACCURACY</span></div><div data-stat="combo"><b>'+esc(perf.combo)+'</b><span>MAX COMBO</span></div><div data-stat="timing"><b>'+esc(perf.timing)+'</b><span>'+esc(perf.timingLabel)+'</span></div></div><div class="rankedMmrResult"><b>'+rank(before)+' · '+before+'</b><span>→</span><b>'+rank(after)+' · '+after+'</b><strong class="'+(delta>=0?'positive':'negative')+'">'+(delta>0?'+':'')+delta+' MMR</strong></div><button class="rankedPrimary botAgain">PLAY ANOTHER RANKED</button><button class="rankedSecondary botDone">DONE</button>');
@@ -213,15 +213,15 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     active=match;clearQueueTimer();
     document.querySelector('.rankedBackdrop.realRanked')?.remove();
     const user=await getUser();if(!user)return;const self=await getSelf(user.id);
-    const {data:charts}=await db.from('charts').select('id,title,artist,youtube_url,play_count').in('id',match.candidate_chart_ids);
-    const list=(charts||[]) as Chart[];
-    const card=modal('<small>MATCH FOUND · BOT</small><div class="matchPlayers"><span><small>YOU</small><b>'+esc(self.username)+'</b><em class="'+rankClass(self.mmr)+'">'+rank(self.mmr)+' · '+self.mmr+'</em></span><i>VS</i><span><small>OPPONENT · BOT</small><b>'+esc(match.bot_name)+'</b><em class="'+rankClass(match.bot_mmr)+'">'+rank(match.bot_mmr)+' · '+match.bot_mmr+'</em></span></div><h2>CHOOSE THE SONG</h2><p class="rankedVoteSub">3 charts from Trending · bot vote already locked</p><div class="rankVoteGrid">'+list.map(ch=>{const y=ytId(ch.youtube_url);return '<button class="rankVote" data-id="'+ch.id+'">'+(y?'<img src="https://i.ytimg.com/vi/'+y+'/mqdefault.jpg" alt="">':'<div class="voteFallback">BF</div>')+'<div><strong>'+esc(ch.title)+'</strong><span>'+esc(ch.artist||'Unknown artist')+'</span><small>▶ '+Number(ch.play_count||0).toLocaleString()+'</small></div></button>'}).join('')+'</div><div class="rankedVoteStatus">1/2 VOTES LOCKED</div><button class="rankedSecondary botPreLeave">LEAVE</button>');
+    const {data:charts}=await db.from('charts').select('id,title,artist,youtube_url,instrument,play_count').in('id',match.candidate_chart_ids);
+    const list=groupSongs((charts||[]) as Chart[]).map(group=>group[0]);
+    const card=modal('<small>MATCH FOUND · BOT</small><div class="matchPlayers"><span><small>YOU</small><b>'+esc(self.username)+'</b><em class="'+rankClass(self.mmr)+'">'+rank(self.mmr)+' · '+self.mmr+'</em></span><i>VS</i><span><small>OPPONENT · BOT</small><b>'+esc(match.bot_name)+'</b><em class="'+rankClass(match.bot_mmr)+'">'+rank(match.bot_mmr)+' · '+match.bot_mmr+'</em></span></div><h2>CHOOSE THE SONG</h2><p class="rankedVoteSub">'+list.length+' songs from Trending · bot vote already locked</p><div class="rankVoteGrid">'+list.map(ch=>{const y=ytId(ch.youtube_url);return '<button class="rankVote" data-id="'+ch.id+'">'+(y?'<img src="https://i.ytimg.com/vi/'+y+'/mqdefault.jpg" alt="">':'<div class="voteFallback">BF</div>')+'<div><strong>'+esc(ch.title)+'</strong><span>'+esc(ch.artist||'Unknown artist')+'</span><small>▶ '+Number(ch.play_count||0).toLocaleString()+'</small></div></button>'}).join('')+'</div><div class="rankedVoteStatus">1/2 VOTES LOCKED</div><button class="rankedSecondary botPreLeave">LEAVE</button>');
     card.querySelectorAll('.rankVote').forEach(b=>b.addEventListener('click',async()=>{
       if(!active)return;card.querySelectorAll('.rankVote').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');
       const {data,error}=await db.rpc('vote_ranked_bot_chart',{p_match:active.id,p_chart:(b as HTMLElement).dataset.id});
       if(error){console.error('ranked bot vote',error);return}
       const selected=String(data||'');const refreshed=await getBotMatch(active.id);if(refreshed)active=refreshed;
-      if(selected)void loadSelectedChart(selected);
+      if(selected)void chooseInstrument(selected);
     }));
     (card.querySelector('.botPreLeave') as HTMLButtonElement).onclick=()=>void cancelBot();
   };

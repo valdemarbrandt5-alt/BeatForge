@@ -1,4 +1,4 @@
-"""Local admin import: python import_youtube_charts.py links.txt [--dry-run].
+"""Local admin import: python import_youtube_charts.py links.txt [--instruments all].
 
 Requires yt-dlp, ffmpeg and the packages in requirements.txt.
 Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and BEATFORGE_ADMIN_USER_ID locally.
@@ -63,6 +63,62 @@ def read_links(path: Path) -> list[str]:
     return ids
 
 
+def export_links(base: str, key: str, destination: Path) -> int:
+    """Export all unique song links from charts, including paginated libraries."""
+    ids = []
+    seen = set()
+    offset = 0
+    page_size = 500
+    skipped = 0
+    while True:
+        route = ("charts?select=youtube_url&youtube_url=not.is.null&order=id.asc"
+                 f"&limit={page_size}&offset={offset}")
+        rows = request_json(base, key, route) or []
+        for row in rows:
+            try:
+                video_id = parse_video_id(row.get("youtube_url") or "")
+            except ValueError:
+                skipped += 1
+                continue
+            if video_id not in seen:
+                seen.add(video_id)
+                ids.append(video_id)
+        if len(rows) < page_size:
+            break
+        offset += page_size
+    if not ids:
+        raise RuntimeError("No valid YouTube song links found in BeatForge charts")
+    destination.write_text("".join(f"https://www.youtube.com/watch?v={video_id}\n" for video_id in ids), encoding="utf-8")
+    print(f"Exported {len(ids)} unique songs to {destination} ({skipped} invalid links skipped)")
+    return len(ids)
+
+
+def export_mix_only_links(base: str, key: str, destination: Path) -> int:
+    """Export songs whose only existing instrument is full mix."""
+    instruments_by_id = {}
+    offset = 0
+    page_size = 500
+    skipped = 0
+    while True:
+        route = ("charts?select=youtube_url,instrument&youtube_url=not.is.null&order=id.asc"
+                 f"&limit={page_size}&offset={offset}")
+        rows = request_json(base, key, route) or []
+        for row in rows:
+            try:
+                video_id = parse_video_id(row.get("youtube_url") or "")
+            except ValueError:
+                skipped += 1
+                continue
+            instruments_by_id.setdefault(video_id, set()).add(row.get("instrument") or "mix")
+        if len(rows) < page_size:
+            break
+        offset += page_size
+    ids = [video_id for video_id, instruments in instruments_by_id.items() if instruments == {"mix"}]
+    destination.write_text("".join(f"https://www.youtube.com/watch?v={video_id}\n" for video_id in ids), encoding="utf-8")
+    print(f"Exported {len(ids)} full-mix-only songs to {destination} ({skipped} invalid links skipped)")
+    return len(ids)
+
+
 def request_json(base: str, key: str, route: str, method="GET", payload=None):
     data = None if payload is None else json.dumps(payload).encode("utf-8")
     headers = {"apikey": key, "Content-Type": "application/json", "Prefer": "return=minimal"}
@@ -78,7 +134,7 @@ def request_json(base: str, key: str, route: str, method="GET", payload=None):
         headers=headers,
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with urllib.request.urlopen(req, timeout=60) as response:
             body = response.read()
             return json.loads(body) if body else None
     except urllib.error.HTTPError as exc:
@@ -171,11 +227,76 @@ def generate_chart(audio: Path, directory: Path):
     return notes, duration
 
 
+def generate_stem_charts(audio: Path, directory: Path, instruments: set[str]):
+    """Separate audio once, then analyze the requested original Demucs stems."""
+    from stem_chart import STEMS, analyze_stem
+
+    output = directory / "separated"
+    print("  Separating vocals, drums, bass and melody with Demucs…", flush=True)
+    proc = subprocess.run(
+        [sys.executable, "-m", "demucs", "-n", "htdemucs", "--out", str(output), str(audio)],
+        capture_output=True, text=True, timeout=1800,
+    )
+    if proc.returncode:
+        raise RuntimeError("Demucs separation failed: " + proc.stderr[-900:])
+    stem_directory = output / "htdemucs" / audio.stem
+    charts = {}
+    for instrument in STEMS:
+        if instrument not in instruments:
+            continue
+        path = stem_directory / STEMS[instrument]
+        if not path.is_file():
+            raise RuntimeError(f"Demucs did not produce {STEMS[instrument]}")
+        notes, duration = analyze_stem(path, instrument)
+        if len(notes) < 4:
+            print(f"  Skipped {instrument}: fewer than four detected notes", flush=True)
+            continue
+        charts[instrument] = (notes, duration)
+    return charts
+
+
 def main():
     parser = argparse.ArgumentParser(description="Import YouTube links as BeatForge charts")
-    parser.add_argument("links", type=Path, help="Text file containing one link per line")
+    parser.add_argument("links", type=Path, nargs="?", help="Text file containing one link per line")
+    parser.add_argument("--export-links", type=Path, nargs="?", const=Path("beatforge-links.txt"),
+                        help="Save all unique YouTube links from BeatForge (default: beatforge-links.txt)")
+    parser.add_argument("--export-mix-only", type=Path, nargs="?", const=Path("kun-full-mix.txt"),
+                        help="Save links for songs with Full mix but no other instruments (default: kun-full-mix.txt)")
     parser.add_argument("--dry-run", action="store_true", help="Show metadata without downloading or saving")
+    parser.add_argument("--instruments", choices=("mix", "stems", "all"), default="mix",
+                        help="mix (default), four separated stems, or mix plus all four stems")
+    parser.add_argument("--refresh-stems", action="store_true",
+                        help="Reanalyze existing admin-owned instrument charts in place; keeps their IDs and scores")
+    parser.add_argument("--refresh-existing", action="store_true",
+                        help="Reanalyze all existing admin-owned requested instruments, including Full mix; keeps IDs and scores")
+    parser.add_argument("--completed-file", type=Path,
+                        help="Skip links completed in earlier runs and append each successfully processed video ID")
     args = parser.parse_args()
+    if args.export_links is not None or args.export_mix_only is not None:
+        if args.export_links is not None and args.export_mix_only is not None:
+            parser.error("Choose only one export option")
+        if args.links or args.dry_run or args.refresh_stems or args.refresh_existing or args.completed_file or args.instruments != "mix":
+            parser.error("Use the export option by itself; import the resulting file in a separate command")
+        base = os.environ.get("SUPABASE_URL", "")
+        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        if not base or not key:
+            parser.error("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY")
+        try:
+            if args.export_mix_only is not None:
+                export_mix_only_links(base, key, args.export_mix_only)
+            else:
+                export_links(base, key, args.export_links)
+        except (RuntimeError, urllib.error.URLError, OSError) as exc:
+            parser.error(str(exc))
+        return
+    if not args.links:
+        parser.error("Provide a links file or use --export-links")
+    if args.refresh_stems and args.instruments == "mix":
+        parser.error("--refresh-stems requires --instruments stems or all")
+    if args.refresh_stems and args.refresh_existing:
+        parser.error("Choose either --refresh-stems or --refresh-existing")
+    if args.completed_file and not args.refresh_existing:
+        parser.error("--completed-file requires --refresh-existing")
     ids = read_links(args.links)
     if not ids:
         parser.error("No links found")
@@ -194,16 +315,40 @@ def main():
             parser.error("The specified account is not an admin")
         if not shutil.which("ffmpeg"):
             parser.error("ffmpeg is required to extract audio")
+        if args.instruments != "mix":
+            import importlib.util
+            if importlib.util.find_spec("demucs") is None:
+                parser.error("Install Demucs in this Python environment: py -m pip install demucs")
 
     failed = 0
+    requested = ({"mix"} if args.instruments == "mix" else
+                 {"vocals", "drums", "bass", "melody"} if args.instruments == "stems" else
+                 {"mix", "vocals", "drums", "bass", "melody"})
+    completed = set(args.completed_file.read_text(encoding="utf-8").splitlines()) if args.completed_file and args.completed_file.exists() else set()
     for index, video_id in enumerate(ids, 1):
         url = "https://www.youtube.com/watch?v=" + video_id
+        if video_id in completed:
+            print(f"[{index}/{len(ids)}] Previously refreshed: {url}", flush=True)
+            continue
         try:
             if not args.dry_run:
                 # Include alternate YouTube URLs with the same video id.
-                query = "charts?select=id&youtube_url=ilike." + urllib.parse.quote("*" + video_id + "*", safe="") + "&limit=1"
-                if request_json(base, key, query):
-                    print(f"[{index}/{len(ids)}] Already exists: {url}", flush=True)
+                query = "charts?select=id,instrument,user_id&youtube_url=ilike." + urllib.parse.quote("*" + video_id + "*", safe="") + "&limit=100"
+                existing = request_json(base, key, query) or []
+                found = {row.get("instrument") or "mix" for row in existing}
+                missing = requested - found
+                refreshable = requested if args.refresh_existing else requested - {"mix"} if args.refresh_stems else set()
+                refresh = {
+                    (row.get("instrument") or "mix"): row["id"] for row in existing
+                    if (row.get("instrument") or "mix") in refreshable
+                    and row.get("user_id") == admin_id
+                }
+                pending = missing | set(refresh)
+                if not pending:
+                    print(f"[{index}/{len(ids)}] All requested instruments already exist: {url}", flush=True)
+                    if args.completed_file:
+                        with args.completed_file.open("a", encoding="utf-8") as checkpoint:
+                            checkpoint.write(video_id + "\n")
                     continue
             metadata = youtube_metadata(url)
             title = (metadata.get("track") or metadata.get("title") or video_id).strip()
@@ -211,22 +356,39 @@ def main():
             if args.dry_run:
                 print(f"[{index}/{len(ids)}] {artist} - {title} ({url})", flush=True)
                 continue
-            print(f"[{index}/{len(ids)}] Generating {artist} - {title}", flush=True)
+            print(f"[{index}/{len(ids)}] Generating {artist} - {title} ({', '.join(sorted(pending))})", flush=True)
             with tempfile.TemporaryDirectory(prefix="beatforge_import_") as temp:
                 directory = Path(temp)
                 audio = download_audio(url, directory)
-                notes, duration = generate_chart(audio, directory)
-                request_json(base, key, "charts", "POST", {
-                    "user_id": admin_id, "title": title, "artist": artist,
-                    "youtube_url": url, "difficulty": "Medium", "lane_count": 5,
-                    "duration": duration, "notes": notes,
-                })
-            print(f"  Saved {len(notes)} notes", flush=True)
-        except (RuntimeError, subprocess.TimeoutExpired, urllib.error.URLError, ValueError) as exc:
+                charts = {}
+                if "mix" in pending:
+                    charts["mix"] = generate_chart(audio, directory)
+                if pending - {"mix"}:
+                    charts.update(generate_stem_charts(audio, directory, pending - {"mix"}))
+                for instrument, (notes, duration) in charts.items():
+                    if instrument in refresh:
+                        route = "charts?id=eq." + urllib.parse.quote(str(refresh[instrument]), safe="") + "&user_id=eq." + admin_id
+                        request_json(base, key, route, "PATCH", {"notes": notes, "duration": duration})
+                        print(f"  Refreshed {instrument}: {len(notes)} notes", flush=True)
+                        continue
+                    row = {"user_id": admin_id, "title": title, "artist": artist,
+                           "youtube_url": url, "difficulty": "Medium", "lane_count": 5,
+                           "duration": duration, "notes": notes}
+                    if instrument != "mix":
+                        row["instrument"] = instrument
+                    request_json(base, key, "charts", "POST", row)
+                    print(f"  Saved {instrument}: {len(notes)} notes", flush=True)
+                if set(charts) != pending:
+                    raise RuntimeError("Missing playable stems: " + ", ".join(sorted(pending - set(charts))))
+            if args.completed_file:
+                with args.completed_file.open("a", encoding="utf-8") as checkpoint:
+                    checkpoint.write(video_id + "\n")
+        except (RuntimeError, subprocess.TimeoutExpired, urllib.error.URLError, OSError, ValueError) as exc:
             failed += 1
             print(f"  Failed {url}: {exc}", file=sys.stderr, flush=True)
     print(f"Finished: {len(ids) - failed} processed, {failed} failed")
     if failed:
+        print("Run the same command again to retry failed songs; already saved instruments are skipped.", file=sys.stderr)
         sys.exit(1)
 
 
