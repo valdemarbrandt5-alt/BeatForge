@@ -52,6 +52,35 @@ Tilføj kun de fire adskilte instrumenter til sange, der allerede findes:
 .\Import-Sange.ps1 -Instrumenter stems
 ```
 
+## Find automatisk sange med kun Full mix
+
+Læg den opdaterede `import_youtube_charts.py` og den nye
+`Lav-Manglende-Instrumenter.ps1` i samme mappe som `Import-Sange.ps1`.
+Kør derefter fra mappen:
+
+```powershell
+.\Lav-Manglende-Instrumenter.ps1
+```
+
+Scriptet læser BeatForge, gemmer sangene der kun har Full mix i
+`kun-full-mix.txt` og kører Demucs lokalt for at tilføje Vocals, Drums,
+Bass og Melody. De gemmes direkte på hjemmesiden via Supabase. Sangens
+Full mix bevares. Det kræver din Supabase URL, secret key, admin UUID,
+ffmpeg og Demucs som ved den almindelige import. Ingen ny SQL er nødvendig.
+
+Du kan også nøjes med at lave tekstfilen og starte importen senere:
+
+```powershell
+py .\import_youtube_charts.py --export-mix-only .\kun-full-mix.txt
+py .\import_youtube_charts.py .\kun-full-mix.txt --instruments stems
+```
+
+Begge kommandoer kræver Supabase variablerne beskrevet herunder. Den sidste
+kommando kræver også `BEATFORGE_ADMIN_USER_ID`, `ffmpeg` og Demucs.
+Hvis én sang fejler, kan du køre den sidste kommando igen. Eksisterende
+instrumenter springes over, og de manglende forsøges igen. Eksporterer du
+på ny, opdateres `kun-full-mix.txt` med den aktuelle liste.
+
 Hvis din PowerShell blokerer `.ps1` filer, kan du køre Python kommandoen
 direkte fra samme mappe uden at ændre computerens sikkerhedsindstillinger:
 
