@@ -267,11 +267,15 @@ def main():
                         help="mix (default), four separated stems, or mix plus all four stems")
     parser.add_argument("--refresh-stems", action="store_true",
                         help="Reanalyze existing admin-owned instrument charts in place; keeps their IDs and scores")
+    parser.add_argument("--refresh-existing", action="store_true",
+                        help="Reanalyze all existing admin-owned requested instruments, including Full mix; keeps IDs and scores")
+    parser.add_argument("--completed-file", type=Path,
+                        help="Skip links completed in earlier runs and append each successfully processed video ID")
     args = parser.parse_args()
     if args.export_links is not None or args.export_mix_only is not None:
         if args.export_links is not None and args.export_mix_only is not None:
             parser.error("Choose only one export option")
-        if args.links or args.dry_run or args.refresh_stems or args.instruments != "mix":
+        if args.links or args.dry_run or args.refresh_stems or args.refresh_existing or args.completed_file or args.instruments != "mix":
             parser.error("Use the export option by itself; import the resulting file in a separate command")
         base = os.environ.get("SUPABASE_URL", "")
         key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -289,6 +293,10 @@ def main():
         parser.error("Provide a links file or use --export-links")
     if args.refresh_stems and args.instruments == "mix":
         parser.error("--refresh-stems requires --instruments stems or all")
+    if args.refresh_stems and args.refresh_existing:
+        parser.error("Choose either --refresh-stems or --refresh-existing")
+    if args.completed_file and not args.refresh_existing:
+        parser.error("--completed-file requires --refresh-existing")
     ids = read_links(args.links)
     if not ids:
         parser.error("No links found")
@@ -316,23 +324,31 @@ def main():
     requested = ({"mix"} if args.instruments == "mix" else
                  {"vocals", "drums", "bass", "melody"} if args.instruments == "stems" else
                  {"mix", "vocals", "drums", "bass", "melody"})
+    completed = set(args.completed_file.read_text(encoding="utf-8").splitlines()) if args.completed_file and args.completed_file.exists() else set()
     for index, video_id in enumerate(ids, 1):
         url = "https://www.youtube.com/watch?v=" + video_id
+        if video_id in completed:
+            print(f"[{index}/{len(ids)}] Previously refreshed: {url}", flush=True)
+            continue
         try:
             if not args.dry_run:
                 # Include alternate YouTube URLs with the same video id.
                 query = "charts?select=id,instrument,user_id&youtube_url=ilike." + urllib.parse.quote("*" + video_id + "*", safe="") + "&limit=100"
                 existing = request_json(base, key, query) or []
-                found = {row["instrument"] for row in existing}
+                found = {row.get("instrument") or "mix" for row in existing}
                 missing = requested - found
+                refreshable = requested if args.refresh_existing else requested - {"mix"} if args.refresh_stems else set()
                 refresh = {
-                    row["instrument"]: row["id"] for row in existing
-                    if args.refresh_stems and row.get("instrument") in requested - {"mix"}
+                    (row.get("instrument") or "mix"): row["id"] for row in existing
+                    if (row.get("instrument") or "mix") in refreshable
                     and row.get("user_id") == admin_id
                 }
                 pending = missing | set(refresh)
                 if not pending:
                     print(f"[{index}/{len(ids)}] All requested instruments already exist: {url}", flush=True)
+                    if args.completed_file:
+                        with args.completed_file.open("a", encoding="utf-8") as checkpoint:
+                            checkpoint.write(video_id + "\n")
                     continue
             metadata = youtube_metadata(url)
             title = (metadata.get("track") or metadata.get("title") or video_id).strip()
@@ -345,7 +361,7 @@ def main():
                 directory = Path(temp)
                 audio = download_audio(url, directory)
                 charts = {}
-                if "mix" in missing:
+                if "mix" in pending:
                     charts["mix"] = generate_chart(audio, directory)
                 if pending - {"mix"}:
                     charts.update(generate_stem_charts(audio, directory, pending - {"mix"}))
@@ -364,6 +380,9 @@ def main():
                     print(f"  Saved {instrument}: {len(notes)} notes", flush=True)
                 if set(charts) != pending:
                     raise RuntimeError("Missing playable stems: " + ", ".join(sorted(pending - set(charts))))
+            if args.completed_file:
+                with args.completed_file.open("a", encoding="utf-8") as checkpoint:
+                    checkpoint.write(video_id + "\n")
         except (RuntimeError, subprocess.TimeoutExpired, urllib.error.URLError, OSError, ValueError) as exc:
             failed += 1
             print(f"  Failed {url}: {exc}", file=sys.stderr, flush=True)
