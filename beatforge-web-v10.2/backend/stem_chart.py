@@ -75,15 +75,16 @@ def analyze_stem(path: Path, instrument: str):
     for idx, (fi, t) in enumerate(candidates[:1600]):
         length = 0.0
         if instrument != "drums":
-            floor = max(np.percentile(rms, 25), rms[fi] * .24)
-            j, max_frames = fi + 1, int(4.0 * sr / hop)
-            while j < frames and j - fi < max_frames and rms[j] > floor:
+            floor = max(np.percentile(rms, 30) * 1.25, rms[fi] * .45)
+            next_onset = candidates[idx + 1][0] if idx + 1 < len(candidates) else frames
+            j, max_frames = fi + 1, int(3.0 * sr / hop)
+            while j < next_onset and j < frames and j - fi < max_frames and rms[j] > floor:
                 if j > fi + int(.28 * sr / hop) and score[j] > max(base * .7, score[fi] * .8):
                     break
                 j += 1
             raw = (j - fi) * hop / sr
-            if raw >= .48:
-                length = min(raw, 3.5)
+            if raw >= .96:
+                length = min(raw - .06, 3.0)
         choices = [lane for lane in range(5) if lane != prev_lane]
         lane = int(rng.choice(choices))
         prev_lane = lane
