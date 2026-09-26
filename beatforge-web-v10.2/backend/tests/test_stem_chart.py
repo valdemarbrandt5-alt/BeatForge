@@ -13,6 +13,26 @@ from stem_chart import analyze_stem
 
 
 class StemChartTest(unittest.TestCase):
+    def test_only_sustained_vocal_becomes_hold(self):
+        sr = 22050
+        audio = np.zeros(sr * 5, dtype=np.float32)
+        for start, length, held in ((.5, 1.7, True), (3, 1.5, False)):
+            seconds = np.arange(round(length * sr)) / sr
+            envelope = (1 - np.exp(-seconds / .025)) * (
+                .8 if held else np.exp(-seconds / .13)
+            )
+            tone = .6 * envelope * np.sin(2 * np.pi * 330 * seconds)
+            position = round(start * sr)
+            audio[position:position + len(tone)] = tone
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "vocals.wav"
+            sf.write(path, audio, sr)
+            notes, _ = analyze_stem(path, "vocals")
+        held = min(notes, key=lambda note: abs(note["time"] - .5))
+        decay = min(notes, key=lambda note: abs(note["time"] - 3))
+        self.assertGreater(held["duration"], 1.3)
+        self.assertEqual(decay["duration"], 0)
+
     def test_quiet_and_regular_melodic_attacks_reach_expert(self):
         sr = 22050
         times = np.arange(.5, 8.5, .35)
