@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {supabase} from '../../lib/supabase';
 import {instrumentLabel, instrumentOrder, type ChartInstrument} from '../../chart-instruments';
+import {hitAccuracy} from '../../hit-accuracy';
 import styles from './profile.module.css';
 
 type ScoreRow={chart_id:string;score:number;accuracy:number;max_combo:number;perfect:number;great:number;good:number;miss:number;difficulty:string|null;created_at:string};
@@ -80,7 +81,11 @@ export default function ProfilePage(){
       setProfile(profileRes.data as ProfileRow);
       if(rankedRes.data)setRanked(rankedRes.data as RankedRow);
       if(battleRoyaleRes.data){const record=Array.isArray(battleRoyaleRes.data)?battleRoyaleRes.data[0]:battleRoyaleRes.data;if(record)setBattleRoyale(record as BattleRoyaleRow)}
-      setScores(scoreRows);
+      // Older rows stored timing-weighted accuracy. Recompute from their hit breakdown.
+      setScores(scoreRows.map(row=>{
+        const judged=row.perfect+row.great+row.good+row.miss;
+        return {...row,accuracy:judged>0?hitAccuracy(row):row.accuracy};
+      }));
       const ids=Array.from(new Set([...scoreRows.map(row=>row.chart_id),...(competitionRows||[]).map(row=>row.chart_id)].filter(Boolean)));
       if(ids.length){
         const chartResults=await Promise.all(Array.from({length:Math.ceil(ids.length/100)},(_,page)=>supabase!.from('charts').select('id,title,artist,youtube_url,instrument,difficulty').in('id',ids.slice(page*100,(page+1)*100))));

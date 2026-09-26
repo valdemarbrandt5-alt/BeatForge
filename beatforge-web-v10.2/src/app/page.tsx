@@ -5,6 +5,7 @@ import {supabase} from '../lib/supabase';
 import AdminBatchImport from './AdminBatchImport';
 import {distinctInstruments, groupSongs, instrumentLabel, type ChartInstrument} from '../chart-instruments';
 import {assignPhraseLanes} from '../phrase-lanes';
+import {hitAccuracy} from '../hit-accuracy';
 type Note={id:number,time:number,lane:number,duration?:number,hit?:boolean,miss?:boolean,holding?:boolean,completed?:boolean};
 type Feedback='READY'|'PERFECT'|'GREAT'|'GOOD'|'MISS';
 type Difficulty='Easy'|'Medium'|'Hard'|'Expert';
@@ -277,8 +278,8 @@ export default function Home(){
  const travel=3.0;
  const upcoming=notes.filter(n=>!n.hit&&!n.miss&&n.time>=time&&n.time<=time+travel).length;
  const judged=hitStats.perfect+hitStats.great+hitStats.good+hitStats.miss;
- useEffect(()=>{if(!resultsOpen||!activeChartId||!user||!supabase||scoreSubmittedRef.current)return;scoreSubmittedRef.current=true;const s=statsRef.current,total=s.perfect+s.great+s.good+s.miss,acc=total?((s.perfect+s.great*.8+s.good*.5)/total*100):0,finalScore=scoreRef.current;(async()=>{const {error}=await supabase.from('scores').insert({chart_id:activeChartId,user_id:user.id,score:finalScore,accuracy:acc,max_combo:s.maxCombo,perfect:s.perfect,great:s.great,good:s.good,miss:s.miss,difficulty});if(error){scoreSubmittedRef.current=false;setCloudMessage('Score upload failed: '+error.message)}else{setCloudMessage('Score saved ✓');await loadLeaderboard(activeChartId,difficulty)}})()},[resultsOpen,activeChartId,user,difficulty]);
- const accuracy=judged?((hitStats.perfect+hitStats.great*.8+hitStats.good*.5)/judged*100):0;
+ useEffect(()=>{if(!resultsOpen||!activeChartId||!user||!supabase||scoreSubmittedRef.current)return;scoreSubmittedRef.current=true;const s=statsRef.current,acc=hitAccuracy(s),finalScore=scoreRef.current;(async()=>{const {error}=await supabase.from('scores').insert({chart_id:activeChartId,user_id:user.id,score:finalScore,accuracy:acc,max_combo:s.maxCombo,perfect:s.perfect,great:s.great,good:s.good,miss:s.miss,difficulty});if(error){scoreSubmittedRef.current=false;setCloudMessage('Score upload failed: '+error.message)}else{setCloudMessage('Score saved ✓');await loadLeaderboard(activeChartId,difficulty)}})()},[resultsOpen,activeChartId,user,difficulty]);
+ const accuracy=hitAccuracy(hitStats);
  const avgTimingMs=hitStats.timingHits?(hitStats.timingSum/hitStats.timingHits*1000):0;
  const timingLabel=Math.abs(avgTimingMs)<1?'ON TIME':avgTimingMs<0?'EARLY':'LATE';
  const songDuration=songName==='Demo chart'?34:duration;
