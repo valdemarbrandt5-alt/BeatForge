@@ -6,6 +6,7 @@ import AdminBatchImport from './AdminBatchImport';
 import {distinctInstruments, groupSongs, instrumentLabel, type ChartInstrument} from '../chart-instruments';
 import {assignPhraseLanes} from '../phrase-lanes';
 import {hitAccuracy} from '../hit-accuracy';
+import {clearHoldDuration} from '../hold-duration';
 type Note={id:number,time:number,lane:number,duration?:number,hit?:boolean,miss?:boolean,holding?:boolean,completed?:boolean};
 type Feedback='READY'|'PERFECT'|'GREAT'|'GOOD'|'MISS';
 type Difficulty='Easy'|'Medium'|'Hard'|'Expert';
@@ -102,15 +103,10 @@ export default function Home(){
   const kept=assignPhraseLanes(source.filter((_,i)=>keep===1||((i*37)%100)/100<keep),lanes);
   const blocked=Array(lanes).fill(-Infinity) as number[];
   const built:Note[]=[];
-  const cfg={Easy:{chord:0,triple:0,overlap:0},Medium:{chord:35,triple:0,overlap:45},Hard:{chord:25,triple:0,overlap:32},Expert:{chord:18,triple:97,overlap:24}}[diff];
+  const cfg={Easy:{chord:0,triple:0},Medium:{chord:35,triple:0},Hard:{chord:25,triple:0},Expert:{chord:18,triple:97}}[diff];
   kept.forEach((n,i)=>{
    const seed=(((i+1)*1103515245+Math.round(n.time*1000)*12345)>>>0);
-   let dur=n.duration||0;
-   if(cfg.overlap&&i+2<kept.length&&((seed>>>5)%cfg.overlap===0)){
-    const reach=diff==='Expert'&&i+3<kept.length&&seed%3===0?kept[i+3]:kept[i+2];
-    const span=reach.time-n.time;
-    if(span>.35&&span<2.4)dur=Math.max(dur,Math.min(2.35,Math.max(.75,span+.28)));
-   }
+   const dur=clearHoldDuration(n.duration,kept[i+1]?.time,n.time);
    const preferred=((n.lane%lanes)+lanes)%lanes;
    const order=[preferred,...Array.from({length:lanes},(_,x)=>x).filter(x=>x!==preferred)];
    const lane=order.find(x=>blocked[x]<=n.time-.08)??preferred;
@@ -251,20 +247,19 @@ export default function Home(){
    const seed=((p.frame*1103515245+idx*12345)>>>0);let lane=candidates[seed%candidates.length];
    if(lane===prevPrev&&candidates.length>1)lane=candidates[(seed+2)%candidates.length];
 
-   // Adaptive sustain tracking: quiet ballad vocals can decay a lot while the same sung note continues.
-   // Use hysteresis and tolerate brief envelope dips instead of requiring continuously high energy.
-   const base=env[p.frame],softFloor=Math.max(maxEnv*.0065,base*.20);let k=p.frame+1,lastVoiced=p.frame,quietFrames=0;
+   // A hold needs sustained energy throughout the phrase; decaying tails are taps.
+   const base=env[p.frame],softFloor=Math.max(maxEnv*.012,base*.45);let k=p.frame+1,lastVoiced=p.frame,quietFrames=0;
    const nextAttack=idx+1<peaks.length?peaks[idx+1].frame:frames;
-   while(k<frames&&(k-p.frame)*hop/sr<4.5){
+   while(k<frames&&(k-p.frame)*hop/sr<3){
     const active=env[k]>softFloor;
     if(active){lastVoiced=k;quietFrames=0}else quietFrames++;
     // A clear later syllable starts a new note; tiny fluctuations inside a held vowel do not.
     const age=(k-p.frame)*hop/sr;
     const strongAttack=age>.28&&k<nextAttack+2&&novelty[k]>maxNovelty*.14&&novelty[k]>novelty[Math.max(0,k-2)]*1.45;
-    if(strongAttack||quietFrames>7||k>=nextAttack)break;k++;
+    if(strongAttack||quietFrames>4||k>=nextAttack)break;k++;
    }
    const sustained=(lastVoiced-p.frame)*hop/sr;let dur=0;
-   if(sustained>=.46)dur=Math.min(4.5,Math.max(.45,sustained-.06));
+   if(sustained>=.96)dur=Math.min(3,sustained-.06);
    out.push({id:out.length,time:Math.max(.02,t),lane,duration:dur||undefined});prevPrev=prevLane;prevLane=lane;
   });
   if(out.length<8)return Array.from({length:Math.max(10,Math.floor(buffer.duration*1.25))},(_,i)=>({id:i,time:.9+i*.72,lane:(i*3)%5}));
