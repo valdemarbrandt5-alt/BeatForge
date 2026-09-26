@@ -12,6 +12,43 @@ import import_youtube_charts as importer
 
 
 class InstrumentImportTest(unittest.TestCase):
+    def test_mix_only_export_excludes_songs_with_any_stem_across_pages(self):
+        with TemporaryDirectory() as tmp:
+            output = Path(tmp) / "kun-full-mix.txt"
+            first_page = [{"youtube_url": f"https://music.youtube.com/watch?v={n:011d}", "instrument": "mix"}
+                          for n in range(500)]
+            second_page = [
+                {"youtube_url": "https://youtu.be/00000000000", "instrument": "vocals"},
+                {"youtube_url": "https://www.youtube.com/watch?v=00000000001", "instrument": "drums"},
+                {"youtube_url": "https://www.youtube.com/watch?v=00000000002", "instrument": "mix"},
+                {"youtube_url": "https://www.youtube.com/watch?v=00000000500", "instrument": "vocals"},
+                {"youtube_url": "https://example.com/not-youtube", "instrument": "mix"},
+            ]
+            env = {"SUPABASE_URL": "https://example.supabase.co", "SUPABASE_SERVICE_ROLE_KEY": "sb_secret_example"}
+            with (patch.dict(os.environ, env),
+                  patch.object(sys, "argv", ["import_youtube_charts.py", "--export-mix-only", str(output)]),
+                  patch.object(importer, "request_json", side_effect=[first_page, second_page]) as request):
+                importer.main()
+
+            exported = output.read_text().splitlines()
+            self.assertEqual(len(exported), 498)
+            self.assertNotIn("https://www.youtube.com/watch?v=00000000000", exported)
+            self.assertNotIn("https://www.youtube.com/watch?v=00000000001", exported)
+            self.assertNotIn("https://www.youtube.com/watch?v=00000000500", exported)
+            self.assertEqual(exported[0], "https://www.youtube.com/watch?v=00000000002")
+            self.assertIn("offset=500", request.call_args_list[-1].args[2])
+
+    def test_mix_only_export_writes_empty_file_when_no_songs_need_stems(self):
+        with TemporaryDirectory() as tmp:
+            output = Path(tmp) / "kun-full-mix.txt"
+            output.write_text("stale links\n")
+            with patch.object(importer, "request_json", return_value=[
+                {"youtube_url": "https://youtu.be/TAZkHYyio-M", "instrument": "mix"},
+                {"youtube_url": "https://music.youtube.com/watch?v=TAZkHYyio-M", "instrument": "bass"},
+            ]):
+                self.assertEqual(importer.export_mix_only_links("https://example.supabase.co", "key", output), 0)
+            self.assertEqual(output.read_text(), "")
+
     def test_export_links_paginates_and_deduplicates_song_instruments(self):
         with TemporaryDirectory() as tmp:
             output = Path(tmp) / "beatforge-links.txt"
