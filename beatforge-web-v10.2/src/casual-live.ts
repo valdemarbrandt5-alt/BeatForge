@@ -186,7 +186,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     if(!hud){
       const el=document.createElement('div');
       el.className='casualLiveHud';
-      el.innerHTML='<div class="casualLiveRow casualLiveA streakBase"><b class="casualLiveName"></b><span class="casualLiveNumbers"><strong class="casualLiveScore">0</strong><em class="casualLiveCombo">0x</em></span></div><div class="casualLiveRow casualLiveB streakBase"><b class="casualLiveName"></b><span class="casualLiveNumbers"><strong class="casualLiveScore">0</strong><em class="casualLiveCombo">0x</em></span></div>';
+      el.innerHTML='<small>VS FRIENDS · LIVE</small><div class="casualLiveRow casualLiveA streakBase"><b class="casualLiveName"></b><span class="casualLiveNumbers"><strong class="casualLiveScore">0</strong><em class="casualLiveCombo">0x</em></span></div><div class="casualLiveRow casualLiveB streakBase"><b class="casualLiveName"></b><span class="casualLiveNumbers"><strong class="casualLiveScore">0</strong><em class="casualLiveCombo">0x</em></span></div>';
       game.appendChild(el);hud=el;
     }else if(hud.parentElement!==game){game.appendChild(hud)}
     return hud;

@@ -38,7 +38,7 @@ if(typeof window!=='undefined'){
       const style=document.createElement('style');
       style.id='ranked-home-style';
       style.textContent=`
-        .realRanked .rankedHomeCard>small{color:#ff7bce!important;font-size:8px!important;font-weight:1000!important;letter-spacing:2px!important}
+        .realRanked .rankedHomeCard>small{color:#a990ff!important;font-size:8px!important;font-weight:1000!important;letter-spacing:2px!important}
         .realRanked .rankedHomeCard .rankedHomeRank{
           display:grid!important;justify-items:center!important;gap:2px!important;
           width:min(300px,100%)!important;max-width:300px!important;box-sizing:border-box!important;
