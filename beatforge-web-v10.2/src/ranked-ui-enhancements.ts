@@ -7,6 +7,8 @@ if (typeof window !== 'undefined') {
 
   const rankClass = (text: string) => {
     const t = text.toUpperCase();
+    if (t.includes('GRANDMASTER')) return 'rankGrandmaster';
+    if (t.includes('CHALLENGER')) return 'rankChallenger';
     if (t.includes('MASTER')) return 'rankMaster';
     if (t.includes('DIAMOND')) return 'rankDiamond';
     if (t.includes('PLATINUM')) return 'rankPlatinum';
@@ -45,7 +47,7 @@ if (typeof window !== 'undefined') {
       const cls = rankClass(mmr?.textContent || '');
       if (cls) card.classList.add(cls);
       card.querySelectorAll('.rankedPerformance > div').forEach((el, i) => {
-        (el as HTMLElement).dataset.stat = ['perfect','great','good','miss','accuracy','combo','timing'][i] || '';
+        (el as HTMLElement).dataset.stat = ['stars','perfect','great','good','miss','accuracy','combo','timing'][i] || '';
       });
     });
   };
@@ -128,10 +130,10 @@ if (typeof window !== 'undefined') {
   const addStyles=()=>{
     if(document.getElementById('ranked-result-colors'))return;
     const style=document.createElement('style');style.id='ranked-result-colors';style.textContent=`
-      .rankedPerformance [data-stat="perfect"] b{color:#ffd43b!important}.rankedPerformance [data-stat="great"] b{color:#4ee6a8!important}.rankedPerformance [data-stat="good"] b{color:#ffad42!important}.rankedPerformance [data-stat="miss"] b{color:#ff4d5e!important}.rankedPerformance [data-stat="accuracy"] b{color:#66d9ff!important}.rankedPerformance [data-stat="combo"] b{color:#b58cff!important}.rankedPerformance [data-stat="timing"] b{color:#75a7ff!important}
+      .rankedPerformance [data-stat="stars"] b{color:#ffd54a!important}.rankedPerformance [data-stat="perfect"] b{color:#ffd43b!important}.rankedPerformance [data-stat="great"] b{color:#4ee6a8!important}.rankedPerformance [data-stat="good"] b{color:#ffad42!important}.rankedPerformance [data-stat="miss"] b{color:#ff4d5e!important}.rankedPerformance [data-stat="accuracy"] b{color:#66d9ff!important}.rankedPerformance [data-stat="combo"] b{color:#b58cff!important}.rankedPerformance [data-stat="timing"] b{color:#75a7ff!important}
       .streakBase{color:#8e95a5!important}.streakGold{color:#ffd43b!important}.streakBlue{color:#58a6ff!important}.streakPink{color:#ff72d2!important}
-      .matchPlayers .rankBronze{color:#cd7f32!important}.matchPlayers .rankSilver{color:#c8ced8!important}.matchPlayers .rankGold{color:#ffd43b!important}.matchPlayers .rankPlatinum{color:#57e0d1!important}.matchPlayers .rankDiamond{color:#6aa9ff!important}.matchPlayers .rankMaster{color:#c084fc!important}
-      .rankedCard.rankBronze{--rankAccent:#cd7f32}.rankedCard.rankSilver{--rankAccent:#c8ced8}.rankedCard.rankGold{--rankAccent:#ffd43b}.rankedCard.rankPlatinum{--rankAccent:#57e0d1}.rankedCard.rankDiamond{--rankAccent:#6aa9ff}.rankedCard.rankMaster{--rankAccent:#c084fc}.rankedCard[class*="rank"] .rankedMmrResult b{color:var(--rankAccent)!important}.rankedCard[class*="rank"] .rankedMmrResult{border-color:color-mix(in srgb,var(--rankAccent) 38%,#303646)!important}
+      .matchPlayers .rankBronze{color:#cd7f32!important}.matchPlayers .rankSilver{color:#c8ced8!important}.matchPlayers .rankGold{color:#ffd43b!important}.matchPlayers .rankPlatinum{color:#57e0d1!important}.matchPlayers .rankDiamond{color:#6aa9ff!important}.matchPlayers .rankMaster{color:#c084fc!important}.matchPlayers .rankGrandmaster{color:#ff6cab!important}.matchPlayers .rankChallenger{color:#ffd54a!important}
+      .rankedCard.rankBronze{--rankAccent:#cd7f32}.rankedCard.rankSilver{--rankAccent:#c8ced8}.rankedCard.rankGold{--rankAccent:#ffd43b}.rankedCard.rankPlatinum{--rankAccent:#57e0d1}.rankedCard.rankDiamond{--rankAccent:#6aa9ff}.rankedCard.rankMaster{--rankAccent:#c084fc}.rankedCard.rankGrandmaster{--rankAccent:#ff6cab}.rankedCard.rankChallenger{--rankAccent:#ffd54a}.rankedCard[class*="rank"] .rankedMmrResult b{color:var(--rankAccent)!important}.rankedCard[class*="rank"] .rankedMmrResult{border-color:color-mix(in srgb,var(--rankAccent) 38%,#303646)!important}
       .game>.realRankedLiveHud.rankedScoreboard{position:absolute!important;left:18px!important;bottom:304px!important;top:auto!important;right:auto!important;width:145px!important;min-width:145px!important;max-width:145px!important;height:auto!important;z-index:12!important;margin:0!important;padding:0!important;background:transparent!important;border:0!important;border-radius:0!important;backdrop-filter:none!important;box-shadow:none!important;pointer-events:none;overflow:visible!important;transform:none!important;inset-inline:auto!important}
       .game>.realRankedLiveHud.rankedScoreboard>small{display:none!important}.game>.realRankedLiveHud.rankedScoreboard>div{display:flex!important;flex-direction:column!important;gap:4px!important;width:145px!important;min-width:145px!important;max-width:145px!important;align-items:stretch!important}.game>.realRankedLiveHud.rankedScoreboard i{display:none!important}
       .game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp){position:relative!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:auto auto!important;align-items:center!important;box-sizing:border-box!important;width:145px!important;min-width:145px!important;max-width:145px!important;height:38px!important;margin:0!important;padding:4px 6px 4px 22px!important;border-radius:9px!important;background:#0f131c!important;border:1px solid #303747!important;text-align:left!important;transform:none!important;box-shadow:none!important;flex:none!important}.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp):before{content:'#' attr(data-place);position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:1000;color:#7e8799}.game>.realRankedLiveHud.rankedScoreboard span[data-place='1']:before{color:#ffd43b}

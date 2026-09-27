@@ -1,6 +1,7 @@
 import { supabase } from './lib/supabase';
 import { instrumentLabel, loadChartById, loadSongInstruments, youtubeVideoId, type ChartInstrument } from './chart-instruments';
 import {liveCompetitionPoints} from './competitive-score';
+import {rankName,challengerPosition} from './rank';
 
 type BRPlayer={
   id:string;user_id:string|null;name:string;is_bot:boolean;difficulty:string|null;ready:boolean;
@@ -43,7 +44,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const num=(v:string|null|undefined)=>Number(String(v||'0').replace(/[^0-9-]/g,''))||0;
   const portal=()=>document.fullscreenElement?.classList.contains('beatforgeFullscreenShell')?document.fullscreenElement:document.body;
   const streak=(combo:number)=>combo>=200?'brPink':combo>=100?'brBlue':combo>=50?'brGold':'brBase';
-  const rank=(mmr:number)=>mmr<800?'BRONZE':mmr<1000?'SILVER':mmr<1200?'GOLD':mmr<1400?'PLATINUM':mmr<1600?'DIAMOND':'MASTER';
+  const rank=rankName;
   const rankClass=(mmr:number)=>`brRank${rank(mmr)[0]}${rank(mmr).slice(1).toLowerCase()}`;
   const resultEl=()=>[...document.querySelectorAll('.resultBackdrop')].find(x=>/SONG COMPLETE/i.test(x.textContent||'')) as HTMLElement|undefined;
   const currentScore=()=>Math.max(num(resultEl()?.querySelector('.finalScore')?.textContent),num(document.querySelector('.hudScore b')?.textContent));
@@ -65,6 +66,8 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     const value=Number.parseFloat(text.replace(',','.'));
     return Number.isFinite(value)?value:null;
   };
+
+  const roundStars=()=>{const value=(soloResult||resultEl())?.querySelector('.resultStarsFinal')?.getAttribute('data-stars');return value===null||value===undefined?null:Number(value)};
 
   const stopCountdown=()=>{if(countdownTimer!==null){clearInterval(countdownTimer);countdownTimer=null}};
   const removeHud=()=>{hud?.remove();hud=null;document.documentElement.classList.remove('brInDangerActive');document.querySelector('.game')?.classList.remove('brInDanger','brDangerGame')};
@@ -277,7 +280,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const roundPerformance=()=>{
     const result=soloResult?.querySelector('.resultCard')||resultEl()?.querySelector('.resultCard');
     if(!result)return '<p>Your performance details are unavailable for this round.</p>';
-    const parts=['.finalScore','.scoreLabel','.resultGrid','.resultMeta','.personalBestResult'];
+    const parts=['.finalScore','.scoreLabel','.resultStarsFinal','.resultGrid','.resultMeta','.personalBestResult'];
     return parts.map(selector=>result.querySelector(selector)?.outerHTML||'').join('');
   };
   const showRoundResult=(state:BRState)=>{
@@ -286,7 +289,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     const me=state.players.find(p=>p.me);if(!me)return;
     const chartId=document.querySelector<HTMLElement>('main')?.dataset.activeChartId||state.chart?.id;
     if(matchId&&chartId){
-      const roundMatch=matchId,round=state.round_no,hits=roundHits(),accuracy=roundAccuracy();
+      const roundMatch=matchId,round=state.round_no,hits=roundHits(),accuracy=roundAccuracy(),stars=roundStars();
       void (async()=>{
         const {error}=await db.rpc('record_competitive_result',{p_mode:'battle_royale',p_match:roundMatch,p_round:round,p_chart:chartId,p_difficulty:document.querySelector<HTMLElement>('main')?.dataset.competitionDifficulty||me.difficulty||'Medium',p_song_points:currentScore()});
         if(error){console.error('battle royale result save',error);return}
@@ -298,6 +301,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
           const {error:accuracyError}=await db.rpc('record_competitive_display_accuracy',{p_mode:'battle_royale',p_match:roundMatch,p_round:round,p_accuracy:accuracy});
           if(accuracyError)console.error('battle royale accuracy save',accuracyError);
         }
+        if(stars!==null){const {error:starsError}=await db.rpc('record_competitive_stars',{p_mode:'battle_royale',p_match:roundMatch,p_round:round,p_stars:stars});if(starsError)console.error('battle royale stars save',starsError)}
       })();
     }
     const isWinner=state.status==='finished'&&me.placement===1;
@@ -306,6 +310,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     const sub=isWinner?'YOU ARE THE LAST PLAYER STANDING':out?`YOU FINISHED #${me.placement||'?'}`:'YOU SURVIVED';
     const card=modal(`<small>BATTLE ROYALE</small><h1 class="brVerdict ${isWinner?'win':out?'loss':'survive'}">${headline}</h1><div class="brResultSub">${sub}</div><div class="brResultList">${roundRows(state)}</div>${mmrResult(me)}${state.status==='round_result'&&!out?'<div class="brIntermission">SONG VOTE IN <b>30</b>s <span>Starting automatically</span></div><button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>':'<button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brDone">DONE</button>'}<div class="brStatsSheet" hidden><h2>YOUR PERFORMANCE</h2>${roundPerformance()}</div>`);
     if(overlay)overlay.dataset.brResult=`${state.round_no}:${state.status}`;
+    if(me.user_id&&typeof me.mmr_delta==='number'){const after=Math.max(0,Number(me.mmr_before||me.mmr||1000)+me.mmr_delta);void challengerPosition(db,me.user_id,after).then(position=>{const badge=card.querySelector('.brMmrResult b:nth-of-type(2)');if(position&&card.isConnected&&badge)badge.textContent+=` · WORLD #${position}`})}
     const stats=card.querySelector('.brShowStats') as HTMLButtonElement|null;
     if(stats)stats.onclick=()=>{const sheet=card.querySelector('.brStatsSheet') as HTMLElement;const open=sheet.hidden;sheet.hidden=!open;stats.textContent=open?'SHOW RESULTS':'SEE STATS';card.querySelector('.brResultList')?.classList.toggle('brResultsHidden',open);card.querySelector('.brMmrResult')?.classList.toggle('brResultsHidden',open)};
     card.querySelector('.brRoundLeave')?.addEventListener('click',openLeavePrompt);
@@ -379,7 +384,8 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     const {data}=await db.rpc('get_battle_royale_rating');
     const row=Array.isArray(data)?data[0]:data;
     if(row){mmr=Number(row.mmr||1000);wins=Number(row.wins||0);games=Number(row.games||0);top4=Number(row.top4||0)}
-    const card=modal(`<button class="brX">×</button><small>BEATFORGE</small><h1>BATTLE ROYALE</h1><div class="brModeBadge">8 PLAYERS · 4 ROUNDS</div><div class="brHomeRank"><small>YOUR BATTLE ROYALE RANK</small><b class="${rankClass(mmr)}">${rank(mmr)}</b><strong>${mmr} MMR</strong><span>${wins} WINS · ${top4} TOP 4 · ${games} GAMES</span></div><p>Same song. Same start. Choose your own difficulty. The lowest scores are eliminated after every round until one player remains.</p><div class="brFlow"><span>8</span> → <span>6</span> → <span>4</span> → <span>2</span> → <b>1</b></div><button class="brPrimary brFind">FIND BATTLE ROYALE</button>`);
+    const {data:viewer}=await db.auth.getUser();const worldPosition=viewer.user?await challengerPosition(db,viewer.user.id,mmr):null;
+    const card=modal(`<button class="brX">×</button><small>BEATFORGE</small><h1>BATTLE ROYALE</h1><div class="brModeBadge">8 PLAYERS · 4 ROUNDS</div><div class="brHomeRank"><small>YOUR BATTLE ROYALE RANK</small><b class="${rankClass(mmr)}">${rank(mmr)}</b><strong>${mmr} MMR</strong><span>${worldPosition?`WORLD #${worldPosition} · `:''}${wins} WINS · ${top4} TOP 4 · ${games} GAMES</span></div><p>Same song. Same start. Choose your own difficulty. The lowest scores are eliminated after every round until one player remains.</p><div class="brFlow"><span>8</span> → <span>6</span> → <span>4</span> → <span>2</span> → <b>1</b></div><button class="brPrimary brFind">FIND BATTLE ROYALE</button>`);
     (card.querySelector('.brFind') as HTMLButtonElement).onclick=()=>void join();
     (card.querySelector('.brX') as HTMLButtonElement).onclick=closeOverlay;
   }
@@ -425,7 +431,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     const s=document.createElement('style');s.id='battle-royale-style';s.textContent=`
       .brBackdrop,.brLeaveBackdrop{position:fixed;inset:0;z-index:2147483646;background:#03050bec;backdrop-filter:blur(13px);display:grid;place-items:center;padding:18px}.brCard{position:relative;width:min(620px,94vw);max-height:90vh;overflow:auto;background:linear-gradient(150deg,#151a26,#0c1018);border:1px solid #3b4353;border-radius:20px;padding:28px;text-align:center;box-shadow:0 30px 100px #000b}.brCard>small,.brLeaveCard>small{font-size:8px;font-weight:1000;letter-spacing:2px;color:#ff7bce}.brCard h1{font-size:32px;margin:7px 0}.brCard h2{font-size:23px;margin:8px 0}.brCard>p{max-width:510px;margin:8px auto 17px;color:#a8b0c0;font-size:11px;line-height:1.5}.brX{position:absolute;right:15px;top:15px;width:34px;height:34px;padding:0!important;border:1px solid #343c4c!important;border-radius:9px!important;background:#151b27!important;color:#fff!important}.brPrimary,.brSecondary{padding:12px 18px!important;border-radius:11px!important;font-size:10px!important;font-weight:1000!important;letter-spacing:.05em}.brPrimary{background:#ed4eb9!important;border-color:#ff73cf!important;color:#fff!important}.brSecondary{background:#151b27!important;border-color:#343c4c!important;color:#c2c8d4!important;margin-left:8px}.brModeBadge{display:inline-block;margin:8px 0 4px;padding:8px 13px;border:1px solid #653a61;border-radius:999px;color:#ff83d2;font-size:9px;font-weight:1000}.brFlow{display:flex;justify-content:center;align-items:center;gap:10px;margin:18px 0;color:#8992a5;font-weight:1000}.brFlow span,.brFlow b{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#29172a;border:1px solid #7b3d73;color:#ff83d2}.brFlow b{background:#ed4eb9;color:#fff}.brSpinner{width:46px;height:46px;margin:14px auto;border:4px solid #303747;border-top-color:#ed4eb9;border-radius:50%;animation:brSpin .8s linear infinite}@keyframes brSpin{to{transform:rotate(360deg)}}
       .brHomeRank{display:grid;justify-items:center;gap:2px;margin:13px auto 15px;padding:13px;border:1px solid #343c4c;border-radius:13px;background:#0c1119;max-width:300px}.brHomeRank small{font-size:7px;color:#7f899c;font-weight:1000;letter-spacing:1px}.brHomeRank b{font-size:18px}.brHomeRank strong{font-size:12px}.brHomeRank span{font-size:7px;color:#7f899c;font-weight:900;margin-top:3px}.brSearchBand{margin:8px 0 14px;font-size:8px;color:#8993a6;font-weight:1000;letter-spacing:.8px}.brSearchBand b{margin-left:4px}.brLobbyCount{font-size:48px;font-weight:1000;color:#ff78cd;margin:10px 0 0}.brLobbyCount span{display:block;font-size:9px;color:#8993a6;letter-spacing:1.5px}.brLobbyClock{font-size:10px;font-weight:900;color:#a8b3c5;letter-spacing:1px}.brLobbyClock b{color:#ff78cd;font-size:18px}.brLobbyPlayers{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:14px 0}.brLobbyPlayers span{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid #303747;border-radius:10px;background:#0c1119;animation:brPlayerIn .22s ease}.brLobbyPlayers span.me{border-color:#ff71cc;box-shadow:inset 2px 0 #ff71cc}.brLobbyPlayers b{font-size:10px}.brLobbyPlayers em{font-size:7px;font-style:normal;font-weight:1000}@keyframes brPlayerIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-      .brRankBronze{color:#cd7f32!important}.brRankSilver{color:#c8ced8!important}.brRankGold{color:#ffd43b!important}.brRankPlatinum{color:#57e0d1!important}.brRankDiamond{color:#6aa9ff!important}.brRankMaster{color:#c084fc!important}
+      .brRankBronze{color:#cd7f32!important}.brRankSilver{color:#c8ced8!important}.brRankGold{color:#ffd43b!important}.brRankPlatinum{color:#57e0d1!important}.brRankDiamond{color:#6aa9ff!important}.brRankMaster{color:#c084fc!important}.brRankGrandmaster{color:#ff6cab!important}.brRankChallenger{color:#ffd54a!important}
       .brSong{display:grid;text-align:left;margin:14px 0;padding:11px 13px;border:1px solid #303747;border-radius:11px;background:#0a0f17}.brSong b{font-size:12px}.brSong span{font-size:8px;color:#8993a7}.brDifficultyGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.brDifficultyGrid button{min-height:62px;text-align:left;background:#121824!important;color:#fff!important;border:1px solid #343c4e!important}.brDifficultyGrid button:hover{border-color:#ff72ce!important}.brDifficultyGrid b{display:block;font-size:13px}.brDifficultyGrid span{font-size:8px;color:#8993a7}.brReadyIcon{margin:14px auto;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;border:1px solid #ff72ce;background:#ff72ce18;color:#ff8bd5;font-size:23px}.brChosen{display:inline-flex;gap:7px;padding:8px 12px;border:1px solid #653a61;border-radius:999px;color:#aab1c1}.brChosen b{color:#fff}.brReadyStatus{margin:14px 0 10px;font-size:8px;color:#9099ab;font-weight:1000;letter-spacing:1.2px}.brCountdown{font-size:54px;font-weight:1000;color:#ff78cd;margin:20px 0}.brWaitingFinish{font-size:18px;font-weight:1000;color:#ff78cd;margin:22px 0}
       .game>.brLiveHud{position:absolute!important;left:16px!important;top:16px!important;width:190px!important;z-index:13!important;background:#080c13eF;border:1px solid #3b4353;border-radius:12px;padding:8px;pointer-events:none;backdrop-filter:blur(8px)}.brLiveHud>small{display:block;text-align:center;font-size:7px;color:#ff7bce;font-weight:1000;letter-spacing:1px;margin-bottom:5px}.brLiveList{display:flex;flex-direction:column;gap:3px}.brLiveRow{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;height:28px;padding:0 6px;border:1px solid #303747;border-radius:7px;background:#10151e}.brLiveRow>i{font-style:normal;font-size:8px;color:#818b9c}.brLiveRow>b{font-size:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left}.brLiveRow>span{display:grid;text-align:right}.brLiveRow strong{font-size:8px}.brLiveRow small{font-size:6px;font-weight:1000}.brLiveRow.me{box-shadow:inset 2px 0 #fff}.brLiveRow.brBase small{color:#8e95a5}.brLiveRow.brGold{border-color:#ffd43b}.brLiveRow.brGold small{color:#ffd43b}.brLiveRow.brBlue{border-color:#58a6ff}.brLiveRow.brBlue small{color:#58a6ff}.brLiveRow.brPink{border-color:#ff72d2}.brLiveRow.brPink small{color:#ff72d2}
       .game.brInDanger{background:linear-gradient(180deg,#40141c,#220d15 45%,#100b10)!important;border-color:#ff4d5e!important;box-shadow:inset 0 0 110px #ff263e55,0 0 22px #ff263e44!important}html.brInDangerActive .game{background:linear-gradient(180deg,#40141c,#220d15 45%,#100b10)!important;border-color:#ff4d5e!important;box-shadow:inset 0 0 110px #ff263e55,0 0 22px #ff263e44!important}.game.brInDanger .lanes{background:linear-gradient(180deg,#ff30401b,#ff304008 65%,#ff30401b)}html.brInDangerActive .game .lanes{background:linear-gradient(180deg,#ff30401b,#ff304008 65%,#ff30401b)!important}.game.brInDanger:after,html.brInDangerActive .game:after{content:'DANGER ZONE';position:absolute;z-index:12;top:10px;left:50%;transform:translateX(-50%);padding:6px 13px;border:1px solid #ff6976;border-radius:8px;background:#260a11e8;color:#ff8791;font-size:10px;font-weight:1000;letter-spacing:2px;white-space:nowrap;pointer-events:none;text-shadow:0 0 10px #ff3146}
