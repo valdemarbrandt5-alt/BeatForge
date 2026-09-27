@@ -1,5 +1,5 @@
 import { supabase } from './lib/supabase';
-import { distinctInstruments, groupSongs, instrumentLabel, loadChartById, type ChartInstrument } from './chart-instruments';
+import { distinctInstruments, groupSongs, instrumentLabel, loadChartById, loadSongInstruments, type ChartInstrument } from './chart-instruments';
 
 type FriendInfo={id:string;username:string};
 type ChartInfo={id:string;title:string;artist:string|null;youtube_url:string|null;instrument?:ChartInstrument;play_count:number|null};
@@ -33,6 +33,9 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   let chartLoaded=false;
   let chartLoading=false;
   let localDifficulty='';
+  let localInstrument:ChartInstrument='mix';
+  let scheduledStartAt='';
+  let countdownTimer:number|null=null;
   let localReady=false;
   let gameStarted=false;
   let playTimer:number|null=null;
@@ -51,7 +54,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   const closePicker=()=>{picker?.remove();picker=null};
   const closeInvitePrompt=()=>{invitePrompt?.remove();invitePrompt=null};
   const closeFlow=()=>{flowEl?.remove();flowEl=null};
-  const clearPlayTimer=()=>{if(playTimer!==null){window.clearTimeout(playTimer);playTimer=null}};
+  const clearPlayTimer=()=>{if(playTimer!==null){window.clearTimeout(playTimer);playTimer=null}if(countdownTimer!==null){window.clearInterval(countdownTimer);countdownTimer=null}scheduledStartAt=''};
 
   const resetFlow=()=>{
     clearPlayTimer();
@@ -62,6 +65,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     chartLoaded=false;
     chartLoading=false;
     localDifficulty='';
+    localInstrument='mix';
     localReady=false;
     gameStarted=false;
     flowErrorShown=false;
@@ -151,11 +155,30 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     resetFlow();
   };
 
-  const showDifficulty=()=>{
+  const showDifficulty=async()=>{
     if(!activeInviteId||!chartLoaded||localDifficulty||gameStarted)return;
-    const card=casualModal(`<small>CASUAL MATCH</small><h2>CHOOSE YOUR DIFFICULTY</h2><p class="casualFlowLead">You and your friend choose independently.</p><div class="casualDifficultyGrid"><button data-diff="Easy"><b>Easy</b><span>Safer combos</span></button><button data-diff="Medium"><b>Medium</b><span>Balanced</span></button><button data-diff="Hard"><b>Hard</b><span>More scoring potential</span></button><button data-diff="Expert"><b>Expert</b><span>Maximum scoring potential</span></button></div>`);
-    card.querySelectorAll<HTMLButtonElement>('.casualDifficultyGrid button').forEach(button=>button.onclick=()=>{
+    const inviteId=activeInviteId;
+    const variants=activeChart?await loadSongInstruments(db,activeChart):[];
+    if(activeInviteId!==inviteId||gameStarted)return;
+    const currentId=activeChart?.id||'';
+    localInstrument=(activeChart?.instrument||'mix') as ChartInstrument;
+    const card=casualModal(`<small>VS FRIENDS</small><h2>CHOOSE YOUR INSTRUMENT AND DIFFICULTY</h2><p class="casualFlowLead">You both play the same song and start together. Choose your own chart.</p><div class="casualReadySong"><strong>${esc(activeChart?.title||'Selected song')}</strong><span>${esc(activeChart?.artist||'Unknown artist')}</span></div><label class="casualInstrumentLabel">YOUR INSTRUMENT <select class="casualInstrumentSelect">${variants.map(v=>`<option value="${esc(v.id)}" ${v.id===currentId?'selected':''}>${esc(instrumentLabel(v.instrument))}</option>`).join('')}</select></label><div class="casualDifficultyGrid">${['Easy','Medium','Hard','Expert'].map(d=>`<button data-diff="${d}"><b>${d}</b><span>${d==='Easy'?'Safer combos':d==='Medium'?'Balanced':d==='Hard'?'More scoring potential':'Maximum scoring potential'}</span></button>`).join('')}</div><div class="casualReadyStatus">CHOOSE YOUR DIFFICULTY TO LOAD THE SONG</div><button class="rankedSecondary casualLeaveBtn">LEAVE</button>`);
+    (card.querySelector('.casualLeaveBtn') as HTMLButtonElement).onclick=()=>void leaveAcceptedMatch();
+    card.querySelectorAll<HTMLButtonElement>('.casualDifficultyGrid button').forEach(button=>button.onclick=async()=>{
+      if(activeInviteId!==inviteId)return;
       const diff=button.dataset.diff||'Medium';
+      const selectedId=(card.querySelector('.casualInstrumentSelect') as HTMLSelectElement).value||currentId;
+      card.querySelectorAll<HTMLButtonElement>('.casualDifficultyGrid button').forEach(b=>b.disabled=true);
+      if(selectedId!==document.querySelector('main')?.getAttribute('data-active-chart-id')){
+        showLoadingMatch();
+        if(!await loadChartById(selectedId)){
+          toast('Could not load that instrument. Choose another.');
+          if(activeInviteId===inviteId)void showDifficulty();
+          return;
+        }
+      }
+      if(activeInviteId!==inviteId)return;
+      localInstrument=(variants.find(v=>v.id===selectedId)?.instrument||'mix') as ChartInstrument;
       localDifficulty=diff;
       applyDifficulty(diff);
       showSongLoaded();
@@ -164,7 +187,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
 
   const showSongLoaded=()=>{
     if(!localDifficulty||gameStarted)return;
-    const card=casualModal(`<small>CASUAL MATCH</small><h2>SONG LOADED</h2><div class="casualLoadedCheck">✓</div><div class="casualDifficultyPill">YOUR DIFFICULTY <b>${esc(localDifficulty)}</b></div><p class="casualFlowLead">Your friend may choose a different difficulty. When both players are ready, the song starts together.</p><div class="casualFlowActions"><button class="rankedPrimary casualReadyBtn">READY</button><button class="rankedSecondary casualLeaveBtn">LEAVE</button></div>`);
+    const card=casualModal(`<small>CASUAL MATCH</small><h2>SONG LOADED</h2><div class="casualLoadedCheck">✓</div><div class="casualDifficultyPill">YOUR INSTRUMENT <b>${esc(instrumentLabel(localInstrument))}</b> · DIFFICULTY <b>${esc(localDifficulty)}</b></div><p class="casualFlowLead">Your friend may choose a different difficulty. When both players are ready, the song starts together.</p><div class="casualFlowActions"><button class="rankedPrimary casualReadyBtn">READY</button><button class="rankedSecondary casualLeaveBtn">LEAVE</button></div>`);
     (card.querySelector('.casualReadyBtn') as HTMLButtonElement).onclick=async()=>{
       if(!activeInviteId||localReady)return;
       const btn=card.querySelector('.casualReadyBtn') as HTMLButtonElement;
@@ -181,22 +204,30 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
 
   const showGetReady=(readyCount:number)=>{
     if(gameStarted)return;
-    casualModal(`<small>CASUAL MATCH</small><h2>GET READY</h2><div class="casualReadyCount">${readyCount} / 2 READY</div><p class="casualFlowLead">Your difficulty: <b>${esc(localDifficulty||'Medium')}</b>. The song starts automatically when both players are ready.</p>`);
+    casualModal(`<small>CASUAL MATCH</small><h2>GET READY</h2><div class="casualReadyClock">WAITING FOR BOTH PLAYERS <b class="casualReadyCount">${readyCount} / 2 READY</b><span>The song starts after a shared countdown.</span></div><p class="casualFlowLead">${esc(instrumentLabel(localInstrument))} · ${esc(localDifficulty||'Medium')}</p>`);
   };
 
   const startPlay=()=>{
     if(gameStarted)return;
     gameStarted=true;
+    clearPlayTimer();
     closeFlow();
     const play=Array.from(document.querySelectorAll('button')).find((b:any)=>b.textContent?.trim()==='PLAY'&&!b.closest('.rankedBackdrop')&&!b.closest('.casualFlowBackdrop')) as HTMLButtonElement|undefined;
     if(play)play.click();else toast('Could not start the song.');
   };
 
   const scheduleSharedStart=(startAt:string)=>{
-    if(gameStarted)return;
-    clearPlayTimer();
-    const delay=Math.max(0,new Date(startAt).getTime()-Date.now());
-    playTimer=window.setTimeout(startPlay,delay);
+    if(gameStarted||scheduledStartAt===startAt)return;
+    clearPlayTimer();scheduledStartAt=startAt;
+    const target=new Date(startAt).getTime();
+    const tick=()=>{
+      const seconds=Math.max(0,Math.ceil((target-Date.now())/1000));
+      const clock=flowEl?.querySelector('.casualReadyClock');
+      const count=clock?.querySelector('.casualReadyCount');
+      if(clock&&count){clock.firstChild!.textContent='STARTING IN ';count.textContent=`${seconds}`;}
+    };
+    tick();countdownTimer=window.setInterval(tick,100);
+    playTimer=window.setTimeout(startPlay,Math.max(0,target-Date.now()));
   };
 
   const beginAcceptedFlow=async(row:CasualRow)=>{
@@ -208,7 +239,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     chartLoading=false;
     if(!loaded){toast('Could not load that song.');resetFlow();return}
     chartLoaded=true;
-    showDifficulty();
+    void showDifficulty();
   };
 
   const sendInvite=async(friend:FriendInfo,chart:ChartInfo)=>{
@@ -292,7 +323,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       const overlay=document.createElement('div');
       overlay.className='casualInvitePrompt';
       const y=ytId(chart?.youtube_url||null);
-      overlay.innerHTML=`<div class="casualInviteCard"><small>CASUAL INVITE</small><h2>${esc(inviter)} wants to play</h2><div class="casualInviteSong">${y?`<img src="https://i.ytimg.com/vi/${esc(y)}/mqdefault.jpg" alt="">`:'<span>BF</span>'}<div><b>${esc(chart?.title||'Unknown song')}</b><em>${esc(chart?.artist||'Unknown artist')} · ${esc(instrumentLabel(chart?.instrument))}</em></div></div><p>No MMR. You will both choose difficulty and ready up before the song starts.</p><div><button class="casualAccept">ACCEPT</button><button class="casualDecline">DECLINE</button></div></div>`;
+      overlay.innerHTML=`<div class="casualInviteCard"><small>CASUAL INVITE</small><h2>${esc(inviter)} wants to play</h2><div class="casualInviteSong">${y?`<img src="https://i.ytimg.com/vi/${esc(y)}/mqdefault.jpg" alt="">`:'<span>BF</span>'}<div><b>${esc(chart?.title||'Unknown song')}</b><em>${esc(chart?.artist||'Unknown artist')} · ${esc(instrumentLabel(chart?.instrument))}</em></div></div><p>No MMR. You can each choose an instrument and difficulty before the song starts.</p><div><button class="casualAccept">ACCEPT</button><button class="casualDecline">DECLINE</button></div></div>`;
       document.body.appendChild(overlay);invitePrompt=overlay;
       (overlay.querySelector('.casualAccept') as HTMLButtonElement).onclick=async()=>{
         const {error:acceptError}=await db.from('casual_invites').update({status:'accepted',responded_at:new Date().toISOString()}).eq('id',data.id).eq('invitee_id',uid);
@@ -345,7 +376,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       if(localReady){
         const readyCount=Number(!!row.inviter_ready)+Number(!!row.invitee_ready);
         const countEl=flowEl?.querySelector('.casualReadyCount');
-        if(countEl)countEl.textContent=`${readyCount} / 2 READY`;
+        if(countEl&&!row.start_at)countEl.textContent=`${readyCount} / 2 READY`;
         if(!countEl)showGetReady(readyCount);
         if(row.start_at)scheduleSharedStart(row.start_at);
       }
