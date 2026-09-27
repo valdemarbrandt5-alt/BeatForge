@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Script from 'next/script';
 import './globals.css';
 import './streak-tuning.css';
+import './competitive-flow.css';
 
 export const metadata: Metadata = {title:'BeatForge',description:'5 lane web rhythm game prototype'};
 

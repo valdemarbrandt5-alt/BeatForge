@@ -27,6 +27,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   let leavePrompt:HTMLElement|null=null;
   let accessToken='';
   let unloadSent=false;
+  let pendingBotDifficulty='';
 
   const rank=rankName;
   const rankClass=(mmr:number)=>'rank'+rank(mmr)[0]+rank(mmr).slice(1).toLowerCase();
@@ -72,7 +73,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   };
 
   const returnToRankedLobby=()=>{
-    clearLive();removeBotOverlay();active=null;soloResult=null;unloadSent=false;
+    clearLive();removeBotOverlay();active=null;soloResult=null;unloadSent=false;pendingBotDifficulty='';
     const b=document.querySelector('.rankedNavBtn') as HTMLButtonElement|null;
     window.setTimeout(()=>b?.click(),80);
   };
@@ -96,13 +97,18 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     const {data:chart}=await db.from('charts').select('id,title,artist,youtube_url,instrument').eq('id',chartId).single();
     if(!chart)return;
     const choices=await loadSongInstruments(db,chart);
-    const card=modal('<small>RANKED DUEL · BOT</small><h2>CHOOSE YOUR INSTRUMENT</h2><p>'+esc(chart.title)+' · '+esc(chart.artist||'')+'</p><div class="rankInstrumentGrid">'+choices.map(c=>'<button data-chart="'+esc(c.id)+'">'+esc(instrumentLabel(c.instrument))+'</button>').join('')+'</div><button class="rankedSecondary botPreLeave">LEAVE</button>');
-    card.querySelectorAll<HTMLButtonElement>('[data-chart]').forEach(button=>button.onclick=()=>void loadSelectedChart(button.dataset.chart||chartId));
+    const card=modal('<small>RANKED DUEL · BOT</small><h2>CHOOSE YOUR INSTRUMENT AND DIFFICULTY</h2><p>Everyone plays the same song. Choose your own instrument and difficulty.</p><div class="rankVoteWinner"><div><b>'+esc(chart.title)+'</b><span>'+esc(chart.artist||'')+'</span></div></div><label class="rankInstrumentLabel">YOUR INSTRUMENT <select class="rankInstrument">'+choices.map(c=>'<option value="'+esc(c.id)+'" '+(c.id===chartId?'selected':'')+'>'+esc(instrumentLabel(c.instrument))+'</option>').join('')+'</select></label><div class="rankDifficultyGrid">'+['Easy','Medium','Hard','Expert'].map(d=>'<button class="rankDifficulty" data-d="'+d+'"><b>'+d+'</b><span>'+(d==='Easy'?'Safer combos':d==='Medium'?'Balanced':d==='Hard'?'More scoring potential':'Maximum scoring potential')+'</span></button>').join('')+'</div><button class="rankedSecondary botPreLeave">LEAVE</button>');
+    card.querySelectorAll<HTMLButtonElement>('.rankDifficulty').forEach(button=>button.onclick=()=>{pendingBotDifficulty=button.dataset.d||'Medium';card.querySelectorAll<HTMLButtonElement>('.rankDifficulty').forEach(b=>b.disabled=true);void loadSelectedChart((card.querySelector('.rankInstrument') as HTMLSelectElement).value||chartId)});
     (card.querySelector('.botPreLeave') as HTMLButtonElement).onclick=()=>void cancelBot();
   };
 
   const showDifficulty=()=>{
     if(!active)return;
+    if(pendingBotDifficulty){
+      const d=pendingBotDifficulty;pendingBotDifficulty='';
+      void (async()=>{const button=[...document.querySelectorAll('.chartOptions .seg button')].find(b=>b.textContent?.trim()===d) as HTMLButtonElement|undefined;button?.click();const {error}=await db.rpc('set_ranked_bot_difficulty',{p_match:active!.id,p_difficulty:d});if(error){console.error('ranked bot difficulty',error);showDifficulty();return}active!.user_difficulty=d;armReady(d)})();
+      return;
+    }
     const card=modal('<small>RANKED DUEL · BOT</small><h2>CHOOSE YOUR DIFFICULTY</h2><p>You and your opponent choose independently.</p><div class="rankDifficultyGrid">'+['Easy','Medium','Hard','Expert'].map(d=>'<button class="rankDifficulty" data-d="'+d+'"><b>'+d+'</b><span>'+(d==='Easy'?'Safer combos':d==='Medium'?'Balanced':d==='Hard'?'More scoring potential':'Maximum scoring potential')+'</span></button>').join('')+'</div><button class="rankedSecondary botPreLeave">LEAVE</button>');
     card.querySelectorAll('.rankDifficulty').forEach(x=>x.addEventListener('click',async()=>{
       if(!active)return;
@@ -295,8 +301,8 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     if(document.getElementById('ranked-bot-style'))return;
     const s=document.createElement('style');s.id='ranked-bot-style';s.textContent=`
       .rankedBotBackdrop,.rankedBotLeavePrompt{z-index:2147483646!important}.rankedBotCard .rankBronze{color:#cd7f32!important}.rankedBotCard .rankSilver{color:#c8ced8!important}.rankedBotCard .rankGold{color:#ffd43b!important}.rankedBotCard .rankPlatinum{color:#57e0d1!important}.rankedBotCard .rankDiamond{color:#6aa9ff!important}.rankedBotCard .rankMaster{color:#c084fc!important}.rankedBotCard .rankGrandmaster{color:#ff6cab!important}.rankedBotCard .rankChallenger{color:#ffd54a!important}
-      .game>.botRankedLiveHud{position:absolute!important;left:18px!important;bottom:304px!important;top:auto!important;right:auto!important;width:145px!important;min-width:145px!important;max-width:145px!important;z-index:12!important;pointer-events:none!important}.botRankedLiveHud>div{display:flex;flex-direction:column;gap:4px;width:145px}.botRankedLiveHud span{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;align-items:center;box-sizing:border-box;width:145px;height:38px;padding:4px 6px 4px 22px;border-radius:9px;background:#0f131c;border:1px solid #303747;text-align:left}.botRankedLiveHud span:before{content:'#' attr(data-place);position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:1000;color:#7e8799}.botRankedLiveHud span[data-place='1']:before{color:#ffd43b}.botRankedLiveHud span>b{grid-column:1;grid-row:1;font-size:8px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.botRankedLiveHud span>b i{font-style:normal;color:#a990ff;font-size:6px}.botRankedLiveHud span>em{grid-column:1;grid-row:2;font-size:6px;line-height:1;color:#788195;font-style:normal}.botRankedLiveHud span>strong{grid-column:2;grid-row:1 / span 2;font-size:11px;line-height:1;font-variant-numeric:tabular-nums;margin-left:4px;color:#fff}.botForfeitWarning{max-width:430px;margin:10px auto 16px;color:#aab2c2;line-height:1.5}.botForfeitWarning b{color:#ff6275}.rankedBotLeavePrompt .botConfirmForfeit{background:#ff4d61!important;border-color:#ff4d61!important}
-      @media(max-width:760px){.game>.botRankedLiveHud,.botRankedLiveHud>div,.botRankedLiveHud span{width:132px!important;min-width:132px!important;max-width:132px!important}.botRankedLiveHud span{height:36px!important}}
+      .game>.botRankedLiveHud{position:absolute!important;left:16px!important;top:16px!important;bottom:auto!important;right:auto!important;width:190px!important;min-width:190px!important;max-width:190px!important;z-index:12!important;pointer-events:none!important}.botRankedLiveHud>div{display:flex;flex-direction:column;gap:4px;width:145px}.botRankedLiveHud span{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;align-items:center;box-sizing:border-box;width:145px;height:38px;padding:4px 6px 4px 22px;border-radius:9px;background:#0f131c;border:1px solid #303747;text-align:left}.botRankedLiveHud span:before{content:'#' attr(data-place);position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:1000;color:#7e8799}.botRankedLiveHud span[data-place='1']:before{color:#ffd43b}.botRankedLiveHud span>b{grid-column:1;grid-row:1;font-size:8px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.botRankedLiveHud span>b i{font-style:normal;color:#a990ff;font-size:6px}.botRankedLiveHud span>em{grid-column:1;grid-row:2;font-size:6px;line-height:1;color:#788195;font-style:normal}.botRankedLiveHud span>strong{grid-column:2;grid-row:1 / span 2;font-size:11px;line-height:1;font-variant-numeric:tabular-nums;margin-left:4px;color:#fff}.botForfeitWarning{max-width:430px;margin:10px auto 16px;color:#aab2c2;line-height:1.5}.botForfeitWarning b{color:#ff6275}.rankedBotLeavePrompt .botConfirmForfeit{background:#ff4d61!important;border-color:#ff4d61!important}
+      @media(max-width:760px){.game>.botRankedLiveHud,.botRankedLiveHud>div,.botRankedLiveHud span{width:160px!important;min-width:160px!important;max-width:160px!important}.botRankedLiveHud span{height:28px!important}}
     `;document.head.appendChild(s);
   };
 
