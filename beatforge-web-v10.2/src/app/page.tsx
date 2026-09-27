@@ -273,8 +273,9 @@ export default function Home(){
  const travel=3.0;
  const upcoming=notes.filter(n=>!n.hit&&!n.miss&&n.time>=time&&n.time<=time+travel).length;
  const judged=hitStats.perfect+hitStats.great+hitStats.good+hitStats.miss;
- useEffect(()=>{if(!resultsOpen||!activeChartId||!user||!supabase||scoreSubmittedRef.current)return;scoreSubmittedRef.current=true;const s=statsRef.current,acc=hitAccuracy(s),finalScore=scoreRef.current;(async()=>{const {error}=await supabase.from('scores').insert({chart_id:activeChartId,user_id:user.id,score:finalScore,accuracy:acc,max_combo:s.maxCombo,perfect:s.perfect,great:s.great,good:s.good,miss:s.miss,difficulty});if(error){scoreSubmittedRef.current=false;setCloudMessage('Score upload failed: '+error.message)}else{setCloudMessage('Score saved ✓');await loadLeaderboard(activeChartId,difficulty)}})()},[resultsOpen,activeChartId,user,difficulty]);
- const accuracy=hitAccuracy(hitStats);
+ const displayedAccuracy=Number(hitAccuracy(hitStats).toFixed(1));
+ useEffect(()=>{if(!resultsOpen||!activeChartId||!user||!supabase||scoreSubmittedRef.current)return;scoreSubmittedRef.current=true;const s=hitStats,finalScore=score;(async()=>{const {error}=await supabase.from('scores').insert({chart_id:activeChartId,user_id:user.id,score:finalScore,accuracy:displayedAccuracy,max_combo:s.maxCombo,perfect:s.perfect,great:s.great,good:s.good,miss:s.miss,difficulty});if(error){scoreSubmittedRef.current=false;setCloudMessage('Score upload failed: '+error.message)}else{setCloudMessage('Score saved ✓');await loadLeaderboard(activeChartId,difficulty)}})()},[resultsOpen,activeChartId,user,difficulty,displayedAccuracy,hitStats,score]);
+ const accuracy=displayedAccuracy;
  const avgTimingMs=hitStats.timingHits?(hitStats.timingSum/hitStats.timingHits*1000):0;
  const timingLabel=Math.abs(avgTimingMs)<1?'ON TIME':avgTimingMs<0?'EARLY':'LATE';
  const songDuration=songName==='Demo chart'?34:duration;

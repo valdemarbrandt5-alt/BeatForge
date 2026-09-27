@@ -12,7 +12,7 @@ type RankedRow={mmr:number;wins:number;losses:number;draws:number};
 type BattleRoyaleRow={wins:number;games:number;top4:number};
 type ProfileRow={username:string|null;avatar_url:string|null;created_at:string|null};
 type SongPerformance=ScoreRow&{chart?:ChartRow};
-type CompetitionRow={mode:string;round_no:number;chart_id:string;difficulty:string;competition_points:number;song_points:number;created_at:string;perfect:number|null;great:number|null;good:number|null;miss:number|null;max_combo:number|null};
+type CompetitionRow={mode:string;round_no:number;chart_id:string;difficulty:string;competition_points:number;song_points:number;created_at:string;perfect:number|null;great:number|null;good:number|null;miss:number|null;max_combo:number|null;display_accuracy:number|null};
 type SortMode='accuracy'|'score'|'streak';
 
 const rankInfo=(mmr:number)=>{
@@ -72,7 +72,7 @@ export default function ProfilePage(){
       if(!profileRes.data){setError('Player profile not found.');setLoading(false);return}
 
       const {data:competitionRows,error:competitionError}=await supabase.from('competitive_results')
-        .select('mode,round_no,chart_id,difficulty,competition_points,song_points,created_at,perfect,great,good,miss,max_combo')
+        .select('mode,round_no,chart_id,difficulty,competition_points,song_points,created_at,perfect,great,good,miss,max_combo,display_accuracy')
         .eq('user_id',uid).order('created_at',{ascending:false}).limit(500);
       if(competitionError)console.warn('Competitive results are not available yet:',competitionError.message);
       if(cancelled)return;
@@ -81,11 +81,7 @@ export default function ProfilePage(){
       setProfile(profileRes.data as ProfileRow);
       if(rankedRes.data)setRanked(rankedRes.data as RankedRow);
       if(battleRoyaleRes.data){const record=Array.isArray(battleRoyaleRes.data)?battleRoyaleRes.data[0]:battleRoyaleRes.data;if(record)setBattleRoyale(record as BattleRoyaleRow)}
-      // Older rows stored timing-weighted accuracy. Recompute from their hit breakdown.
-      setScores(scoreRows.map(row=>{
-        const judged=row.perfect+row.great+row.good+row.miss;
-        return {...row,accuracy:judged>0?hitAccuracy(row):row.accuracy};
-      }));
+      setScores(scoreRows);
       const ids=Array.from(new Set([...scoreRows.map(row=>row.chart_id),...(competitionRows||[]).map(row=>row.chart_id)].filter(Boolean)));
       if(ids.length){
         const chartResults=await Promise.all(Array.from({length:Math.ceil(ids.length/100)},(_,page)=>supabase!.from('charts').select('id,title,artist,youtube_url,instrument,difficulty').in('id',ids.slice(page*100,(page+1)*100))));
@@ -104,10 +100,10 @@ export default function ProfilePage(){
     const saved=scores.map(score=>({...score,chart:chartMap.get(score.chart_id)}));
     const battle=competition.filter(row=>row.mode==='battle_royale'&&row.perfect!==null&&row.great!==null&&row.good!==null&&row.miss!==null).map(row=>{
       const stats={perfect:Number(row.perfect),great:Number(row.great),good:Number(row.good),miss:Number(row.miss)};
-      return {chart_id:row.chart_id,score:Number(row.song_points),accuracy:hitAccuracy(stats),max_combo:Number(row.max_combo)||0,...stats,difficulty:row.difficulty,created_at:row.created_at,chart:chartMap.get(row.chart_id)};
+      return {chart_id:row.chart_id,score:Number(row.song_points),accuracy:row.display_accuracy===null?hitAccuracy(stats):Number(row.display_accuracy),max_combo:Number(row.max_combo)||0,...stats,difficulty:row.difficulty,created_at:row.created_at,chart:chartMap.get(row.chart_id)};
     });
     // The normal song result may already be in scores. Show each play once.
-    return [...saved,...battle.filter(row=>!saved.some(score=>score.chart_id===row.chart_id&&score.difficulty===row.difficulty&&score.score===row.score&&Math.abs(new Date(score.created_at).getTime()-new Date(row.created_at).getTime())<5*60*1000))]
+    return [...saved,...battle.filter(row=>!saved.some(score=>score.chart_id===row.chart_id&&score.difficulty===row.difficulty&&Math.abs(new Date(score.created_at).getTime()-new Date(row.created_at).getTime())<5*60*1000))]
       .sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime());
   },[scores,competition,chartMap]);
   const instrumentPerformances=useMemo(()=>performances.filter(row=>selectedInstrument==='all'||(row.chart?.instrument||'mix')===selectedInstrument),[performances,selectedInstrument]);
