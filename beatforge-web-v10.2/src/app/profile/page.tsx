@@ -3,7 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {supabase} from '../../lib/supabase';
 import {instrumentLabel, instrumentOrder, type ChartInstrument} from '../../chart-instruments';
-import {hitAccuracy} from '../../hit-accuracy';
+import {scoreAccuracy} from '../../hit-accuracy';
 import styles from './profile.module.css';
 
 type ScoreRow={chart_id:string;score:number;accuracy:number;max_combo:number;perfect:number;great:number;good:number;miss:number;difficulty:string|null;created_at:string};
@@ -81,7 +81,7 @@ export default function ProfilePage(){
       setProfile(profileRes.data as ProfileRow);
       if(rankedRes.data)setRanked(rankedRes.data as RankedRow);
       if(battleRoyaleRes.data){const record=Array.isArray(battleRoyaleRes.data)?battleRoyaleRes.data[0]:battleRoyaleRes.data;if(record)setBattleRoyale(record as BattleRoyaleRow)}
-      setScores(scoreRows);
+      setScores(scoreRows.map(row=>({...row,accuracy:scoreAccuracy(row)})));
       const ids=Array.from(new Set([...scoreRows.map(row=>row.chart_id),...(competitionRows||[]).map(row=>row.chart_id)].filter(Boolean)));
       if(ids.length){
         const chartResults=await Promise.all(Array.from({length:Math.ceil(ids.length/100)},(_,page)=>supabase!.from('charts').select('id,title,artist,youtube_url,instrument,difficulty').in('id',ids.slice(page*100,(page+1)*100))));
@@ -100,7 +100,7 @@ export default function ProfilePage(){
     const saved=scores.map(score=>({...score,chart:chartMap.get(score.chart_id)}));
     const battle=competition.filter(row=>row.mode==='battle_royale'&&row.perfect!==null&&row.great!==null&&row.good!==null&&row.miss!==null).map(row=>{
       const stats={perfect:Number(row.perfect),great:Number(row.great),good:Number(row.good),miss:Number(row.miss)};
-      return {chart_id:row.chart_id,score:Number(row.song_points),accuracy:row.display_accuracy===null?hitAccuracy(stats):Number(row.display_accuracy),max_combo:Number(row.max_combo)||0,...stats,difficulty:row.difficulty,created_at:row.created_at,chart:chartMap.get(row.chart_id)};
+      return {chart_id:row.chart_id,score:Number(row.song_points),accuracy:scoreAccuracy({...stats,accuracy:row.display_accuracy}),max_combo:Number(row.max_combo)||0,...stats,difficulty:row.difficulty,created_at:row.created_at,chart:chartMap.get(row.chart_id)};
     });
     // The normal song result may already be in scores. Show each play once.
     return [...saved,...battle.filter(row=>!saved.some(score=>score.chart_id===row.chart_id&&score.difficulty===row.difficulty&&Math.abs(new Date(score.created_at).getTime()-new Date(row.created_at).getTime())<5*60*1000))]
