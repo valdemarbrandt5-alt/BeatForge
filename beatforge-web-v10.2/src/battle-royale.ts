@@ -59,6 +59,12 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
       p_max_combo:num(result.querySelector('.resultMeta>div:nth-child(2) b')?.textContent),
     };
   };
+  const roundAccuracy=()=>{
+    const text=(soloResult||resultEl())?.querySelector('.resultMeta>div:first-child b')?.textContent;
+    if(!text)return null;
+    const value=Number.parseFloat(text.replace(',','.'));
+    return Number.isFinite(value)?value:null;
+  };
 
   const stopCountdown=()=>{if(countdownTimer!==null){clearInterval(countdownTimer);countdownTimer=null}};
   const removeHud=()=>{hud?.remove();hud=null;document.documentElement.classList.remove('brInDangerActive');document.querySelector('.game')?.classList.remove('brInDanger','brDangerGame')};
@@ -280,13 +286,17 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     const me=state.players.find(p=>p.me);if(!me)return;
     const chartId=document.querySelector<HTMLElement>('main')?.dataset.activeChartId||state.chart?.id;
     if(matchId&&chartId){
-      const roundMatch=matchId,round=state.round_no,hits=roundHits();
+      const roundMatch=matchId,round=state.round_no,hits=roundHits(),accuracy=roundAccuracy();
       void (async()=>{
         const {error}=await db.rpc('record_competitive_result',{p_mode:'battle_royale',p_match:roundMatch,p_round:round,p_chart:chartId,p_difficulty:document.querySelector<HTMLElement>('main')?.dataset.competitionDifficulty||me.difficulty||'Medium',p_song_points:currentScore()});
         if(error){console.error('battle royale result save',error);return}
         if(hits){
           const {error:hitError}=await db.rpc('record_competitive_hit_stats',{p_mode:'battle_royale',p_match:roundMatch,p_round:round,...hits});
           if(hitError)console.error('battle royale hit stats save',hitError);
+        }
+        if(accuracy!==null){
+          const {error:accuracyError}=await db.rpc('record_competitive_display_accuracy',{p_mode:'battle_royale',p_match:roundMatch,p_round:round,p_accuracy:accuracy});
+          if(accuracyError)console.error('battle royale accuracy save',accuracyError);
         }
       })();
     }
