@@ -394,7 +394,12 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     `;document.head.appendChild(style);
   };
 
-  const scan=()=>void enhanceFriendRows();
+  const scan=()=>{
+    document.querySelectorAll<HTMLButtonElement>('.accountArea button').forEach(button=>{
+      if(button.textContent?.trim()==='FRIENDS')button.classList.add('friendsModeNav');
+    });
+    void enhanceFriendRows();
+  };
   const start=()=>{
     addStyles();void loadSession();
     const observer=new MutationObserver(scan);observer.observe(document.body,{childList:true,subtree:true});scan();

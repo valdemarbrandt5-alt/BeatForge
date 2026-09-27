@@ -129,7 +129,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     removeBotOverlay();
     const game=document.querySelector('.game') as HTMLElement|null;if(!game)return;
     const hud=document.createElement('div');hud.className='botRankedLiveHud';
-    hud.innerHTML='<div><span class="botLiveMe" data-place="1"><b>'+esc(self.username)+'</b><em>'+esc(active.user_difficulty||'Medium')+'</em><strong>0</strong></span><span class="botLiveOpp" data-place="2"><b>'+esc(active.bot_name)+' <i>BOT</i></b><em>'+esc(active.bot_difficulty)+'</em><strong>0</strong></span></div>';
+    hud.innerHTML='<small>RANKED DUEL · LIVE</small><div><span class="botLiveMe" data-place="1"><b>'+esc(self.username)+'</b><em>'+esc(active.user_difficulty||'Medium')+'</em><strong>0</strong></span><span class="botLiveOpp" data-place="2"><b>'+esc(active.bot_name)+' <i>BOT</i></b><em>'+esc(active.bot_difficulty)+'</em><strong>0</strong></span></div>';
     game.appendChild(hud);liveHud=hud;live=true;finishing=false;lastScore=0;unloadSent=false;
     const session=await db.auth.getSession();accessToken=session?.data?.session?.access_token||'';
 
