@@ -1,6 +1,8 @@
 if(typeof window!=='undefined'){
   const rankClass=(text:string)=>{
     const t=text.toUpperCase();
+    if(t.includes('GRANDMASTER'))return 'rhGrandmaster';
+    if(t.includes('CHALLENGER'))return 'rhChallenger';
     if(t.includes('MASTER'))return 'rhMaster';
     if(t.includes('DIAMOND'))return 'rhDiamond';
     if(t.includes('PLATINUM'))return 'rhPlatinum';
@@ -20,7 +22,7 @@ if(typeof window!=='undefined'){
       const top=card.querySelector(':scope > small') as HTMLElement|null;
       if(top&&/BEATFORGE COMPETITIVE/i.test(top.textContent||''))top.textContent='BEATFORGE';
 
-      badge.classList.remove('rhBronze','rhSilver','rhGold','rhPlatinum','rhDiamond','rhMaster');
+      badge.classList.remove('rhBronze','rhSilver','rhGold','rhPlatinum','rhDiamond','rhMaster','rhGrandmaster','rhChallenger');
       badge.classList.add('rankedHomeRank',rankClass(badge.querySelector('b')?.textContent||''));
 
       const stats=badge.querySelector('span') as HTMLElement|null;
@@ -57,6 +59,8 @@ if(typeof window!=='undefined'){
         .realRanked .rankedHomeRank.rhPlatinum b{color:#57e0d1!important}
         .realRanked .rankedHomeRank.rhDiamond b{color:#6aa9ff!important}
         .realRanked .rankedHomeRank.rhMaster b{color:#c084fc!important}
+        .realRanked .rankedHomeRank.rhGrandmaster b{color:#ff6cab!important}
+        .realRanked .rankedHomeRank.rhChallenger b{color:#ffd54a!important}
       `;
       document.head.appendChild(style);
     }

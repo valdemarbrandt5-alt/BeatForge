@@ -4,28 +4,21 @@ import {useEffect,useMemo,useState} from 'react';
 import {supabase} from '../../lib/supabase';
 import {instrumentLabel, instrumentOrder, type ChartInstrument} from '../../chart-instruments';
 import {scoreAccuracy} from '../../hit-accuracy';
+import {rankInfo,challengerPosition} from '../../rank';
 import styles from './profile.module.css';
 
-type ScoreRow={chart_id:string;score:number;accuracy:number;max_combo:number;perfect:number;great:number;good:number;miss:number;difficulty:string|null;created_at:string};
+type ScoreRow={chart_id:string;score:number;accuracy:number;max_combo:number;perfect:number;great:number;good:number;miss:number;star_rating:number|null;difficulty:string|null;created_at:string};
 type ChartRow={id:string;title:string;artist:string|null;youtube_url:string|null;instrument?:ChartInstrument;difficulty:string|null};
 type RankedRow={mmr:number;wins:number;losses:number;draws:number};
 type BattleRoyaleRow={wins:number;games:number;top4:number};
 type ProfileRow={username:string|null;avatar_url:string|null;created_at:string|null};
 type SongPerformance=ScoreRow&{chart?:ChartRow};
-type CompetitionRow={mode:string;round_no:number;chart_id:string;difficulty:string;competition_points:number;song_points:number;created_at:string;perfect:number|null;great:number|null;good:number|null;miss:number|null;max_combo:number|null;display_accuracy:number|null};
+type CompetitionRow={mode:string;round_no:number;chart_id:string;difficulty:string;competition_points:number;song_points:number;created_at:string;perfect:number|null;great:number|null;good:number|null;miss:number|null;max_combo:number|null;display_accuracy:number|null;star_rating:number|null};
 type SortMode='accuracy'|'score'|'streak';
-
-const rankInfo=(mmr:number)=>{
-  if(mmr<800)return{name:'BRONZE',floor:0,next:800,cls:'bronze'};
-  if(mmr<1000)return{name:'SILVER',floor:800,next:1000,cls:'silver'};
-  if(mmr<1200)return{name:'GOLD',floor:1000,next:1200,cls:'gold'};
-  if(mmr<1400)return{name:'PLATINUM',floor:1200,next:1400,cls:'platinum'};
-  if(mmr<1600)return{name:'DIAMOND',floor:1400,next:1600,cls:'diamond'};
-  return{name:'MASTER',floor:1600,next:null as number|null,cls:'master'};
-};
 
 const youtubeId=(url:string|null|undefined)=>{if(!url)return'';const match=url.match(/[?&]v=([^&]+)/)||url.match(/youtu\.be\/([^?]+)/)||url.match(/\/shorts\/([^?]+)/);return match?.[1]||''};
 const pct=(value:number)=>`${Math.max(0,Math.min(100,value)).toFixed(1)}%`;
+const ratingStars=(value:number|null)=>value==null?null:<span className={styles.performanceStars} aria-label={`${value} of 5 stars`}>{[1,2,3,4,5].map(i=><span key={i} className={i<=value?'':styles.emptyStar}>★</span>)}</span>;
 const valueFor=(row:SongPerformance,mode:SortMode)=>mode==='score'?Number(row.score)||0:mode==='streak'?Number(row.max_combo)||0:Number(row.accuracy)||0;
 
 export default function ProfilePage(){
@@ -33,6 +26,7 @@ export default function ProfilePage(){
   const [error,setError]=useState('');
   const [profile,setProfile]=useState<ProfileRow|null>(null);
   const [ranked,setRanked]=useState<RankedRow>({mmr:1000,wins:0,losses:0,draws:0});
+  const [worldPosition,setWorldPosition]=useState<number|null>(null);
   const [battleRoyale,setBattleRoyale]=useState<BattleRoyaleRow>({wins:0,games:0,top4:0});
   const [scores,setScores]=useState<ScoreRow[]>([]);
   const [competition,setCompetition]=useState<CompetitionRow[]>([]);
@@ -61,7 +55,8 @@ export default function ProfilePage(){
       const scoreRows:ScoreRow[]=[];
       let scoreError='';
       for(let offset=0;!scoreError;offset+=500){
-        const page=await supabase.from('scores').select('chart_id,score,accuracy,max_combo,perfect,great,good,miss,difficulty,created_at').eq('user_id',uid).order('created_at',{ascending:false}).range(offset,offset+499);
+        let page:{data:ScoreRow[]|null;error:{message:string}|null}=await supabase.from('scores').select('chart_id,score,accuracy,max_combo,perfect,great,good,miss,star_rating,difficulty,created_at').eq('user_id',uid).order('created_at',{ascending:false}).range(offset,offset+499);
+        if(page.error&&/star_rating/i.test(page.error.message)){const fallback=await supabase.from('scores').select('chart_id,score,accuracy,max_combo,perfect,great,good,miss,difficulty,created_at').eq('user_id',uid).order('created_at',{ascending:false}).range(offset,offset+499);page={data:(fallback.data||[]).map(row=>({...row,star_rating:null})) as ScoreRow[],error:fallback.error}}
         if(page.error){scoreError=page.error.message;break}
         scoreRows.push(...(page.data||[]) as ScoreRow[]);
         if((page.data||[]).length<500)break;
@@ -71,15 +66,17 @@ export default function ProfilePage(){
       if(scoreError){setError(scoreError);setLoading(false);return}
       if(!profileRes.data){setError('Player profile not found.');setLoading(false);return}
 
-      const {data:competitionRows,error:competitionError}=await supabase.from('competitive_results')
-        .select('mode,round_no,chart_id,difficulty,competition_points,song_points,created_at,perfect,great,good,miss,max_combo,display_accuracy')
+      const competitionRes=await supabase.from('competitive_results')
+        .select('mode,round_no,chart_id,difficulty,competition_points,song_points,created_at,perfect,great,good,miss,max_combo,display_accuracy,star_rating')
         .eq('user_id',uid).order('created_at',{ascending:false}).limit(500);
+      let competitionRows=(competitionRes.data||[]) as CompetitionRow[],competitionError=competitionRes.error;
+      if(competitionError&&/star_rating/i.test(competitionError.message)){const fallback=await supabase.from('competitive_results').select('mode,round_no,chart_id,difficulty,competition_points,song_points,created_at,perfect,great,good,miss,max_combo,display_accuracy').eq('user_id',uid).order('created_at',{ascending:false}).limit(500);competitionRows=(fallback.data||[]).map(row=>({...row,star_rating:null})) as CompetitionRow[];competitionError=fallback.error}
       if(competitionError)console.warn('Competitive results are not available yet:',competitionError.message);
       if(cancelled)return;
       setCompetition((competitionRows||[]) as CompetitionRow[]);
 
       setProfile(profileRes.data as ProfileRow);
-      if(rankedRes.data)setRanked(rankedRes.data as RankedRow);
+      if(rankedRes.data){setRanked(rankedRes.data as RankedRow);setWorldPosition(await challengerPosition(supabase,uid,Number(rankedRes.data.mmr)));}
       if(battleRoyaleRes.data){const record=Array.isArray(battleRoyaleRes.data)?battleRoyaleRes.data[0]:battleRoyaleRes.data;if(record)setBattleRoyale(record as BattleRoyaleRow)}
       setScores(scoreRows.map(row=>({...row,accuracy:scoreAccuracy(row)})));
       const ids=Array.from(new Set([...scoreRows.map(row=>row.chart_id),...(competitionRows||[]).map(row=>row.chart_id)].filter(Boolean)));
@@ -100,7 +97,7 @@ export default function ProfilePage(){
     const saved=scores.map(score=>({...score,chart:chartMap.get(score.chart_id)}));
     const battle=competition.filter(row=>row.mode==='battle_royale'&&row.perfect!==null&&row.great!==null&&row.good!==null&&row.miss!==null).map(row=>{
       const stats={perfect:Number(row.perfect),great:Number(row.great),good:Number(row.good),miss:Number(row.miss)};
-      return {chart_id:row.chart_id,score:Number(row.song_points),accuracy:scoreAccuracy({...stats,accuracy:row.display_accuracy}),max_combo:Number(row.max_combo)||0,...stats,difficulty:row.difficulty,created_at:row.created_at,chart:chartMap.get(row.chart_id)};
+      return {chart_id:row.chart_id,score:Number(row.song_points),accuracy:scoreAccuracy({...stats,accuracy:row.display_accuracy}),max_combo:Number(row.max_combo)||0,star_rating:row.star_rating,...stats,difficulty:row.difficulty,created_at:row.created_at,chart:chartMap.get(row.chart_id)};
     });
     // The normal song result may already be in scores. Show each play once.
     return [...saved,...battle.filter(row=>!saved.some(score=>score.chart_id===row.chart_id&&score.difficulty===row.difficulty&&Math.abs(new Date(score.created_at).getTime()-new Date(row.created_at).getTime())<5*60*1000))]
@@ -143,7 +140,7 @@ export default function ProfilePage(){
 
     <section className={styles.hero}>
       <div className={styles.identity}><div className={styles.avatar}>{profile?.avatar_url?<img src={profile.avatar_url} alt=""/>:<span>{initial}</span>}</div><div><small>{viewingOwn?'YOUR PLAYER PROFILE':'PLAYER PROFILE'}</small><h1>{username}</h1><p>{profile?.created_at?`BeatForge player since ${new Date(profile.created_at).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`:'BeatForge player'}</p>{!viewingOwn&&<span className={styles.friendProfileBadge}>FRIEND PROFILE</span>}</div></div>
-      <div className={`${styles.rankCard} ${styles[rank.cls]}`}><div className={styles.rankGlow}/><small>CURRENT RANK</small><strong>{rank.name}</strong><b>{ranked.mmr.toLocaleString()} MMR</b><div className={styles.rankRail}><i style={{width:`${rankProgress}%`}}/></div><span>{rank.next===null?'Top rank reached':`${Math.max(0,rank.next-ranked.mmr)} MMR to ${rankInfo(rank.next).name}`}</span></div>
+      <div className={`${styles.rankCard} ${styles[rank.cls]}`}><div className={styles.rankGlow}/><small>CURRENT RANK</small><strong>{rank.name}</strong><b>{ranked.mmr.toLocaleString()} MMR</b><div className={styles.rankRail}><i style={{width:`${rankProgress}%`}}/></div><span>{rank.next===null?(worldPosition?`WORLD RANK #${worldPosition.toLocaleString()}`:'Top rank reached'):`${Math.max(0,rank.next-ranked.mmr)} MMR to ${rankInfo(rank.next).name}`}</span></div>
     </section>
 
     <section className={styles.instrumentPanel}>
@@ -167,20 +164,20 @@ export default function ProfilePage(){
     <section className={styles.contentGrid}>
       <article className={styles.bestCard}>
         <div className={styles.sectionLabel}><div><small>SIGNATURE PERFORMANCE · {sortLabel}</small><h2>Best song</h2></div><span>★ PERSONAL BEST</span></div>
-        {bestSong?<><div className={styles.bestSongHero}><div className={styles.cover}>{youtubeId(bestSong.chart?.youtube_url)?<img src={`https://i.ytimg.com/vi/${youtubeId(bestSong.chart?.youtube_url)}/hqdefault.jpg`} alt=""/>:<div className={styles.coverFallback}>BF</div>}</div><div className={styles.bestInfo}><small>{bestSong.difficulty||bestSong.chart?.difficulty||'Medium'} · {sortLabel}</small><h3>{bestSong.chart?.title||'Unknown chart'}</h3><p>{bestSong.chart?.artist||'Unknown artist'} · {instrumentLabel(bestSong.chart?.instrument)}</p><strong>{sortMode==='accuracy'?pct(Number(bestSong.accuracy)||0):sortMode==='streak'?`${Number(bestSong.max_combo||0).toLocaleString()}x`:Number(bestSong.score).toLocaleString()}</strong><span>{sortLabel}</span></div></div><div className={styles.bestDetails}><div><b>{Number(bestSong.score).toLocaleString()}</b><span>SCORE</span></div><div><b>{pct(Number(bestSong.accuracy)||0)}</b><span>ACCURACY</span></div><div><b>{Number(bestSong.max_combo||0).toLocaleString()}x</b><span>MAX STREAK</span></div><div><b>{Number(bestSong.miss||0).toLocaleString()}</b><span>MISS</span></div></div></>:<div className={styles.noData}>Play and finish a song to create your first personal best.</div>}
+        {bestSong?<><div className={styles.bestSongHero}><div className={styles.cover}>{youtubeId(bestSong.chart?.youtube_url)?<img src={`https://i.ytimg.com/vi/${youtubeId(bestSong.chart?.youtube_url)}/hqdefault.jpg`} alt=""/>:<div className={styles.coverFallback}>BF</div>}</div><div className={styles.bestInfo}><small>{bestSong.difficulty||bestSong.chart?.difficulty||'Medium'} · {sortLabel}</small><h3>{bestSong.chart?.title||'Unknown chart'}</h3><p>{bestSong.chart?.artist||'Unknown artist'} · {instrumentLabel(bestSong.chart?.instrument)}</p>{ratingStars(bestSong.star_rating)}<strong>{sortMode==='accuracy'?pct(Number(bestSong.accuracy)||0):sortMode==='streak'?`${Number(bestSong.max_combo||0).toLocaleString()}x`:Number(bestSong.score).toLocaleString()}</strong><span>{sortLabel}</span></div></div><div className={styles.bestDetails}><div><b>{Number(bestSong.score).toLocaleString()}</b><span>SCORE</span></div><div><b>{pct(Number(bestSong.accuracy)||0)}</b><span>ACCURACY</span></div><div><b>{Number(bestSong.max_combo||0).toLocaleString()}x</b><span>MAX STREAK</span></div><div><b>{Number(bestSong.miss||0).toLocaleString()}</b><span>MISS</span></div></div></>:<div className={styles.noData}>Play and finish a song to create your first personal best.</div>}
       </article>
       <article className={styles.rankedPanel}><div className={styles.sectionLabel}><div><small>COMPETITIVE</small><h2>Ranked record</h2></div></div><div className={styles.winDonut} style={{'--winrate':`${winrate*3.6}deg`} as React.CSSProperties}><div><strong>{pct(winrate)}</strong><span>WIN RATE</span></div></div><div className={styles.recordRows}><div><span>Wins</span><b>{ranked.wins}</b></div><div><span>Losses</span><b>{ranked.losses}</b></div><div><span>Draws</span><b>{ranked.draws}</b></div><div><span>MMR</span><b>{ranked.mmr}</b></div></div></article>
     </section>
 
     <section className={styles.battleRoyalePanel}><div className={styles.sectionLabel}><div><small>COMPETITIVE · SHARED MMR</small><h2>Battle Royale</h2></div></div><div className={styles.battleRoyaleStats}><div><small>VICTORIES</small><strong>{battleRoyale.wins}</strong></div><div><small>TOP 4</small><strong>{battleRoyale.top4}</strong></div><div><small>BEST BATTLE POINTS</small><strong>{bestBattle.toLocaleString()}</strong></div><div><small>BEST RANKED POINTS</small><strong>{bestRanked.toLocaleString()}</strong></div></div></section>
 
-    <section className={styles.listSection}><div className={styles.sectionLabel}><div><small>YOUR TWO SCORES</small><h2>Competitive rounds</h2></div></div><div className={styles.recentGrid}>{instrumentCompetition.slice(0,8).map((row,index)=><div className={styles.recentCard} key={`${row.created_at}-${index}`}><small>{row.mode==='battle_royale'?`BATTLE ROYALE · ROUND ${row.round_no}`:'RANKED'} · {row.difficulty}</small><strong>{chartMap.get(row.chart_id)?.title||'Song'}</strong><span>{instrumentLabel(chartMap.get(row.chart_id)?.instrument)}</span><b>{Number(row.competition_points).toLocaleString()} battle points</b><em>{Number(row.song_points).toLocaleString()} song points · personal record eligible</em></div>)}{!instrumentCompetition.length&&<div className={styles.noData}>No competitive rounds recorded for this instrument yet.</div>}</div></section>
+    <section className={styles.listSection}><div className={styles.sectionLabel}><div><small>YOUR TWO SCORES</small><h2>Competitive rounds</h2></div></div><div className={styles.recentGrid}>{instrumentCompetition.slice(0,8).map((row,index)=><div className={styles.recentCard} key={`${row.created_at}-${index}`}><small>{row.mode==='battle_royale'?`BATTLE ROYALE · ROUND ${row.round_no}`:'RANKED'} · {row.difficulty}</small><strong>{chartMap.get(row.chart_id)?.title||'Song'}</strong><span>{instrumentLabel(chartMap.get(row.chart_id)?.instrument)}</span><b>{Number(row.competition_points).toLocaleString()} battle points</b><em>{Number(row.song_points).toLocaleString()} song points · personal record eligible</em>{ratingStars(row.star_rating)}</div>)}{!instrumentCompetition.length&&<div className={styles.noData}>No competitive rounds recorded for this instrument yet.</div>}</div></section>
 
     <section className={styles.listSection}>
       <div className={styles.performanceHeader}><div className={styles.sectionLabel}><div><small>PERSONAL BESTS</small><h2>Top performances</h2></div></div><div className={styles.sortControls}><span>SORT BY</span><button className={sortMode==='score'?styles.activeSort:''} onClick={()=>setSortMode('score')}>SCORE</button><button className={sortMode==='accuracy'?styles.activeSort:''} onClick={()=>setSortMode('accuracy')}>ACCURACY</button><button className={sortMode==='streak'?styles.activeSort:''} onClick={()=>setSortMode('streak')}>STREAK</button></div></div>
-      <div className={styles.songList}>{topSongs.length?topSongs.map((song,index)=>{const yid=youtubeId(song.chart?.youtube_url);return <div className={styles.songRow} key={`${song.chart_id}-${song.difficulty||'all'}`}><b className={styles.place}>#{index+1}</b><div className={styles.thumb}>{yid?<img src={`https://i.ytimg.com/vi/${yid}/mqdefault.jpg`} alt=""/>:<span>BF</span>}</div><div className={styles.songIdentity}><strong>{song.chart?.title||'Unknown chart'}</strong><span>{song.chart?.artist||'Unknown artist'} · {instrumentLabel(song.chart?.instrument)} · {song.difficulty||song.chart?.difficulty||'Medium'}</span></div><div className={`${styles.songStat} ${sortMode==='score'?styles.primaryStat:''}`}><b>{Number(song.score).toLocaleString()}</b><span>SCORE</span></div><div className={`${styles.songStat} ${sortMode==='accuracy'?styles.primaryStat:''}`}><b>{pct(Number(song.accuracy)||0)}</b><span>ACCURACY</span></div><div className={`${styles.songStat} ${sortMode==='streak'?styles.primaryStat:''}`}><b>{Number(song.max_combo||0).toLocaleString()}x</b><span>STREAK</span></div></div>}):<div className={styles.noData}>No song scores yet.</div>}</div>
+      <div className={styles.songList}>{topSongs.length?topSongs.map((song,index)=>{const yid=youtubeId(song.chart?.youtube_url);return <div className={styles.songRow} key={`${song.chart_id}-${song.difficulty||'all'}`}><b className={styles.place}>#{index+1}</b><div className={styles.thumb}>{yid?<img src={`https://i.ytimg.com/vi/${yid}/mqdefault.jpg`} alt=""/>:<span>BF</span>}</div><div className={styles.songIdentity}><strong>{song.chart?.title||'Unknown chart'}</strong><span>{song.chart?.artist||'Unknown artist'} · {instrumentLabel(song.chart?.instrument)} · {song.difficulty||song.chart?.difficulty||'Medium'}</span>{ratingStars(song.star_rating)}</div><div className={`${styles.songStat} ${sortMode==='score'?styles.primaryStat:''}`}><b>{Number(song.score).toLocaleString()}</b><span>SCORE</span></div><div className={`${styles.songStat} ${sortMode==='accuracy'?styles.primaryStat:''}`}><b>{pct(Number(song.accuracy)||0)}</b><span>ACCURACY</span></div><div className={`${styles.songStat} ${sortMode==='streak'?styles.primaryStat:''}`}><b>{Number(song.max_combo||0).toLocaleString()}x</b><span>STREAK</span></div></div>}):<div className={styles.noData}>No song scores yet.</div>}</div>
     </section>
 
-    <section className={styles.listSection}><div className={styles.sectionLabel}><div><small>ACTIVITY</small><h2>Recent performances</h2></div></div><div className={styles.recentGrid}>{instrumentPerformances.slice(0,6).map((row,index)=><div className={styles.recentCard} key={`${row.chart_id}-${row.created_at}-${index}`}><small>{row.difficulty||row.chart?.difficulty||'Medium'}</small><strong>{row.chart?.title||'Unknown chart'}</strong><span>{row.chart?.artist||'Unknown artist'} · {instrumentLabel(row.chart?.instrument)}</span><b>{Number(row.score).toLocaleString()}</b><em>{pct(Number(row.accuracy)||0)} · {Number(row.max_combo||0)}x streak</em></div>)}{!instrumentPerformances.length&&<div className={styles.noData}>No scores for this instrument yet.</div>}</div></section>
+    <section className={styles.listSection}><div className={styles.sectionLabel}><div><small>ACTIVITY</small><h2>Recent performances</h2></div></div><div className={styles.recentGrid}>{instrumentPerformances.slice(0,6).map((row,index)=><div className={styles.recentCard} key={`${row.chart_id}-${row.created_at}-${index}`}><small>{row.difficulty||row.chart?.difficulty||'Medium'}</small><strong>{row.chart?.title||'Unknown chart'}</strong><span>{row.chart?.artist||'Unknown artist'} · {instrumentLabel(row.chart?.instrument)}</span><b>{Number(row.score).toLocaleString()}</b><em>{pct(Number(row.accuracy)||0)} · {Number(row.max_combo||0)}x streak</em>{ratingStars(row.star_rating)}</div>)}{!instrumentPerformances.length&&<div className={styles.noData}>No scores for this instrument yet.</div>}</div></section>
   </div></main>;
 }
