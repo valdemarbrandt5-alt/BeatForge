@@ -99,10 +99,10 @@ if (typeof window !== 'undefined') {
     if (!cachedResult) return;
     const card = [...document.querySelectorAll('.realRanked .rankedCard')]
       .find((x) => /RANKED DUEL COMPLETE/i.test(x.textContent || '')) as HTMLElement | undefined;
-    if (!card || card.querySelector('.rankedPerformance')) return;
+    if (!card || card.querySelector('.rankedPerformance') || card.querySelector('.rankedStatsSheet .resultGrid')) return;
     const r = cachedResult;
     const html = `<div class="rankedPerformance"><div><b>${r.perfect}</b><span>PERFECT</span></div><div><b>${r.great}</b><span>GREAT</span></div><div><b>${r.good}</b><span>GOOD</span></div><div><b>${r.miss}</b><span>MISS</span></div><div><b>${r.accuracy}</b><span>ACCURACY</span></div><div><b>${r.maxCombo}</b><span>MAX COMBO</span></div><div><b>${r.timing}</b><span>${r.timingLabel}</span></div></div>`;
-    card.querySelector('.rankedFinalScores')?.insertAdjacentHTML('afterend', html);
+    (card.querySelector('.rankedStatsSheet')||card.querySelector('.rankedFinalScores'))?.insertAdjacentHTML('beforeend', html);
   };
 
   const telemetryTick = async () => {

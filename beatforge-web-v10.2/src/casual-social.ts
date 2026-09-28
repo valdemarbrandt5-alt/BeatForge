@@ -1,8 +1,8 @@
 import { supabase } from './lib/supabase';
-import { distinctInstruments, groupSongs, instrumentLabel, loadChartById, loadSongInstruments, type ChartInstrument } from './chart-instruments';
+import { groupSongs, instrumentLabel, loadChartById, loadSongInstruments, type ChartInstrument } from './chart-instruments';
 
 type FriendInfo={id:string;username:string};
-type ChartInfo={id:string;title:string;artist:string|null;youtube_url:string|null;instrument?:ChartInstrument;play_count:number|null};
+type ChartInfo={id:string;title:string;artist:string|null;youtube_url:string|null;instrument?:ChartInstrument;play_count:number|null;duration?:number|null;difficulty?:string|null;created_at?:string|null;chart_likes?:{user_id:string}[]};
 type CasualRow={
   id:string;
   inviter_id:string;
@@ -40,7 +40,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   let gameStarted=false;
   let playTimer:number|null=null;
 
-  const esc=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]||c));
+  const esc=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
 
   const toast=(message:string)=>{
     document.querySelector('.casualSocialToast')?.remove();
@@ -210,6 +210,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   const startPlay=()=>{
     if(gameStarted)return;
     gameStarted=true;
+    window.dispatchEvent(new CustomEvent('beatforge:casual-match-started',{detail:{inviteId:activeInviteId}}));
     clearPlayTimer();
     closeFlow();
     const play=Array.from(document.querySelectorAll('button')).find((b:any)=>b.textContent?.trim()==='PLAY'&&!b.closest('.rankedBackdrop')&&!b.closest('.casualFlowBackdrop')) as HTMLButtonElement|undefined;
@@ -244,45 +245,59 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
 
   const sendInvite=async(friend:FriendInfo,chart:ChartInfo)=>{
     if(!uid)await loadSession();
-    if(!uid)return;
+    if(!uid)return false;
     resetFlow();
     const {data,error}=await db.from('casual_invites').insert({inviter_id:uid,invitee_id:friend.id,chart_id:chart.id}).select('id').single();
-    if(error){toast(error.message.includes('casual_invites')?'Run casual_invites.sql in Supabase first.':error.message);return}
+    if(error){toast(error.message.includes('casual_invites')?'Run casual_invites.sql in Supabase first.':error.message);return false}
     closePicker();
+    closeFriendsModal();
     activeInviteId=String(data.id);
     activeFriendName=friend.username;
     activeChart=chart;
     showWaitingForAccept();
+    return true;
   };
 
   const openSongPicker=async(friend:FriendInfo)=>{
     closePicker();
-    const {data,error}=await db.from('charts').select('id,title,artist,youtube_url,instrument,play_count').order('play_count',{ascending:false}).limit(1000);
-    if(error){toast('Could not load songs.');return}
-    const charts=(data||[]) as ChartInfo[];
-    const songs=groupSongs(charts);
-    const overlay=document.createElement('div');
-    overlay.className='casualPickerBackdrop';
-    overlay.innerHTML=`<div class="casualPickerCard"><div class="casualPickerTop"><div><small>CASUAL INVITE</small><h2>Play a song with ${esc(friend.username)}</h2><p>Pick a Community song. This does not affect Ranked or MMR.</p></div><button class="casualPickerClose">×</button></div><input class="casualSongSearch" placeholder="Search songs or artists…"><div class="casualSongList"></div></div>`;
+    const overlay=document.createElement('div');overlay.className='communityOverlay casualDiscover';
+    overlay.innerHTML=`<div class="communityPage"><div class="communityTop"><div><small>VS FRIENDS · INVITE</small><h2>Choose a song for ${esc(friend.username)}</h2><p>Pick a Community song and send the invite. You each choose your instrument and difficulty after accepting.</p></div><button class="communityClose" aria-label="Close">×</button></div><label class="communitySearch"><span>⌕</span><input placeholder="Search songs or artists…" aria-label="Search songs or artists"></label><div class="communityTabs"><button data-tab="trending" class="active">🔥 TRENDING</button><button data-tab="new">✨ NEW</button><button data-tab="liked">♥ MOST LIKED</button><button data-tab="all">♫ ALL SONGS</button></div><div class="communitySort"><label>INSTRUMENT <select class="casualDiscoverInstrument"><option value="all">All instruments</option><option value="mix">Full mix</option><option value="vocals">Vocals</option><option value="drums">Drums</option><option value="bass">Bass</option><option value="melody">Melody</option></select></label><label>SORT BY <select class="casualDiscoverSort"><option value="default">Category order</option><option value="difficultyAsc">Difficulty: easy first</option><option value="difficultyDesc">Difficulty: hard first</option><option value="durationAsc">Length: short first</option><option value="durationDesc">Length: long first</option></select></label></div><div class="casualDiscoverResults"></div><div class="communityPagination"><button class="casualPagePrevious">PREVIOUS</button><span class="casualPageLabel">PAGE 1</span><button class="casualPageNext">NEXT SONGS</button></div></div>`;
     document.body.appendChild(overlay);picker=overlay;
-    const list=overlay.querySelector('.casualSongList') as HTMLElement;
-    const input=overlay.querySelector('.casualSongSearch') as HTMLInputElement;
-    const render=()=>{
-      const q=input.value.trim().toLowerCase();
-      const visible=songs.filter(group=>group.some(c=>!q||c.title.toLowerCase().includes(q)||(c.artist||'').toLowerCase().includes(q))).slice(0,30);
-      list.innerHTML=visible.map(group=>{const c=group[0],y=ytId(c.youtube_url),count=distinctInstruments(group).length;return `<button class="casualSong" data-id="${esc(c.id)}">${y?`<img src="https://i.ytimg.com/vi/${esc(y)}/mqdefault.jpg" alt="">`:'<span class="casualSongFallback">BF</span>'}<span><b>${esc(c.title)}</b><em>${esc(c.artist||'Unknown artist')} · ${count} ${count===1?'instrument':'instruments'}</em></span><strong>CHOOSE</strong></button>`}).join('')||'<div class="casualEmpty">No songs found.</div>';
-      list.querySelectorAll('.casualSong').forEach(button=>button.addEventListener('click',()=>{
-        const group=songs.find(song=>song[0].id===(button as HTMLElement).dataset.id);if(!group)return;
-        input.style.display='none';
-        const choices=distinctInstruments(group);
-        list.innerHTML='<button class="casualSongBack">‹ BACK TO SONGS</button>'+choices.map(chart=>`<button class="casualInstrument" data-id="${esc(chart.id)}"><b>${esc(instrumentLabel(chart.instrument))}</b><span>INVITE ›</span></button>`).join('');
-        list.querySelector('.casualSongBack')?.addEventListener('click',()=>{input.style.display='';render()});
-        list.querySelectorAll('.casualInstrument').forEach(option=>option.addEventListener('click',()=>{const chart=choices.find(c=>c.id===(option as HTMLElement).dataset.id);if(chart)void sendInvite(friend,chart)}));
-      }));
+    const input=overlay.querySelector('.communitySearch input') as HTMLInputElement;
+    const instrument=overlay.querySelector('.casualDiscoverInstrument') as HTMLSelectElement;
+    const sort=overlay.querySelector('.casualDiscoverSort') as HTMLSelectElement;
+    const results=overlay.querySelector('.casualDiscoverResults') as HTMLElement;
+    const prev=overlay.querySelector('.casualPagePrevious') as HTMLButtonElement;
+    const next=overlay.querySelector('.casualPageNext') as HTMLButtonElement;
+    let tab='trending',page=0,request=0,debounce:number|null=null;
+    const render=async()=>{
+      const current=++request;
+      results.innerHTML='<div class="communityEmpty">Loading songs…</div>';
+      const q=input.value.trim().replace(/[%,()*\\"]/g,' ').trim();
+      let query=db.from('charts').select('id,title,artist,youtube_url,instrument,play_count,difficulty,duration,created_at,chart_likes(user_id)');
+      if(instrument.value!=='all')query=query.eq('instrument',instrument.value);
+      if(q)query=query.or(`title.ilike.%${q}%,artist.ilike.%${q}%`);
+      const field=sort.value.startsWith('duration')?'duration':sort.value.startsWith('difficulty')?'difficulty':tab==='trending'?'play_count':'created_at';
+      query=query.order(field,{ascending:sort.value==='durationAsc'||sort.value==='difficultyAsc'}).order('id',{ascending:false}).range(page*60,page*60+60);
+      const {data,error}=await query;
+      if(picker!==overlay||current!==request)return;
+      if(error){results.innerHTML='<div class="communityEmpty">Could not load songs. Try again.</div>';return}
+      const songs=groupSongs(((data||[]).slice(0,60)) as ChartInfo[]);
+      if(tab==='liked')songs.sort((a,b)=>b.reduce((n,ch)=>n+(ch.chart_likes?.length||0),0)-a.reduce((n,ch)=>n+(ch.chart_likes?.length||0),0));
+      results.innerHTML=`<div class="sectionHeading"><div><small>${q?'SEARCH RESULTS':tab==='trending'?'HOT RIGHT NOW':tab==='new'?'FRESH FROM THE COMMUNITY':tab==='liked'?'COMMUNITY FAVORITES':'COMMUNITY LIBRARY'}</small><h3>${q?'Search results':tab==='trending'?'Trending':tab==='new'?'New songs':tab==='liked'?'Most liked on this page':'All songs'}</h3></div><span>${songs.length} SONGS</span></div><div class="communityGrid">${songs.map(group=>{const chart=group.find(c=>c.instrument==='mix')||group[0];const y=ytId(chart.youtube_url);return `<article class="communityTile casualDiscoverTile"><button class="communityTileHit" data-id="${esc(chart.id)}" aria-label="Invite ${esc(friend.username)} to play ${esc(chart.title)}"></button><div class="communityCover">${y?`<img src="https://i.ytimg.com/vi/${esc(y)}/hqdefault.jpg" alt="">`:'<div class="coverFallback"><span>BF</span></div>'}<i class="tilePlay">➜</i>${chart.difficulty?`<b class="difficultyPill">${esc(chart.difficulty)}</b>`:''}</div><div class="tileInfo"><strong>${esc(chart.title)}</strong><span>${esc(chart.artist||'Unknown artist')}</span><em class="chartInstrument">Choose instrument after accepting</em><small>▶ ${Number(chart.play_count||0).toLocaleString('da-DK')} · INVITE FRIEND</small></div></article>`}).join('')}</div>${songs.length?'':'<div class="communityEmpty">No songs found.</div>'}`;
+      results.querySelectorAll<HTMLButtonElement>('.communityTileHit').forEach(button=>button.onclick=()=>{
+        const chart=songs.flat().find(c=>c.id===button.dataset.id);if(chart){button.disabled=true;void sendInvite(friend,chart).then(sent=>{if(!sent)button.disabled=false})}
+      });
+      prev.disabled=page===0;next.disabled=(data||[]).length<=60;
+      (overlay.querySelector('.casualPageLabel') as HTMLElement).textContent=`PAGE ${page+1}`;
     };
-    input.addEventListener('input',render);render();input.focus();
-    (overlay.querySelector('.casualPickerClose') as HTMLButtonElement).onclick=closePicker;
-    overlay.addEventListener('click',e=>{if(e.target===overlay)closePicker()});
+    const reset=()=>{page=0;void render()};
+    overlay.querySelectorAll<HTMLButtonElement>('.communityTabs button').forEach(button=>button.onclick=()=>{tab=button.dataset.tab||'trending';overlay.querySelectorAll('.communityTabs button').forEach(b=>b.classList.toggle('active',b===button));reset()});
+    input.oninput=()=>{if(debounce!==null)clearTimeout(debounce);debounce=window.setTimeout(reset,300)};
+    instrument.onchange=reset;sort.onchange=reset;
+    prev.onclick=()=>{if(page>0){page--;void render()}};next.onclick=()=>{page++;void render()};
+    (overlay.querySelector('.communityClose') as HTMLButtonElement).onclick=closePicker;
+    void render();input.focus();
   };
 
   const enhanceFriendRows=async()=>{

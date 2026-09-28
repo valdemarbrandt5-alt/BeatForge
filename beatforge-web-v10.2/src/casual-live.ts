@@ -42,6 +42,8 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   let localFinished=false;
   let finishSubmitting=false;
   let comparisonRendered=false;
+  let pendingInviteId='';
+  const previousResults=new WeakSet<Element>();
 
   const numberFrom=(value:string|null|undefined)=>{
     const n=Number(String(value||'0').replace(/[^0-9-]/g,''));
@@ -49,7 +51,10 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   };
 
   const streakTone=(combo:number)=>combo>=200?'streakPink':combo>=100?'streakBlue':combo>=50?'streakGold':'streakBase';
-  const resultCard=()=>[...document.querySelectorAll('.resultBackdrop .resultCard')].find(x=>/SONG COMPLETE/i.test(x.textContent||'')) as HTMLElement|undefined;
+  const resultCard=()=>[...document.querySelectorAll('.resultBackdrop .resultCard')].find(x=>{
+    const backdrop=x.closest('.resultBackdrop') as HTMLElement|null;
+    return backdrop&&!previousResults.has(backdrop)&&backdrop.style.display!=='none'&&/SONG COMPLETE/i.test(x.textContent||'');
+  }) as HTMLElement|undefined;
   const resultOpen=()=>!!resultCard();
 
   const loadUid=async()=>{
@@ -213,15 +218,17 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     });
   };
 
-  const findActive=async()=>{
+  const findActive=async(preferredId='')=>{
     if(!uid)await loadUid();
     if(!uid)return null;
     const cutoff=new Date(Date.now()-20*60*1000).toISOString();
-    const {data,error}=await db.from('casual_invites')
+    let query=db.from('casual_invites')
       .select('id,inviter_id,invitee_id,status,start_at,inviter_score,invitee_score,inviter_combo,invitee_combo,inviter_finished,invitee_finished,inviter_perfect,invitee_perfect,inviter_great,invitee_great,inviter_good,invitee_good,inviter_miss,invitee_miss,inviter_max_combo,invitee_max_combo,chart:charts!casual_invites_chart_id_fkey(title),inviter:profiles!casual_invites_inviter_id_fkey(username),invitee:profiles!casual_invites_invitee_id_fkey(username)')
       .eq('status','accepted').not('start_at','is',null)
       .or(`inviter_id.eq.${uid},invitee_id.eq.${uid}`)
-      .gt('created_at',cutoff).order('created_at',{ascending:false}).limit(1).maybeSingle();
+      .gt('created_at',cutoff);
+    if(preferredId)query=query.eq('id',preferredId);
+    const {data,error}=await query.order('created_at',{ascending:false}).limit(1).maybeSingle();
     if(error){
       if(!schemaErrorShown){schemaErrorShown=true;console.error('casual live score schema',error)}
       return null;
@@ -373,7 +380,10 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     if(busy||leaving)return;
     busy=true;
     try{
-      if(!active)active=await findActive();
+      if(pendingInviteId){
+        active=await findActive(pendingInviteId);
+        if(active)pendingInviteId='';
+      }else if(!active)active=await findActive();
       if(!active){removeHud();setControlLock(false);return}
 
       const starts=active.start_at?new Date(active.start_at).getTime():0;
@@ -418,6 +428,17 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
 
   const start=()=>{
     addStyles();void loadUid();
+    window.addEventListener('beatforge:casual-match-started',(event:Event)=>{
+      const inviteId=(event as CustomEvent<{inviteId:string}>).detail?.inviteId;
+      if(!inviteId)return;
+      if(active?.id!==inviteId){
+        document.querySelectorAll('.resultBackdrop').forEach(result=>previousResults.add(result));
+        active=null;localFinished=false;finishSubmitting=false;comparisonRendered=false;
+        removeHud();setControlLock(false);
+      }
+      pendingInviteId=inviteId;
+      void tick();
+    });
     document.addEventListener('click',blockSyncedControlClick,true);
     window.addEventListener('keydown',blockSyncedHotkeys,true);
     window.setInterval(()=>void tick(),250);

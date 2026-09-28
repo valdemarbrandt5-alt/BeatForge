@@ -58,6 +58,7 @@ if (typeof window !== 'undefined') {
     if (hud.parentElement !== game) game.appendChild(hud);
     hud.classList.add('rankedScoreboard');
     // Inline dimensions deliberately beat legacy live-HUD CSS that was stretching this element.
+    hud.style.setProperty('box-sizing', 'border-box', 'important');
     hud.style.setProperty('width', '190px', 'important');
     hud.style.setProperty('min-width', '190px', 'important');
     hud.style.setProperty('max-width', '190px', 'important');
@@ -68,9 +69,9 @@ if (typeof window !== 'undefined') {
     hud.style.setProperty('transform', 'none', 'important');
     const inner = hud.firstElementChild as HTMLElement | null;
     if (inner) {
-      inner.style.setProperty('width', '190px', 'important');
-      inner.style.setProperty('min-width', '190px', 'important');
-      inner.style.setProperty('max-width', '190px', 'important');
+      inner.style.setProperty('width', '100%', 'important');
+      inner.style.setProperty('min-width', '0', 'important');
+      inner.style.setProperty('max-width', '100%', 'important');
     }
     const players = [...hud.querySelectorAll('span')].filter(el => el.querySelector('.rrMe,.rrOpp')) as HTMLElement[];
     if (players.length < 2) return;
@@ -87,9 +88,9 @@ if (typeof window !== 'undefined') {
     const scoreOf = (p: HTMLElement) => Number((p.querySelector('.rrMe,.rrOpp')?.textContent || '0').replace(/[^0-9-]/g,'')) || 0;
     [...players].sort((a,b) => scoreOf(b)-scoreOf(a)).forEach((player,i) => {
       player.style.order=String(i); player.dataset.place=String(i+1);
-      player.style.setProperty('width','190px','important');
-      player.style.setProperty('min-width','190px','important');
-      player.style.setProperty('max-width','190px','important');
+      player.style.setProperty('width','100%','important');
+      player.style.setProperty('min-width','0','important');
+      player.style.setProperty('max-width','100%','important');
     });
   };
 
