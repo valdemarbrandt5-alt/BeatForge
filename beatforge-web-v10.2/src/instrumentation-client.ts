@@ -61,6 +61,10 @@ if (typeof window !== 'undefined') {
 
   const reportRankedFinish = async (result: Element) => {
     if (!supabase || reporting || handled.has(result)) return;
+    const hud = document.querySelector<HTMLElement>('.realRankedLiveHud[data-match-id][data-score-run-id]');
+    if (!hud?.dataset.matchId || !hud.dataset.scoreRunId ||
+        result.getAttribute('data-score-run-id') !== hud.dataset.scoreRunId ||
+        (result as HTMLElement).style.display === 'none') return;
     handled.add(result);
     reporting = true;
     captureResult(result);
@@ -70,8 +74,7 @@ if (typeof window !== 'undefined') {
       if (!uid) return;
       const { data: match } = await supabase.from('ranked_matches')
         .select('id,status,player_1,player_2')
-        .or(`player_1.eq.${uid},player_2.eq.${uid}`).eq('status', 'playing')
-        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        .eq('id', hud.dataset.matchId).eq('status', 'playing').maybeSingle();
       if (!match) return;
       activeMatchId = match.id; activeUid = uid;
       const modalScore = numberFrom(result.querySelector('.finalScore')?.textContent);
@@ -109,17 +112,15 @@ if (typeof window !== 'undefined') {
     if (!supabase || telemetryBusy) return;
     const hud = document.querySelector('.realRankedLiveHud') as HTMLElement | null;
     if (!hud) { activeMatchId = null; activeUid = null; previousCombo = 0; previousJudge = 'READY'; localMisses = 0; opponentMisses = 0; return; }
+    if (activeMatchId !== hud.dataset.matchId) {
+      activeMatchId = hud.dataset.matchId || null;
+      previousCombo = 0; previousJudge = 'READY'; localMisses = 0; opponentMisses = 0;
+    }
     telemetryBusy = true;
     try {
       ensureHudExtras(hud);
       if (!activeUid) activeUid = (await supabase.auth.getUser()).data.user?.id || null;
       if (!activeUid) return;
-      if (!activeMatchId) {
-        const { data: match } = await supabase.from('ranked_matches').select('id')
-          .or(`player_1.eq.${activeUid},player_2.eq.${activeUid}`).eq('status','playing')
-          .order('created_at',{ascending:false}).limit(1).maybeSingle();
-        activeMatchId = match?.id || null;
-      }
       if (!activeMatchId) return;
       const score = numberFrom(document.querySelector('.hudScore b')?.textContent);
       const combo = numberFrom(document.querySelector('.hudCombo b')?.textContent);
