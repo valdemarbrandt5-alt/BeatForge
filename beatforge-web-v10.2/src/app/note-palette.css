@@ -23,6 +23,18 @@
   background:linear-gradient(to bottom,color-mix(in srgb,var(--lane-note-color) 80%,white),color-mix(in srgb,var(--lane-note-color) 65%,#10131e))!important;
   box-shadow:0 0 14px color-mix(in srgb,var(--lane-note-color) 45%,transparent)!important;
 }
+/* Keep the chosen note fill, but let each combo milestone illuminate its edges. */
+.game.goldMode .lane .note,.game.goldMode .lane .holdHead,
+.game.streak100 .lane .note,.game.streak100 .lane .holdHead,
+.game.streak200 .lane .note,.game.streak200 .lane .holdHead{
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--ambient-color) 70%,transparent),
+    0 0 15px 3px color-mix(in srgb,var(--ambient-color) 70%,transparent),
+    0 0 28px 7px color-mix(in srgb,var(--ambient-color) 32%,transparent)!important;
+}
+.game.goldMode .lane .holdNote,.game.streak100 .lane .holdNote,.game.streak200 .lane .holdNote{
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--ambient-color) 55%,transparent),
+    0 0 16px 3px color-mix(in srgb,var(--ambient-color) 48%,transparent)!important;
+}
 .game.notePaletteGuitar .lane .receptor{
   border-color:var(--lane-note-color);
   box-shadow:0 0 10px color-mix(in srgb,var(--lane-note-color) 50%,transparent);
