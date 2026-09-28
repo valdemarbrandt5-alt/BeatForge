@@ -1,9 +1,9 @@
 import {supabase} from './lib/supabase';
-import {groupSongs,instrumentLabel,loadChartById,loadSongInstruments,type ChartInstrument} from './chart-instruments';
+import {groupSongs,instrumentLabel,loadChartById,loadSongInstruments,youtubeVideoId,type ChartInstrument} from './chart-instruments';
 import './friend-lobby.css';
 
 type Friend={id:string;username:string};
-type Chart={id:string;title:string;artist:string|null;youtube_url:string|null;instrument?:ChartInstrument;play_count?:number|null};
+type Chart={id:string;title:string;artist:string|null;youtube_url:string|null;instrument?:ChartInstrument;difficulty?:string;lane_count?:number;duration?:number;play_count?:number|null};
 type Room={id:string;host_id:string;chart_id:string|null;round_number:number;status:'waiting'|'countdown'|'results'|'closed';start_at:string|null;chart?:Chart|null};
 type Member={lobby_id:string;user_id:string;status:'invited'|'active'|'left';round_number:number;ready:boolean;score:number;combo:number;finished:boolean;perfect:number;great:number;good:number;miss:number;max_combo:number;profile?:{username:string|null}|null};
 
@@ -80,11 +80,18 @@ if(typeof window!=='undefined'&&supabase&&location.pathname==='/'){
     if(wasPlaying)location.reload();
   };
   const formatMember=(m:Member,index:number)=>`<div class="friendLobbyMember"><b>${index+1}</b><span>${esc(m.user_id===uid?'YOU':m.profile?.username||'Player')}${m.user_id===room?.host_id?' <em>HOST</em>':''}</span><strong>${room?.status==='results'||m.finished?`${Number(m.score||0).toLocaleString('da-DK')}`:m.ready?'READY':room?.status==='countdown'?'PLAYING':'WAITING'}</strong></div>`;
+  const performanceRows=()=>roomMembers().filter(m=>m.round_number===room?.round_number&&m.ready)
+    .sort((a,b)=>Number(b.score||0)-Number(a.score||0)).map((m,i)=>{
+      const hits=Number(m.perfect||0)+Number(m.great||0)+Number(m.good||0);
+      const accuracy=hits+Number(m.miss||0)>0?`${(100*hits/(hits+Number(m.miss||0))).toFixed(1)}%`:'—';
+      const stats=m.finished?`<div class="friendLobbyResultStats"><span><b>${hits}</b> HITS</span><span><b>${Number(m.perfect||0)}</b> PERFECT</span><span><b>${Number(m.great||0)}</b> GREAT</span><span><b>${Number(m.good||0)}</b> GOOD</span><span><b>${Number(m.miss||0)}</b> MISS</span><span><b>${accuracy}</b> ACCURACY</span><span><b>${Number(m.max_combo||0)}×</b> MAX COMBO</span></div>`:'<p class="friendLobbyResultPending">Still playing…</p>';
+      return `<div class="friendLobbyResultPlayer"><div class="friendLobbyResultHead"><strong>#${i+1} ${esc(m.user_id===uid?'YOU':m.profile?.username||'Player')}</strong><b>${Number(m.score||0).toLocaleString('da-DK')}</b><span>${m.finished?'FINISHED':'PLAYING'}</span></div>${stats}</div>`;
+    }).join('');
   const renderLobby=()=>{
     if(!room||!modal)return;
     const active=roomMembers();const invitees=members.filter(m=>m.status==='invited');
     const isHost=room.host_id===uid;const current=room.round_number>0&&room.chart_id;
-    const status=room.status==='results'?'ROUND COMPLETE':room.status==='countdown'?'SONG IN PROGRESS':current?'GET READY':'CHOOSE A SONG';
+    const status=room.status==='results'?'ROUND COMPLETE':room.status==='countdown'?(resultSent?'WAITING FOR FRIENDS':'SONG IN PROGRESS'):current?'GET READY':'CHOOSE A SONG';
     const remaining=room.start_at?Math.max(0,Math.ceil((new Date(room.start_at).getTime()-Date.now())/1000)):0;
     const canReady=current&&room.status==='waiting'&&localRound===room.round_number&&!!loadedChartId&&!!difficulty&&!ready;
     const card=modal.querySelector('.friendLobbyCard')!;
@@ -92,7 +99,8 @@ if(typeof window!=='undefined'&&supabase&&location.pathname==='/'){
       <p>Stay together for the next song. Each player chooses their own instrument and difficulty.</p>
       <div class="friendLobbyMembers">${active.map(formatMember).join('')}${invitees.map(m=>`<div class="friendLobbyMember invited"><b>+</b><span>${esc(m.profile?.username||'Friend')}</span><strong>INVITED</strong></div>`).join('')}</div>
       <div class="friendLobbySong">${current?`<strong>${esc(room.chart?.title||'Loading song…')}</strong><span>${esc(room.chart?.artist||'')} · Round ${room.round_number}</span>`:'<strong>No song selected</strong>'}</div>
-      ${current&&room.status==='waiting'&&myMember()?`<div class="friendLobbyChoices"><label>INSTRUMENT <select class="friendLobbyInstrument" ${ready?'disabled':''}><option value="${esc(chosenChartId||room.chart_id||'')}">${esc(instrumentLabel(room.chart?.instrument))}</option></select></label><label>DIFFICULTY <select class="friendLobbyDifficulty" ${ready?'disabled':''}>${['Easy','Medium','Hard','Expert'].map(d=>`<option value="${d}" ${difficulty===d?'selected':''}>${d}</option>`).join('')}</select></label></div>`:''}
+      ${current&&room.status==='waiting'&&myMember()?`<div class="friendLobbyChoices"><label>INSTRUMENT <select class="friendLobbyInstrument" ${ready?'disabled':''}><option value="${esc(chosenChartId||room.chart_id||'')}">${esc(instrumentLabel(room.chart?.instrument))}</option></select></label><fieldset class="friendLobbyDifficulty"><legend>DIFFICULTY</legend><div class="friendLobbyDifficultyLevels">${['Easy','Medium','Hard','Expert'].map(d=>`<button type="button" data-difficulty="${d}" class="${difficulty===d?'active':''}" aria-pressed="${difficulty===d}" ${ready?'disabled':''}>${d}</button>`).join('')}</div></fieldset></div>`:''}
+      ${room.status==='results'||resultSent?`<div class="friendLobbyResult friendLobbyRoundResult"><small>FRIENDS · ROUND ${room.round_number}</small><h3>${room.status==='results'?'FINAL SCORES':'WAITING FOR FRIENDS'}</h3>${performanceRows()}</div>`:''}
       ${room.status==='countdown'?`<div class="friendLobbyCountdown">${remaining?`STARTING IN ${remaining}`:'PLAYING'}</div>`:''}
       <div class="friendLobbyActions">${isHost&&room.status!=='countdown'?'<button data-action="song">CHOOSE SONG</button>':''}${isHost?'<button data-action="invite">INVITE FRIEND</button>':''}${canReady?'<button data-action="ready">READY</button>':''}<button data-action="leave" class="secondary">LEAVE LOBBY</button></div>
       ${!current?'<small>Invite friends, then choose a song. At least two players must be ready.</small>':room.status==='results'?'<small>The host can choose the next song. Everyone stays in this lobby.</small>':''}`;
@@ -109,8 +117,9 @@ if(typeof window!=='undefined'&&supabase&&location.pathname==='/'){
       if(choices.length)instrument.innerHTML=choices.map(c=>`<option value="${esc(c.id)}" ${chosenChartId===c.id?'selected':''}>${esc(instrumentLabel(c.instrument))}</option>`).join('');
       instrument.onchange=()=>{chosenChartId=instrument.value;loadedChartId='';void prepareChoice()};
     }
-    const diff=card.querySelector<HTMLSelectElement>('.friendLobbyDifficulty');
-    if(diff){diff.value=difficulty||'Expert';diff.onchange=()=>{difficulty=diff.value;applyDifficulty();renderLobby()}}
+    card.querySelectorAll<HTMLButtonElement>('[data-difficulty]').forEach(button=>button.onclick=()=>{
+      if(ready)return;difficulty=button.dataset.difficulty||'Expert';applyDifficulty();renderLobby();
+    });
   };
   let availableCharts:Chart[]=[];
   const applyDifficulty=()=>{const btn=[...document.querySelectorAll<HTMLButtonElement>('.chartOptions button')].find(b=>b.textContent?.trim()===difficulty);btn?.click()};
@@ -124,7 +133,7 @@ if(typeof window!=='undefined'&&supabase&&location.pathname==='/'){
   };
   const prepareRound=async(next:Room)=>{
     if(preparing||!next.chart_id)return;
-    localRound=next.round_number;chosenChartId=next.chart_id;loadedChartId='';difficulty='Expert';ready=false;availableCharts=[];resultSent=false;runId='';startedRound=0;
+    localRound=next.round_number;chosenChartId=next.chart_id;loadedChartId='';difficulty='Expert';ready=false;availableCharts=[];resultSent=false;startedRound=0;
     preparing=true;
     try{
       const loaded=await loadChartById(next.chart_id);if(!loaded)throw new Error('Could not load the selected song');
@@ -180,8 +189,7 @@ if(typeof window!=='undefined'&&supabase&&location.pathname==='/'){
     const card=resultCard();if(!card||!room)return;
     let panel=card.querySelector('.friendLobbyResult') as HTMLElement|null;
     if(!panel){panel=document.createElement('div');panel.className='friendLobbyResult';card.querySelector('.resultActions')?.before(panel)}
-    const roster=roomMembers().filter(m=>m.round_number===room!.round_number&&m.ready).sort((a,b)=>Number(b.score||0)-Number(a.score||0));
-    panel.innerHTML=`<small>FRIENDS · ROUND ${room.round_number}</small><h3>${room.status==='results'?'FINAL SCORES':'WAITING FOR FRIENDS'}</h3>${roster.map((m,i)=>`<div><b>#${i+1} ${esc(m.user_id===uid?'YOU':m.profile?.username||'Player')}</b><strong>${Number(m.score||0).toLocaleString('da-DK')}</strong><span>${m.finished?'FINISHED':'PLAYING'}</span></div>`).join('')}<button>OPEN LOBBY</button>`;
+    panel.innerHTML=`<small>FRIENDS · ROUND ${room.round_number}</small><h3>${room.status==='results'?'FINAL SCORES':'WAITING FOR FRIENDS'}</h3>${performanceRows()}<button>OPEN LOBBY</button>`;
     panel.querySelector('button')!.onclick=openLobby;
   };
   const finishRound=async()=>{
@@ -215,30 +223,54 @@ if(typeof window!=='undefined'&&supabase&&location.pathname==='/'){
   const openSongPicker=async()=>{
     if(!room||room.host_id!==uid)return;
     closePicker();const overlay=document.createElement('div');overlay.className='friendLobbyOverlay friendLobbySongPicker';
-    overlay.innerHTML='<div class="friendLobbyCard friendLobbyWide"><button class="friendLobbyClose">×</button><small>FRIENDS LOBBY · SONG</small><h2>CHOOSE A SONG</h2><input class="friendLobbySearch" placeholder="Search songs or artists…"><div class="friendLobbySongs">Loading…</div><button class="friendLobbyMore">MORE SONGS</button></div>';
+    overlay.innerHTML=`<div class="friendLobbyBrowser" role="dialog" aria-modal="true" aria-label="Choose a song for friends">
+      <div class="friendLobbyBrowserTop"><div><small>VS FRIENDS · COMMUNITY LIBRARY</small><h2>Find your next song</h2><p>Pick a song for everyone in the lobby. Each player chooses their own instrument and difficulty.</p></div><button class="friendLobbyClose" aria-label="Close">✕</button></div>
+      <div class="communitySearch friendLobbySearch"><span>⌕</span><input placeholder="Search songs or artists…"></div>
+      <div class="communityTabs friendLobbyTabs"><button data-tab="trending" class="active">🔥 TRENDING</button><button data-tab="new">✨ NEW</button><button data-tab="played">▶ MOST PLAYED</button><button data-tab="all">🎵 ALL CHARTS</button></div>
+      <div class="communitySort friendLobbyFilters"><label>INSTRUMENT <select class="friendLobbyFilterInstrument"><option value="all">All instruments</option><option value="mix">Full mix</option><option value="vocals">Vocals</option><option value="drums">Drums</option><option value="bass">Bass</option><option value="melody">Melody</option></select></label><label>SORT BY <select class="friendLobbyFilterSort"><option value="default">Category order</option><option value="difficultyAsc">Page difficulty: Easy first</option><option value="difficultyDesc">Page difficulty: Expert first</option><option value="durationAsc">Length: Shortest first</option><option value="durationDesc">Length: Longest first</option></select></label></div>
+      <div class="sectionHeading"><div><small>FRIENDS LIBRARY</small><h3 class="friendLobbySectionTitle">Trending</h3></div><span class="friendLobbyCount">LOADING</span></div>
+      <div class="communityGrid friendLobbySongs"><div class="communityEmpty">Loading songs…</div></div>
+      <div class="communityPagination friendLobbyPagination"><button data-page="previous">PREVIOUS</button><span>PAGE 1</span><button data-page="next">NEXT SONGS</button></div>
+    </div>`;
     document.body.appendChild(overlay);picker=overlay;
     overlay.querySelector<HTMLButtonElement>('.friendLobbyClose')!.onclick=closePicker;
-    const search=overlay.querySelector<HTMLInputElement>('.friendLobbySearch')!,results=overlay.querySelector<HTMLElement>('.friendLobbySongs')!;
-    let page=0,request=0,timer:number|null=null;
+    const search=overlay.querySelector<HTMLInputElement>('.friendLobbySearch input')!,results=overlay.querySelector<HTMLElement>('.friendLobbySongs')!;
+    const instrument=overlay.querySelector<HTMLSelectElement>('.friendLobbyFilterInstrument')!,sort=overlay.querySelector<HTMLSelectElement>('.friendLobbyFilterSort')!;
+    let page=0,request=0,timer:number|null=null,tab='trending',hasMore=false;
     const load=async()=>{
       const current=++request,term=search.value.trim().replace(/[%,()*\\"]/g,' ').trim();
-      let query=db.from('charts').select('id,title,artist,youtube_url,instrument,play_count').order('play_count',{ascending:false}).order('id',{ascending:false}).range(page*60,page*60+60);
+      results.innerHTML='<div class="communityEmpty">Loading songs…</div>';
+      const sortField=sort.value.startsWith('duration')?'duration':sort.value.startsWith('difficulty')?'created_at':tab==='trending'||tab==='played'?'play_count':'created_at';
+      let query=db.from('charts').select('id,title,artist,youtube_url,instrument,difficulty,lane_count,duration,play_count')
+        .order(sortField,{ascending:sort.value==='durationAsc'||sort.value==='difficultyAsc'}).order('id',{ascending:false}).range(page*30,page*30+30);
+      if(instrument.value!=='all')query=query.eq('instrument',instrument.value);
       if(term)query=query.or(`title.ilike.%${term}%,artist.ilike.%${term}%`);
       const {data,error}=await query;
       if(picker!==overlay||current!==request)return;
-      if(error){results.textContent=errorText(error);return}
-      const groups=groupSongs(((data||[]).slice(0,60)) as Chart[]);
-      results.innerHTML=groups.map(group=>{const c=group.find(x=>x.instrument==='mix')||group[0];const id=c.youtube_url?.match(/[?&]v=([A-Za-z0-9_-]{11})/)?.[1];return `<button data-chart="${esc(c.id)}">${id?`<img src="https://i.ytimg.com/vi/${esc(id)}/mqdefault.jpg" alt="">`:'<span>BF</span>'}<b>${esc(c.title)}<small>${esc(c.artist||'Unknown artist')}</small></b><em>SELECT</em></button>`}).join('')||'<p>No songs found.</p>';
+      if(error){results.innerHTML=`<div class="communityEmpty">${esc(errorText(error))}</div>`;return}
+      hasMore=(data||[]).length>30;
+      const groups=groupSongs(((data||[]).slice(0,30)) as Chart[]);
+      const ranks:Record<string,number>={Easy:0,Medium:1,Hard:2,Expert:3};
+      if(sort.value.startsWith('difficulty'))groups.sort((a,b)=>((ranks[a[0].difficulty||'Expert']??3)-(ranks[b[0].difficulty||'Expert']??3))*(sort.value==='difficultyDesc'?-1:1));
+      results.innerHTML=groups.map(group=>{const c=group.find(x=>x.instrument==='mix')||group[0],id=youtubeVideoId(c.youtube_url);
+        return `<article class="communityTile"><button class="communityTileHit" data-chart="${esc(c.id)}" aria-label="Choose ${esc(c.title)}"></button><div class="communityCover">${id?`<img src="https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg" alt="">`:'<div class="coverFallback"><span>BF</span></div>'}<i class="tilePlay">▶</i><b class="difficultyPill">CHART ${esc(c.difficulty||'Expert')}</b></div><div class="tileInfo"><strong>${esc(c.title)}</strong><span>${esc(c.artist||'Unknown artist')}</span><em class="chartInstrument">Choose instrument</em><small>${Number(c.lane_count||5)} LANES · ▶ ${Number(c.play_count||0).toLocaleString('da-DK')}</small></div></article>`}).join('')||'<div class="communityEmpty">No songs found. Try another search or filter.</div>';
       results.querySelectorAll<HTMLButtonElement>('[data-chart]').forEach(btn=>btn.onclick=async()=>{
         if(!room)return;btn.disabled=true;
         const {error:chooseError}=await db.rpc('friend_lobby_choose_song',{p_lobby:room.id,p_chart:btn.dataset.chart});
         if(chooseError){notify(errorText(chooseError));btn.disabled=false;return}
         closePicker();void poll();
       });
-      overlay.querySelector<HTMLButtonElement>('.friendLobbyMore')!.hidden=(data||[]).length<61;
+      overlay.querySelector('.friendLobbySectionTitle')!.textContent=term?`Results for “${term}”`:({trending:'Trending',new:'New songs',played:'Most played',all:'All songs'} as Record<string,string>)[tab];
+      overlay.querySelector('.friendLobbyCount')!.textContent=`PAGE ${page+1} · ${groups.length} SONGS`;
+      overlay.querySelector('.friendLobbyPagination span')!.textContent=`PAGE ${page+1}`;
+      overlay.querySelector<HTMLButtonElement>('[data-page="previous"]')!.disabled=page===0;
+      overlay.querySelector<HTMLButtonElement>('[data-page="next"]')!.disabled=!hasMore;
     };
     search.oninput=()=>{if(timer!==null)clearTimeout(timer);timer=window.setTimeout(()=>{page=0;void load()},300)};
-    overlay.querySelector<HTMLButtonElement>('.friendLobbyMore')!.onclick=()=>{page++;void load()};
+    overlay.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button=>button.onclick=()=>{tab=button.dataset.tab||'trending';page=0;overlay.querySelectorAll('[data-tab]').forEach(item=>item.classList.toggle('active',item===button));void load()});
+    instrument.onchange=sort.onchange=()=>{page=0;void load()};
+    overlay.querySelector<HTMLButtonElement>('[data-page="previous"]')!.onclick=()=>{if(page>0){page--;void load()}};
+    overlay.querySelector<HTMLButtonElement>('[data-page="next"]')!.onclick=()=>{if(hasMore){page++;void load()}};
     void load();search.focus();
   };
   const pollInvites=async()=>{
@@ -295,6 +327,12 @@ if(typeof window!=='undefined'&&supabase&&location.pathname==='/'){
   };
   const start=()=>{
     void loadUid().then(()=>{showDock();return loadFriends()});
+    window.addEventListener('beatforge:result-action',event=>{
+      if(!room||!runId||(event as CustomEvent<{runId:string}>).detail?.runId!==runId)return;
+      event.preventDefault();
+      const sameRound=startedRound===room.round_number;
+      void (async()=>{if(sameRound&&!resultSent)await finishRound();runId='';if(room)openLobby()})();
+    });
     document.addEventListener('click',event=>{if(!playingLocked)return;const button=(event.target as HTMLElement|null)?.closest('.controls button');if(!button)return;if(!['STOP','RESET','PAUSE','RESUME'].includes((button.textContent||'').trim().toUpperCase()))return;event.preventDefault();event.stopImmediatePropagation()},true);
     window.addEventListener('keydown',event=>{if(!playingLocked||event.target instanceof HTMLInputElement||event.target instanceof HTMLTextAreaElement)return;let reset='r',pause='escape';try{const saved=JSON.parse(localStorage.getItem('beatforge-settings')||'{}');reset=String(saved.resetKey||reset).toLowerCase();pause=String(saved.pauseKey||pause).toLowerCase()}catch{}const key=event.key.toLowerCase();if(![reset,pause,'escape'].includes(key))return;event.preventDefault();event.stopImmediatePropagation();if(key==='escape'&&!event.repeat){openLobby();notify('Use LEAVE LOBBY to end the shared match.')}},true);
     const observer=new MutationObserver(enhanceFriends);observer.observe(document.body,{subtree:true,childList:true});
