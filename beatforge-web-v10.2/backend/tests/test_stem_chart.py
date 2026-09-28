@@ -13,6 +13,26 @@ from stem_chart import analyze_stem
 
 
 class StemChartTest(unittest.TestCase):
+    def test_vocal_syllables_keep_phrase_pauses_without_double_hits(self):
+        sr = 22050
+        times = [.5, .82, 1.15, 1.47, 2.8, 3.12, 3.45, 3.78]
+        audio = np.zeros(sr * 5, dtype=np.float32)
+        for t in times:
+            seconds = np.arange(round(.26 * sr)) / sr
+            envelope = (1 - np.exp(-seconds / .012)) * np.exp(-seconds / .11)
+            # A second, softer pulse within each vowel is not another syllable.
+            envelope += .26 * np.exp(-((seconds - .11) / .022) ** 2)
+            start = round(t * sr)
+            audio[start:start + len(seconds)] += .45 * envelope * np.sin(2 * np.pi * 260 * seconds)
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'vocals.wav'
+            sf.write(path, audio, sr)
+            notes, _ = analyze_stem(path, 'vocals')
+        detected = [note['time'] for note in notes]
+        self.assertGreaterEqual(sum(any(abs(n - t) < .1 for n in detected) for t in times), 6)
+        self.assertLessEqual(len(detected), len(times) + 1, detected)
+        self.assertFalse(any(1.75 < n < 2.65 for n in detected))
+
     def test_only_sustained_vocal_becomes_hold(self):
         sr = 22050
         audio = np.zeros(sr * 5, dtype=np.float32)

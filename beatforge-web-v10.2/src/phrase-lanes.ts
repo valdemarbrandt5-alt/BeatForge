@@ -1,5 +1,5 @@
 /** Keep recurring rhythmic phrases under the same fingers while using the full keyboard. */
-export function assignPhraseLanes<T extends { time: number; lane: number }>(notes: T[], laneCount: number): T[] {
+export function assignPhraseLanes<T extends { time: number; lane: number }>(notes: T[], laneCount: number, vocalStyle = false): T[] {
   if (laneCount < 2 || !notes.length) return notes;
   const count = Math.min(5, laneCount);
   const phraseLength = 5;
@@ -47,7 +47,9 @@ export function assignPhraseLanes<T extends { time: number; lane: number }>(note
       }
     }
 
-    const recent = assigned.slice(-Math.max(10, count * 3));
+    const recent = assigned.slice(-Math.max(12, count * 4));
+    const previousLane = assigned.at(-1);
+    const shortGap = i > 0 && notes[i].time - notes[i - 1].time < .30;
     // Musical strength and absolute pitch never send notes to a particular
     // side. Usage is the main factor; the small hash only breaks ties.
     const jitter = (lane: number) => {
@@ -58,9 +60,15 @@ export function assignPhraseLanes<T extends { time: number; lane: number }>(note
     };
     const candidates = Array.from({ length: count }, (_, lane) => lane);
     candidates.sort((a, b) => {
-      const cost = (lane: number) => recent.filter(value => value === lane).length * 4 +
-        assigned.filter(value => value === lane).length * .08 +
-        (assigned.at(-1) === lane ? 2 : 0) + jitter(lane) * .5;
+      const cost = (lane: number) => vocalStyle
+        ? recent.filter(value => value === lane).length * 1.1 +
+          assigned.filter(value => value === lane).length * .04 +
+          (recent.includes(lane) ? 0 : -3) +
+          (previousLane === undefined ? 0 : Math.abs(lane - previousLane) * .55) +
+          (shortGap && lane === previousLane ? -1.2 : 0) + jitter(lane) * .25
+        : assigned.slice(-Math.max(10, count * 3)).filter(value => value === lane).length * 4 +
+          assigned.filter(value => value === lane).length * .08 +
+          (previousLane === lane ? 2 : 0) + jitter(lane) * .5;
       return cost(a) - cost(b);
     });
     assigned.push(candidates[0]);
