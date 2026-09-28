@@ -32,12 +32,8 @@ if (typeof window !== 'undefined' && window.location.pathname === '/') {
     timer.textContent=`TIME IN QUEUE · ${fmt(Date.now()-queueStartedAt)}`;
   };
 
-  const botComboFromScore=(score:number)=>{
-    if(score<=0)return 0;
-    const approximateHits=Math.floor(score/5000);
-    const cycle=230;
-    return approximateHits%cycle;
-  };
+  const botComboFromScore=(score:number,target:number,maxCombo:number)=>
+    target>0&&maxCombo>0?Math.min(maxCombo,Math.floor(maxCombo*Math.min(1,score/target))):score>0?Math.floor(score/5000)%230:0;
 
   const decorateBotHud=()=>{
     const hud=document.querySelector('.botRankedLiveHud') as HTMLElement|null;
@@ -48,7 +44,7 @@ if (typeof window !== 'undefined' && window.location.pathname === '/') {
 
     const myCombo=numberFrom(document.querySelector('.hudCombo b')?.textContent);
     const botScore=numberFrom(opp.querySelector('strong')?.textContent);
-    const botCombo=botComboFromScore(botScore);
+    const botCombo=botComboFromScore(botScore,Number(hud.dataset.botTarget||0),Number(hud.dataset.botMaxCombo||0));
 
     [[me,myCombo],[opp,botCombo]].forEach(([row,value])=>{
       const el=row as HTMLElement,combo=Number(value)||0;

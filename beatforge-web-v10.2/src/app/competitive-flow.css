@@ -8,6 +8,49 @@ body :is(.rankedBackdrop.casualFlowBackdrop,.casualPickerBackdrop,.casualInviteP
   --mode-surface:#122734;--mode-muted:#b5deee;--mode-glow:#55c9f422;
 }
 
+body .communityOverlay.casualDiscover{z-index:14050;background:#03050bec}
+body .casualDiscover .communityTop small,body .casualDiscover .sectionHeading small{color:#55c9f4}
+body .casualDiscover .communityTabs button.active,body .casualDiscover .communityTabs button:hover{background:#1687be;border-color:#55c9f4}
+body .casualDiscover .communityTile:hover,body .casualDiscover .communityTileHit:focus-visible{border-color:#55c9f4;outline-color:#55c9f4}
+body .casualDiscover .tilePlay{background:#1687be}
+body .casualDiscover .chartInstrument{color:#55c9f4}
+body .casualDiscover .communityPage{padding-top:34px}
+
+body :is(.realRanked,.rankedBotBackdrop) .rankedResultSub{margin:-2px 0 13px;color:#949daf;font-size:9px;font-weight:1000;letter-spacing:1px}
+body :is(.realRanked,.rankedBotBackdrop) .rankedFinalScores{display:flex!important;flex-direction:column;gap:5px;margin:12px 0 16px!important}
+body :is(.realRanked,.rankedBotBackdrop) .rankedFinalScores>span{display:grid!important;grid-template-columns:34px minmax(0,1fr) 105px 64px;align-items:center;gap:6px;min-height:44px;padding:5px 11px!important;border:1px solid #303747;border-radius:9px;background:#0d121a;text-align:left;min-width:0}
+body :is(.realRanked,.rankedBotBackdrop) .rankedFinalScores>span.rankedMe{border-color:var(--mode-accent);box-shadow:inset 2px 0 var(--mode-accent)}
+body :is(.realRanked,.rankedBotBackdrop) .rankedFinalScores i{display:block!important;font-style:normal;color:#8993a6;font-size:9px}
+body :is(.realRanked,.rankedBotBackdrop) .rankedFinalScores label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:900}
+body :is(.realRanked,.rankedBotBackdrop) .rankedFinalScores label em{display:block;color:#8e98aa;font-size:7px;font-style:normal}
+body :is(.realRanked,.rankedBotBackdrop) .rankedFinalScores b{text-align:right;font-size:12px!important;font-variant-numeric:tabular-nums}
+body :is(.realRanked,.rankedBotBackdrop) .rankedFinalScores small{text-align:right;font-size:7px;font-weight:1000;color:#58dda2}
+body :is(.realRanked,.rankedBotBackdrop) .rankedFinalScores>span.rankedLoser small{color:#ff6476}
+body :is(.realRanked,.rankedBotBackdrop) .rankedFinalScores>span.rankedDraw small{color:#aab2c3}
+body :is(.realRanked,.rankedBotBackdrop) .rankedMmrResult{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px;padding:13px!important;border-top:1px solid #303747!important;border-bottom:1px solid #303747!important;margin:4px 0 16px!important;font-size:10px}
+body :is(.realRanked,.rankedBotBackdrop) .rankedMmrResult strong{font-size:11px}
+body :is(.realRanked,.rankedBotBackdrop) .rankedMmrResult b.rankBronze{color:#cd7f32!important}
+body :is(.realRanked,.rankedBotBackdrop) .rankedMmrResult b.rankSilver{color:#c8ced8!important}
+body :is(.realRanked,.rankedBotBackdrop) .rankedMmrResult b.rankGold{color:#ffd43b!important}
+body :is(.realRanked,.rankedBotBackdrop) .rankedMmrResult b.rankPlatinum{color:#57e0d1!important}
+body :is(.realRanked,.rankedBotBackdrop) .rankedMmrResult b.rankDiamond{color:#6aa9ff!important}
+body :is(.realRanked,.rankedBotBackdrop) .rankedMmrResult b.rankMaster{color:#c084fc!important}
+body :is(.realRanked,.rankedBotBackdrop) .rankedMmrResult b.rankGrandmaster{color:#ff6cab!important}
+body :is(.realRanked,.rankedBotBackdrop) .rankedMmrResult b.rankChallenger{color:#ffd54a!important}
+body :is(.realRanked,.rankedBotBackdrop) .rankedStatsSheet[hidden],body :is(.realRanked,.rankedBotBackdrop) .rankedResultsHidden{display:none!important}
+body :is(.realRanked,.rankedBotBackdrop) .rankedStatsSheet{margin:16px auto 0;padding:20px 18px;border:1px solid #343c4c;border-radius:13px;background:#0b1018;text-align:center}
+body :is(.realRanked,.rankedBotBackdrop) .rankedStatsSheet h2{margin:3px 0 12px!important;font-size:22px!important}
+body :is(.realRanked,.rankedBotBackdrop) .rankedStatsSheet .rankedResultCompare{margin:16px 0 0}
+body .game>.botRankedLiveHud{box-sizing:border-box!important;width:190px!important;min-width:0!important;max-width:190px!important;overflow:hidden!important}
+body .game>.botRankedLiveHud>div,body .game>.botRankedLiveHud>div>span{width:100%!important;min-width:0!important}
+body .game>.botRankedLiveHud>div>span{grid-template-columns:minmax(0,1fr) minmax(0,max-content)!important}
+body .game>.botRankedLiveHud span>strong{font-size:10px!important;white-space:nowrap!important}
+body .game>.realRankedLiveHud.rankedScoreboard{box-sizing:border-box!important;overflow:hidden!important}
+body .game>.realRankedLiveHud.rankedScoreboard>div,body .game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp){width:100%!important;min-width:0!important;max-width:100%!important}
+body .game>.realRankedLiveHud.rankedScoreboard .rrMe,body .game>.realRankedLiveHud.rankedScoreboard .rrOpp{font-size:10px!important;white-space:nowrap!important}
+body :is(.rankedBackdrop.realRanked,.rankedBackdrop.rankedBotBackdrop) .syncCountdown{color:var(--mode-accent)!important}
+@media(max-width:620px){body :is(.realRanked,.rankedBotBackdrop) .rankedFinalScores>span{grid-template-columns:24px minmax(0,1fr) 82px 48px;padding:5px 7px!important}body .game>.botRankedLiveHud{width:160px!important}}
+
 body :is(.rankedBackdrop.realRanked,.rankedBackdrop.rankedBotBackdrop,.rankedBackdrop.casualFlowBackdrop,.casualPickerBackdrop,.casualInvitePrompt){
   background:#03050bec!important;backdrop-filter:blur(13px)!important;
   padding:18px!important;

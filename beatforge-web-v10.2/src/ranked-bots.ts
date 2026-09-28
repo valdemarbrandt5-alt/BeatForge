@@ -1,5 +1,6 @@
 import { supabase } from './lib/supabase';
 import {liveCompetitionPoints} from './competitive-score';
+import {rankedResultScores,rankedResultMmr,rankedResultStats,wireRankedResult} from './ranked-result-view';
 import {rankName,challengerPosition} from './rank';
 import {groupSongs, instrumentLabel, loadChartById, loadSongInstruments, type ChartInstrument} from './chart-instruments';
 
@@ -8,7 +9,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   type BotMatch={
     id:string;user_id:string;status:string;bot_name:string;bot_mmr:number;user_mmr_before:number;
     candidate_chart_ids:string[];selected_chart_id:string|null;bot_difficulty:string;user_difficulty:string|null;
-    start_at:string|null;bot_score:number;bot_target_score:number;mmr_delta:number|null;
+    start_at:string|null;bot_score:number;bot_target_score:number;bot_max_combo:number;mmr_delta:number|null;
   };
   type Chart={id:string;title:string;artist:string|null;youtube_url:string|null;instrument?:ChartInstrument;play_count:number|null};
 
@@ -35,7 +36,8 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   const ytId=(url:string|null)=>{if(!url)return'';const m=url.match(/[?&]v=([^&]+)/)||url.match(/youtu\.be\/([^?]+)/)||url.match(/\/shorts\/([^?]+)/);return m?.[1]||''};
   const numberFrom=(v:string|null|undefined)=>Number(String(v||'0').replace(/[^0-9-]/g,''))||0;
   const portal=()=>document.fullscreenElement?.classList?.contains('beatforgeFullscreenShell')?document.fullscreenElement:document.body;
-  const resultEl=()=>[...document.querySelectorAll('.resultBackdrop')].find(x=>/SONG COMPLETE/i.test(x.textContent||'')) as HTMLElement|undefined;
+  const closedResults=new WeakSet<Element>();
+  const resultEl=()=>[...document.querySelectorAll('.resultBackdrop')].find(x=>!closedResults.has(x)&&(x as HTMLElement).style.display!=='none'&&/SONG COMPLETE/i.test(x.textContent||'')) as HTMLElement|undefined;
   const finalScore=()=>Math.max(numberFrom(resultEl()?.querySelector('.finalScore')?.textContent),numberFrom(document.querySelector('.hudScore b')?.textContent),lastScore);
 
   const clearQueueTimer=()=>{
@@ -129,6 +131,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     removeBotOverlay();
     const game=document.querySelector('.game') as HTMLElement|null;if(!game)return;
     const hud=document.createElement('div');hud.className='botRankedLiveHud';
+    hud.dataset.botTarget=String(active.bot_target_score||0);hud.dataset.botMaxCombo=String(active.bot_max_combo||0);
     hud.innerHTML='<small>RANKED DUEL · LIVE</small><div><span class="botLiveMe" data-place="1"><b>'+esc(self.username)+'</b><em>'+esc(active.user_difficulty||'Medium')+'</em><strong>0</strong></span><span class="botLiveOpp" data-place="2"><b>'+esc(active.bot_name)+' <i>BOT</i></b><em>'+esc(active.bot_difficulty)+'</em><strong>0</strong></span></div>';
     game.appendChild(hud);liveHud=hud;live=true;finishing=false;lastScore=0;unloadSent=false;
     const session=await db.auth.getSession();accessToken=session?.data?.session?.access_token||'';
@@ -151,44 +154,35 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
         ordered.forEach((p,i)=>{if(p.el){p.el.style.order=String(i);p.el.dataset.place=String(i+1)}});
         if(finished&&!finishing){
           finishing=true;
-          const perf=capturePerformance(result!);hideSoloResult(result!);
+          hideSoloResult(result!);
           active.bot_score=botScore;active.status='finished';active.mmr_delta=Number(row?.mmr_delta||0);
-          await showResult(row,perf);
+          await showResult(row);
         }
       }finally{busy=false}
     };
     await tick();liveTimer=window.setInterval(()=>void tick(),250);
   };
 
-  const capturePerformance=(result:HTMLElement)=>{
-    const meta=result.querySelectorAll('.resultMeta>div');
-    return{
-      perfect:result.querySelector('.perfectStat b')?.textContent?.trim()||'0',
-      great:result.querySelector('.greatStat b')?.textContent?.trim()||'0',
-      good:result.querySelector('.goodStat b')?.textContent?.trim()||'0',
-      miss:result.querySelector('.missStat b')?.textContent?.trim()||'0',
-      accuracy:meta[0]?.querySelector('b')?.textContent?.trim()||'0%',
-      combo:meta[1]?.querySelector('b')?.textContent?.trim()||'0×',
-      timing:meta[2]?.querySelector('b')?.textContent?.trim()||'0 ms',
-      timingLabel:meta[2]?.querySelector('span')?.textContent?.trim()||'ON TIME',
-      stars:result.querySelector('.resultStarsFinal')?.getAttribute('data-stars')||'0'
-    };
-  };
   const hideSoloResult=(r:HTMLElement)=>{r.style.display='none';soloResult=r};
   const closeSoloResult=async()=>{
     const r=soloResult;if(!r)return;
-    const finish=()=>{r.style.display='';const b=[...r.querySelectorAll('button')].find(x=>x.textContent?.trim()==='CLOSE') as HTMLButtonElement|undefined;b?.click();soloResult=null};
-    if(document.fullscreenElement){try{await document.exitFullscreen();window.setTimeout(finish,80)}catch{finish()}}else finish();
+    if(document.fullscreenElement){try{await document.exitFullscreen()}catch{}await new Promise(resolve=>setTimeout(resolve,80))}
+    closedResults.add(r);r.style.display='';const b=[...r.querySelectorAll('button')].find(x=>x.textContent?.trim()==='CLOSE') as HTMLButtonElement|undefined;b?.click();soloResult=null;
+    await new Promise(resolve=>requestAnimationFrame(()=>resolve(null)));
   };
 
-  const showResult=async(row:any,perf:any)=>{
+  const showResult=async(row:any)=>{
     if(!active)return;
     clearLive();
     const matchId=active.id;const playedChart=document.querySelector<HTMLElement>('main')?.dataset.activeChartId||active.selected_chart_id;
     if(playedChart){void db.rpc('record_competitive_result',{p_mode:'ranked_bot',p_match:active.id,p_round:1,p_chart:playedChart,p_difficulty:active.user_difficulty||'Medium',p_song_points:numberFrom(soloResult?.querySelector('.finalScore')?.textContent)}).then(async({error}:{error:any})=>{if(error){console.error('ranked bot result save',error);return}const value=soloResult?.querySelector('.resultStarsFinal')?.getAttribute('data-stars');const stars=value===null||value===undefined?null:Number(value);if(stars!==null&&Number.isInteger(stars)){const {error:starsError}=await db.rpc('record_competitive_stars',{p_mode:'ranked_bot',p_match:matchId,p_round:1,p_stars:stars});if(starsError)console.error('ranked bot stars save',starsError)}})}
     const mine=lastScore,theirs=Number(row?.bot_score??active.bot_score??0),before=active.user_mmr_before,delta=Number(row?.mmr_delta??0),after=Number(row?.my_mmr??before+delta);const worldPosition=await challengerPosition(db,active.user_id,after);
     const verdict=mine===theirs?'DRAW':mine>theirs?'VICTORY':'DEFEAT',cls=verdict==='VICTORY'?'win':verdict==='DEFEAT'?'loss':'draw';
-    const card=modal('<small>RANKED DUEL COMPLETE · BOT</small><h1 class="rankedVerdict '+cls+'">'+verdict+'</h1><div class="rankedFinalScores"><span><small>YOU · '+esc(active.user_difficulty||'Medium')+'</small><b>'+mine.toLocaleString()+'</b></span><i>VS</i><span><small>'+esc(active.bot_name)+' · BOT · '+esc(active.bot_difficulty)+'</small><b>'+theirs.toLocaleString()+'</b></span></div><div class="rankedPerformance"><div data-stat="stars"><b>'+esc(perf.stars)+'/5 ★</b><span>STAR RATING</span></div><div data-stat="perfect"><b>'+esc(perf.perfect)+'</b><span>PERFECT</span></div><div data-stat="great"><b>'+esc(perf.great)+'</b><span>GREAT</span></div><div data-stat="good"><b>'+esc(perf.good)+'</b><span>GOOD</span></div><div data-stat="miss"><b>'+esc(perf.miss)+'</b><span>MISS</span></div><div data-stat="accuracy"><b>'+esc(perf.accuracy)+'</b><span>ACCURACY</span></div><div data-stat="combo"><b>'+esc(perf.combo)+'</b><span>MAX COMBO</span></div><div data-stat="timing"><b>'+esc(perf.timing)+'</b><span>'+esc(perf.timingLabel)+'</span></div></div><div class="rankedMmrResult"><b>'+rank(before)+' · '+before+'</b><span>→</span><b>'+rank(after)+' · '+after+(worldPosition?' · WORLD #'+worldPosition:'')+'</b><strong class="'+(delta>=0?'positive':'negative')+'">'+(delta>0?'+':'')+delta+' MMR</strong></div><button class="rankedPrimary botAgain">PLAY ANOTHER RANKED</button><button class="rankedSecondary botDone">DONE</button>');
+    const self=await getSelf(active.user_id);
+    const scores=rankedResultScores({name:self.username,difficulty:active.user_difficulty||'Medium',score:mine},{name:active.bot_name+' · BOT',difficulty:active.bot_difficulty,score:theirs});
+    const mmr=rankedResultMmr(before,after,delta,worldPosition);
+    const card=modal(`<small>RANKED DUEL COMPLETE · BOT</small><h1 class="rankedVerdict ${cls}">${verdict}</h1><div class="rankedResultSub">${verdict==='VICTORY'?'YOU WON THE DUEL':verdict==='DEFEAT'?'YOUR OPPONENT WON':'SCORES ARE TIED'}</div>${scores}${mmr}<button class="rankedPrimary rankedShowStats">SEE STATS</button><button class="rankedPrimary botAgain">PLAY ANOTHER RANKED</button><button class="rankedSecondary botDone">DONE</button><div class="rankedStatsSheet" hidden><h2>YOUR PERFORMANCE</h2>${rankedResultStats(soloResult)}<div class="rankedResultCompare"></div></div>`);
+    wireRankedResult(card);
     (card.querySelector('.botAgain') as HTMLButtonElement).onclick=async()=>{await closeSoloResult();returnToRankedLobby()};
     (card.querySelector('.botDone') as HTMLButtonElement).onclick=async()=>{await closeSoloResult();clearLive();removeBotOverlay();active=null};
   };
