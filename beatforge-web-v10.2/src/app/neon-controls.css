@@ -42,6 +42,7 @@ body .controls>.secondary{--neon-accent:#d7ddeb;--neon-edge:#454e60;--neon-tint:
 body .accountArea .rankedNavBtn{--neon-accent:#c9bcff;--neon-edge:#7657ff;--neon-tint:#201a3a}
 body .accountArea .brNavBtn{--neon-accent:#ff9adc;--neon-edge:#ed4eb9;--neon-tint:#2a1428}
 body .accountArea .friendsModeNav{--neon-accent:#a7e9ff;--neon-edge:#55c9f4;--neon-tint:#112838}
+body .accountArea .accountBtn:not(.rankedNavBtn):not(.brNavBtn):not(.friendsModeNav){--neon-accent:#f0f2f8;--neon-edge:#353d4c;--neon-tint:#151a24}
 body :is(.friendSocialActions button,.friendLobbyInvite,.resultCard:has(.friendList) .friendAdd button,.casualDiscover .communityTabs button){--neon-accent:#a7e9ff;--neon-edge:#55c9f4;--neon-tint:#112838}
 body .accountArea :is(.rankedNavBtn,.brNavBtn,.friendsModeNav){
   background:linear-gradient(145deg,var(--neon-tint),#10151f 78%)!important;
