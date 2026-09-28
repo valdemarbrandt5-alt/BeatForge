@@ -1,0 +1,77 @@
+/* Dark, luminous controls throughout BeatForge. Mode accents stay independent. */
+body{--neon-accent:#a990ff;--neon-edge:#8069d5;--neon-tint:#201a38}
+body button{background:#171b28;border:1px solid #42375f;color:#e8ddff}
+body :is(.rankedBackdrop,.rankedBotBackdrop){--neon-accent:#b29cff;--neon-edge:#8669ee;--neon-tint:#211b3d}
+body :is(.brBackdrop,.brLeaveBackdrop){--neon-accent:#ff8bd5;--neon-edge:#ed4eb9;--neon-tint:#331728}
+body :is(.friendLobbyOverlay,.friendLobbyDock,.casualPickerBackdrop,.casualInvitePrompt,.casualFlowBackdrop,.casualLeaveBackdrop,.casualReadyBackdrop){--neon-accent:#8be3ff;--neon-edge:#55c9f4;--neon-tint:#102c3a}
+body :is(.deleteChart,.brLeaveConfirm,.casualLeaveConfirm,.botConfirmForfeit,.confirmForfeit){--neon-accent:#ff9eab;--neon-edge:#ee6578;--neon-tint:#321922}
+
+/* Action buttons, not chart tiles or the invisible click targets on covers. */
+body :is(.controls>button,.uploadBtn,.saveChartPrimary,.generateFileBtn,.resultActions button,.authCard button,.accountArea button,.seg button,.communityTabs button,.communityPagination button,.leaderTabs button,.adminBatchCard button,.deleteChart,.friendSocialActions button,.friendAdd button,.friendLobbyDock,.friendLobbyInvite,.friendLobbyCreate,.friendLobbyMore,.friendLobbyActions button,.friendLobbyResult>button,.friendLobbyDifficultyLevels button,.rankedCard .rankedPrimary,.rankedCard .rankedSecondary,.brCard .brPrimary,.brCard .brSecondary,.brLeaveCard button,.casualInviteCard button,.casualLeaveCard button,.casualReadyCard button,.casualPickerClose,.casualSongBack,.instrumentOption .instrumentEdit,.instrumentDifficultyLevels button,.rankInstrumentGrid button,.brInstrumentGrid button,.soloDifficultyCancel){
+  background:linear-gradient(145deg,var(--neon-tint),#10151f 78%)!important;
+  border:1px solid var(--neon-edge)!important;
+  color:var(--neon-accent)!important;
+  box-shadow:inset 0 1px 0 #ffffff0c,0 0 0 1px #0004!important;
+  text-shadow:0 0 12px color-mix(in srgb,var(--neon-accent) 22%,transparent);
+  transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,color .15s ease,transform .15s ease;
+}
+body :is(.controls>button,.uploadBtn,.saveChartPrimary,.generateFileBtn,.resultActions button,.authCard button,.accountArea button,.seg button,.communityTabs button,.communityPagination button,.leaderTabs button,.adminBatchCard button,.deleteChart,.friendSocialActions button,.friendAdd button,.friendLobbyDock,.friendLobbyInvite,.friendLobbyCreate,.friendLobbyMore,.friendLobbyActions button,.friendLobbyResult>button,.friendLobbyDifficultyLevels button,.rankedCard .rankedPrimary,.rankedCard .rankedSecondary,.brCard .brPrimary,.brCard .brSecondary,.brLeaveCard button,.casualInviteCard button,.casualLeaveCard button,.casualReadyCard button,.casualPickerClose,.casualSongBack,.instrumentOption .instrumentEdit,.instrumentDifficultyLevels button,.rankInstrumentGrid button,.brInstrumentGrid button,.soloDifficultyCancel):hover:not(:disabled){
+  background:linear-gradient(145deg,color-mix(in srgb,var(--neon-accent) 21%,#10151f),#141927 85%)!important;
+  border-color:var(--neon-accent)!important;
+  box-shadow:inset 0 1px 0 #ffffff1b,0 0 14px color-mix(in srgb,var(--neon-accent) 23%,transparent)!important;
+  color:#fff!important;
+}
+body :is(.controls>button,.uploadBtn,.saveChartPrimary,.generateFileBtn,.resultActions button,.authCard button,.accountArea button,.seg button,.communityTabs button,.communityPagination button,.leaderTabs button,.adminBatchCard button,.deleteChart,.friendSocialActions button,.friendAdd button,.friendLobbyDock,.friendLobbyInvite,.friendLobbyCreate,.friendLobbyMore,.friendLobbyActions button,.friendLobbyResult>button,.friendLobbyDifficultyLevels button,.rankedCard .rankedPrimary,.rankedCard .rankedSecondary,.brCard .brPrimary,.brCard .brSecondary,.brLeaveCard button,.casualInviteCard button,.casualLeaveCard button,.casualReadyCard button,.casualPickerClose,.casualSongBack,.instrumentOption .instrumentEdit,.instrumentDifficultyLevels button,.rankInstrumentGrid button,.brInstrumentGrid button,.soloDifficultyCancel):focus-visible{
+  outline:2px solid var(--neon-accent)!important;outline-offset:3px;
+}
+body :is(.controls>button,.resultActions button,.friendLobbyActions button,.rankedCard button,.brCard button):disabled{opacity:.48;box-shadow:none!important;text-shadow:none}
+
+/* Neutral actions keep the same outline language without looking selected. */
+body :is(.controls>.secondary,.resultActions .secondary,.rankedCard .rankedSecondary,.brCard .brSecondary,.friendLobbyActions .secondary,.brLeaveCancel,.casualDecline,.casualLeaveContinue){
+  --neon-edge:#3a4357;--neon-accent:#d6deef;--neon-tint:#171d29;
+}
+body :is(.seg button.active,.communityTabs button.active,.leaderTabs button.active,.instrumentDifficultyLevels button.active,.friendLobbyDifficultyLevels button.active){
+  background:linear-gradient(145deg,color-mix(in srgb,var(--neon-accent) 19%,#111722),#151b28)!important;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--neon-accent) 28%,transparent),0 0 13px color-mix(in srgb,var(--neon-accent) 16%,transparent)!important;
+  color:#fff!important;
+}
+
+/* The original plain purple PLAY/RESET controls are the main reference case. */
+body .controls>button:first-of-type{--neon-accent:#bcaaff;--neon-edge:#8e72ff;--neon-tint:#241e40}
+body .controls>.secondary{--neon-accent:#d7ddeb;--neon-edge:#454e60;--neon-tint:#1a202c}
+body .accountArea .rankedNavBtn{--neon-accent:#c9bcff;--neon-edge:#7657ff;--neon-tint:#201a3a}
+body .accountArea .brNavBtn{--neon-accent:#ff9adc;--neon-edge:#ed4eb9;--neon-tint:#2a1428}
+body .accountArea .friendsModeNav{--neon-accent:#a7e9ff;--neon-edge:#55c9f4;--neon-tint:#112838}
+body .accountArea .accountBtn:not(.rankedNavBtn):not(.brNavBtn):not(.friendsModeNav){--neon-accent:#f0f2f8;--neon-edge:#353d4c;--neon-tint:#151a24}
+body :is(.friendSocialActions button,.friendLobbyInvite,.resultCard:has(.friendList) .friendAdd button,.casualDiscover .communityTabs button){--neon-accent:#a7e9ff;--neon-edge:#55c9f4;--neon-tint:#112838}
+body .accountArea :is(.rankedNavBtn,.brNavBtn,.friendsModeNav){
+  background:linear-gradient(145deg,var(--neon-tint),#10151f 78%)!important;
+  border-color:var(--neon-edge)!important;color:var(--neon-accent)!important;
+}
+body .accountArea :is(.rankedNavBtn,.brNavBtn,.friendsModeNav):hover{
+  background:linear-gradient(145deg,color-mix(in srgb,var(--neon-accent) 19%,#10151f),#141927 85%)!important;
+  border-color:var(--neon-accent)!important;color:#fff!important;
+}
+body .friendLobbyOverlay .friendLobbyActions button,
+body .friendLobbyOverlay .friendLobbyMore,
+body .friendLobbyOverlay .friendLobbyDifficultyLevels button.active,
+body .friendLobbyResult>button,
+body .friendLobbyCreate,
+body .friendLobbyInvite{
+  background:linear-gradient(145deg,#173746,#101923 82%)!important;
+  border-color:#55c9f4!important;color:#a7e9ff!important;
+}
+body .friendLobbyOverlay .friendLobbyActions button.secondary{background:linear-gradient(145deg,#1a202c,#10151f)!important;border-color:#414b5c!important;color:#d0d5df!important}
+body .friendLobbyBrowser .friendLobbyTabs button.active,
+body .friendLobbyBrowser .friendLobbyTabs button:hover{
+  background:linear-gradient(145deg,#173d4e,#101a26)!important;
+  color:#e1f8ff!important;border-color:#55c9f4!important;
+}
+body .uploadBtn{border-style:solid!important}
+body .tilePlay{background:#201a38!important;border:1px solid #9b7cff!important;color:#d7ccff!important;box-shadow:0 0 12px #9b7cff30!important}
+body .casualDiscover .tilePlay,body .friendLobbyBrowser .tilePlay{background:#112838!important;border-color:#55c9f4!important;color:#b9ecff!important;box-shadow:0 0 12px #55c9f430!important}
+body .friendLobbySongPicker .communityTileHit{background:transparent!important;border:0!important;box-shadow:none!important;text-shadow:none}
+
+@media(prefers-reduced-motion:reduce){
+  body :is(button,.uploadBtn,.friendLobbyDock){transition:none!important}
+}

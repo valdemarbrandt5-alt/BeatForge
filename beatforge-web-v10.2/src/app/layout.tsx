@@ -5,6 +5,7 @@ import './streak-tuning.css';
 import './competitive-flow.css';
 import './note-palette.css';
 import './impact-solid.css';
+import './neon-controls.css';
 
 export const metadata: Metadata = {title:'BeatForge',description:'5 lane web rhythm game prototype'};
 
