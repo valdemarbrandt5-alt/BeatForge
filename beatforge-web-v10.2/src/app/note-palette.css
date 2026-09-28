@@ -11,7 +11,9 @@
 .game:not(.notePaletteGuitar) .lane .note,
 .game:not(.notePaletteGuitar) .lane .holdHead{
   background:color-mix(in srgb,var(--ambient-color) 78%,white)!important;
-  box-shadow:0 0 7px color-mix(in srgb,var(--ambient-color) 42%,transparent)!important;
+  box-shadow:inset 0 0 0 1px rgb(255 255 255 / .2),
+    0 0 10px 1px color-mix(in srgb,var(--ambient-color) 52%,transparent),
+    0 0 18px color-mix(in srgb,var(--ambient-color) 18%,transparent)!important;
 }
 .game:not(.notePaletteGuitar) .lane .holdNote{
   background:linear-gradient(to bottom,color-mix(in srgb,var(--ambient-color) 68%,white),color-mix(in srgb,var(--ambient-color) 65%,#10131e))!important;
@@ -26,7 +28,9 @@
 }
 .game.notePaletteGuitar .lane .note,.game.notePaletteGuitar .lane .holdHead{
   background:var(--lane-note-color)!important;
-  box-shadow:0 0 7px color-mix(in srgb,var(--lane-note-color) 38%,transparent)!important;
+  box-shadow:inset 0 0 0 1px rgb(255 255 255 / .2),
+    0 0 10px 1px color-mix(in srgb,var(--lane-note-color) 52%,transparent),
+    0 0 18px color-mix(in srgb,var(--lane-note-color) 18%,transparent)!important;
 }
 .game.notePaletteGuitar .lane .holdNote,.game.notePaletteGuitar .lane .holdNote.holding{
   background:linear-gradient(to bottom,color-mix(in srgb,var(--lane-note-color) 80%,white),color-mix(in srgb,var(--lane-note-color) 65%,#10131e))!important;
@@ -36,8 +40,10 @@
 .game.goldMode .lane .note,.game.goldMode .lane .holdHead,
 .game.streak100 .lane .note,.game.streak100 .lane .holdHead,
 .game.streak200 .lane .note,.game.streak200 .lane .holdHead{
-  box-shadow:0 0 0 1px color-mix(in srgb,var(--ambient-color) 52%,transparent),
-    0 0 8px 1px color-mix(in srgb,var(--ambient-color) 40%,transparent)!important;
+  box-shadow:inset 0 0 0 1px rgb(255 255 255 / .24),
+    0 0 0 1px color-mix(in srgb,var(--ambient-color) 52%,transparent),
+    0 0 12px 2px color-mix(in srgb,var(--ambient-color) 52%,transparent),
+    0 0 19px color-mix(in srgb,var(--ambient-color) 17%,transparent)!important;
 }
 .game.goldMode .lane .holdNote,.game.streak100 .lane .holdNote,.game.streak200 .lane .holdNote{
   box-shadow:0 0 0 1px color-mix(in srgb,var(--ambient-color) 40%,transparent),
@@ -49,9 +55,10 @@
 .game.notePaletteGuitar.streak200{--guitar-bg-color:var(--guitar-bg-200,#ff41b9)}
 .game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .note,
 .game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .holdHead{
-  box-shadow:0 0 0 1px color-mix(in srgb,var(--lane-note-color) 55%,white),
-    0 0 10px 2px color-mix(in srgb,var(--lane-note-color) 43%,transparent),
-    0 0 19px 3px color-mix(in srgb,var(--lane-note-color) 14%,transparent)!important;
+  box-shadow:inset 0 0 0 1px rgb(255 255 255 / .24),
+    0 0 0 1px color-mix(in srgb,var(--lane-note-color) 55%,white),
+    0 0 12px 2px color-mix(in srgb,var(--lane-note-color) 55%,transparent),
+    0 0 20px color-mix(in srgb,var(--lane-note-color) 20%,transparent)!important;
 }
 .game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .holdNote{
   box-shadow:0 0 0 1px color-mix(in srgb,var(--lane-note-color) 42%,transparent),
