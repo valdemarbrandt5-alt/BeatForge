@@ -64,7 +64,8 @@
 }
 .game .impactGlow{
   inset:auto -16% -1.4cqw;height:62cqw;
-  background:radial-gradient(ellipse 46% 35% at 50% 88%,rgb(var(--blast-rgb) / .53),rgb(var(--blast-rgb) / .24) 35%,transparent 84%);
+  background:radial-gradient(ellipse 38% 52% at 50% 70%,rgb(var(--blast-rgb) / .36),transparent 78%),
+    radial-gradient(ellipse 46% 35% at 50% 88%,rgb(var(--blast-rgb) / .53),rgb(var(--blast-rgb) / .24) 35%,transparent 84%);
   filter:blur(9px);animation:blastGlow .28s ease-out both;
 }
 .game .impactRing{
@@ -79,32 +80,33 @@
   animation:blastCore .28s ease-out both;
 }
 .game .impactBeam i{
-  --beam-x:50%;--beam-h:64cqw;--beam-delay:0ms;
-  position:absolute;left:var(--beam-x);bottom:50%;width:2.7cqw;height:var(--beam-h);
-  min-width:2px;max-width:5px;max-height:100cqw;
-  background:linear-gradient(to top,#fff,rgb(255 255 255 / .93) 9%,rgb(var(--blast-rgb) / .88) 35%,rgb(var(--blast-rgb) / .4) 75%,transparent);
-  clip-path:polygon(30% 100%,0 45%,50% 0,100% 48%,70% 100%);
-  filter:drop-shadow(0 0 4px rgb(var(--blast-rgb) / .9));
+  --beam-x:50%;--beam-h:64cqw;--beam-w:2.8cqw;--beam-delay:0ms;
+  position:absolute;left:var(--beam-x);bottom:50%;width:var(--beam-w);height:var(--beam-h);
+  min-width:2px;max-width:4px;max-height:100cqw;border-radius:1px 1px 0 0;
+  background:linear-gradient(to right,rgb(var(--blast-rgb) / .82),#fff 35% 65%,rgb(var(--blast-rgb) / .82));
+  -webkit-mask-image:linear-gradient(to top,transparent,#000 22%,#000);
+  mask-image:linear-gradient(to top,transparent,#000 22%,#000);
+  box-shadow:0 0 4px 1px rgb(var(--blast-rgb) / .8),0 0 10px 2px rgb(var(--blast-rgb) / .45);
   transform-origin:center bottom;animation:blastBeam .28s ease-out var(--beam-delay) both;
 }
-.game .impactBeam i:nth-child(1){--beam-x:20%;--beam-h:44cqw;--beam-delay:8ms}
-.game .impactBeam i:nth-child(2){--beam-x:34%;--beam-h:86cqw;--beam-delay:0ms}
-.game .impactBeam i:nth-child(3){--beam-x:51%;--beam-h:61cqw;--beam-delay:16ms}
-.game .impactBeam i:nth-child(4){--beam-x:67%;--beam-h:73cqw;--beam-delay:6ms}
-.game .impactBeam i:nth-child(5){--beam-x:81%;--beam-h:36cqw;--beam-delay:22ms}
+.game .impactBeam i:nth-child(1){--beam-x:18%;--beam-h:34cqw;--beam-w:2.6cqw;--beam-delay:8ms}
+.game .impactBeam i:nth-child(2){--beam-x:33%;--beam-h:88cqw;--beam-w:3.3cqw;--beam-delay:0ms}
+.game .impactBeam i:nth-child(3){--beam-x:51%;--beam-h:52cqw;--beam-w:2.5cqw;--beam-delay:16ms}
+.game .impactBeam i:nth-child(4){--beam-x:69%;--beam-h:94cqw;--beam-w:3.1cqw;--beam-delay:6ms}
+.game .impactBeam i:nth-child(5){--beam-x:83%;--beam-h:38cqw;--beam-w:2.7cqw;--beam-delay:22ms}
 .game .impactSparks i{
   --spark-x:50%;--spark-y:-25cqw;--spark-dx:0cqw;--spark-delay:0ms;
-  position:absolute;left:var(--spark-x);top:15%;width:3cqw;height:3cqw;
-  min-width:3px;max-width:6px;min-height:3px;max-height:6px;
-  background:rgb(255 255 255 / .95);box-shadow:0 0 6px 1px rgb(var(--blast-rgb) / .85);
+  position:absolute;left:var(--spark-x);top:15%;width:3.5cqw;height:3.5cqw;
+  min-width:3px;max-width:5px;min-height:3px;max-height:5px;
+  background:#fff;box-shadow:0 0 2px 1px #fff,0 0 7px 2px rgb(var(--blast-rgb) / .9);
   animation:blastSpark .26s ease-out var(--spark-delay) both;
 }
-.game .impactSparks i:nth-child(1){--spark-x:13%;--spark-y:-22cqw;--spark-dx:-9cqw;--spark-delay:2ms}
-.game .impactSparks i:nth-child(2){--spark-x:27%;--spark-y:-45cqw;--spark-dx:-6cqw;--spark-delay:18ms}
+.game .impactSparks i:nth-child(1){--spark-x:12%;--spark-y:-22cqw;--spark-dx:-9cqw;--spark-delay:2ms}
+.game .impactSparks i:nth-child(2){--spark-x:26%;--spark-y:-45cqw;--spark-dx:-6cqw;--spark-delay:18ms}
 .game .impactSparks i:nth-child(3){--spark-x:43%;--spark-y:-31cqw;--spark-dx:2cqw;--spark-delay:11ms}
-.game .impactSparks i:nth-child(4){--spark-x:59%;--spark-y:-53cqw;--spark-dx:6cqw;--spark-delay:5ms}
-.game .impactSparks i:nth-child(5){--spark-x:74%;--spark-y:-24cqw;--spark-dx:8cqw;--spark-delay:20ms}
-.game .impactSparks i:nth-child(6){--spark-x:86%;--spark-y:-38cqw;--spark-dx:12cqw;--spark-delay:12ms}
+.game .impactSparks i:nth-child(4){--spark-x:60%;--spark-y:-53cqw;--spark-dx:6cqw;--spark-delay:5ms}
+.game .impactSparks i:nth-child(5){--spark-x:77%;--spark-y:-24cqw;--spark-dx:8cqw;--spark-delay:20ms}
+.game .impactSparks i:nth-child(6){--spark-x:91%;--spark-y:-38cqw;--spark-dx:12cqw;--spark-delay:12ms}
 @keyframes blastCore{0%{opacity:.95;transform:scaleX(.72) scaleY(.75)}12%{opacity:var(--blast-strength);transform:scale(1)}40%{opacity:.64}100%{opacity:0;transform:scaleX(1.1) scaleY(.4)}}
 @keyframes blastGlow{0%{opacity:.75}14%{opacity:var(--blast-strength)}100%{opacity:0}}
 @keyframes blastRing{0%{opacity:0;transform:scaleX(.65) scaleY(.6)}12%{opacity:var(--blast-strength)}100%{opacity:0;transform:scaleX(1.05) scaleY(1.7)}}
