@@ -82,11 +82,20 @@
 .game .impactBeam i{
   position:absolute;left:50%;bottom:50%;width:2.8cqw;height:64cqw;
   min-width:2px;max-width:4px;max-height:100cqw;border-radius:1px 1px 0 0;
+  transform-origin:center bottom;animation:blastBeam .28s ease-out both;
+}
+.game .impactBeam i::before,.game .impactBeam i::after{
+  content:"";position:absolute;inset:0;border-radius:1px 1px 0 0;
+}
+.game .impactBeam i::before{
+  background:linear-gradient(to top,transparent,rgb(var(--blast-rgb) / .95) 22%,rgb(var(--blast-rgb) / .95));
+  box-shadow:0 0 9px 3px rgb(var(--blast-rgb) / .9),0 0 20px 6px rgb(var(--blast-rgb) / .6);
+  filter:blur(3px);
+}
+.game .impactBeam i::after{
   background:linear-gradient(to right,rgb(var(--blast-rgb) / .95),#fff 35% 65%,rgb(var(--blast-rgb) / .95));
   -webkit-mask-image:linear-gradient(to top,transparent,#000 22%,#000);
   mask-image:linear-gradient(to top,transparent,#000 22%,#000);
-  box-shadow:0 0 5px 2px rgb(var(--blast-rgb) / .95),0 0 15px 3px rgb(var(--blast-rgb) / .65);
-  transform-origin:center bottom;animation:blastBeam .28s ease-out both;
 }
 .game .impactSparks i{
   --spark-x:50%;--spark-y:-25cqw;--spark-dx:0cqw;--spark-delay:0ms;
