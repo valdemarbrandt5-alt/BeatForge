@@ -46,32 +46,65 @@
 .beatforgeFullscreenShell .resultActions{position:relative!important;z-index:2!important;margin-top:10px!important;padding-bottom:2px!important}
 .beatforgeFullscreenShell .rankedResultInline{width:auto!important}
 
+/* A narrow energy column and luminous receptor ring, colored by the current combo stage. */
+.game{--hit-rgb:155 124 255;--hit-color:#9b7cff}
+.game.goldMode{--hit-rgb:255 213 74;--hit-color:#ffd54a}
+.game.streak100{--hit-rgb:88 166 255;--hit-color:#58a6ff}
+.game.streak200{--hit-rgb:255 114 210;--hit-color:#ff72d2}
 .game .impact{
-  --burst-size:1;
-  bottom:72px;width:66%;height:64px;border:0!important;border-radius:0!important;
-  z-index:4;isolation:isolate;filter:drop-shadow(0 0 8px currentColor);
-  animation:beatforgeHitFlash .32s cubic-bezier(.12,.7,.3,1) forwards!important;
+  --hit-size:1;
+  position:absolute;left:50%;bottom:73px;width:100%;height:112px;
+  border:0!important;border-radius:0!important;background:none!important;
+  color:var(--hit-color)!important;pointer-events:none;z-index:4;
+  transform:translate(-50%,50%) scale(var(--hit-size));transform-origin:center bottom;
+  filter:drop-shadow(0 0 6px rgb(var(--hit-rgb) / .75));
+  animation:energyHitFade .4s ease-out forwards!important;
 }
 .game .impact::before{
-  content:'';position:absolute;inset:-12px -4px;background:currentColor;
-  clip-path:polygon(50% 0,55% 31%,66% 12%,65% 37%,91% 19%,75% 46%,100% 51%,75% 58%,90% 83%,62% 68%,55% 100%,49% 70%,37% 92%,39% 65%,7% 82%,28% 55%,0 49%,28% 44%,9% 17%,39% 35%,43% 13%);
-  opacity:.8;
+  content:'';position:absolute;left:9%;right:9%;bottom:-9px;height:25px;
+  border:2px solid currentColor;border-radius:50%;
+  background:radial-gradient(ellipse at center,rgb(255 255 255 / .8) 0%,rgb(var(--hit-rgb) / .55) 20%,transparent 72%);
+  box-shadow:0 0 10px 2px rgb(var(--hit-rgb) / .72),inset 0 0 9px rgb(var(--hit-rgb) / .8);
+  animation:energyRing .36s ease-out forwards;
 }
 .game .impact::after{
-  content:'';position:absolute;left:27%;right:27%;top:8%;bottom:8%;
-  background:radial-gradient(ellipse,#fff 0 12%,currentColor 48%,transparent 74%);
-  transform:rotate(-12deg);filter:blur(2px);
+  content:'';position:absolute;left:15%;right:15%;bottom:-17px;height:38px;
+  border-radius:50%;background:radial-gradient(ellipse,rgb(255 255 255 / .9) 0%,rgb(var(--hit-rgb) / .8) 24%,transparent 75%);
+  filter:blur(5px);
 }
-.game .impact.perfect{--burst-size:1.25;color:#ffd54a!important}
-.game .impact.great{--burst-size:1;color:#55e7a1!important}
-.game .impact.good{--burst-size:.7;color:#ffad42!important}
-.game .impact.miss{--burst-size:.35;color:#ef4444!important;opacity:.55}
-@keyframes beatforgeHitFlash{
-  0%{opacity:1;transform:translate(-50%,50%) scale(calc(var(--burst-size)*.44)) rotate(-7deg)}
-  38%{opacity:.92;transform:translate(-50%,50%) scale(var(--burst-size)) rotate(1deg)}
-  100%{opacity:0;transform:translate(-50%,57%) scale(calc(var(--burst-size)*1.38)) rotate(7deg)}
+.game .impactBeam{
+  position:absolute;left:50%;bottom:0;width:42%;height:105px;
+  transform:translateX(-50%);transform-origin:center bottom;
+  background:linear-gradient(to top,rgb(255 255 255 / .95),rgb(var(--hit-rgb) / .85) 24%,rgb(var(--hit-rgb) / .38) 63%,transparent 100%);
+  clip-path:polygon(49% 0,54% 19%,53% 40%,68% 79%,82% 100%,18% 100%,32% 79%,47% 40%,46% 19%);
+  filter:drop-shadow(0 0 14px currentColor);
+  animation:energyBeam .38s ease-out forwards;
 }
-@media(prefers-reduced-motion:reduce){.game .impact{animation-duration:.15s!important}}
+.game .impactCore{
+  position:absolute;left:50%;bottom:0;width:8%;height:85px;transform:translateX(-50%);
+  background:linear-gradient(to top,#fff 0%,rgb(255 255 255 / .92) 16%,rgb(var(--hit-rgb) / .65) 58%,transparent 100%);
+  border-radius:50% 50% 20% 20%;filter:blur(1px);
+  animation:energyBeam .32s ease-out forwards;
+}
+.game .impactSparks{position:absolute;inset:0;pointer-events:none}
+.game .impactSparks::before,.game .impactSparks::after{
+  content:'';position:absolute;bottom:15px;width:2px;height:42px;border-radius:50%;
+  background:linear-gradient(to top,rgb(255 255 255 / .95),rgb(var(--hit-rgb) / .7),transparent);
+  box-shadow:0 0 5px currentColor;
+  animation:energySpark .32s ease-out forwards;
+}
+.game .impactSparks::before{left:34%;transform:rotate(-17deg)}
+.game .impactSparks::after{right:34%;transform:rotate(17deg)}
+.game .impact.perfect{--hit-size:1.12}
+.game .impact.great{--hit-size:.88}
+.game .impact.good{--hit-size:.65}
+.game .impact.miss{--hit-size:.38;opacity:.4}
+.game .impact.miss .impactBeam,.game .impact.miss .impactCore,.game .impact.miss .impactSparks{display:none}
+@keyframes energyHitFade{0%{opacity:0}12%{opacity:1}55%{opacity:.88}100%{opacity:0}}
+@keyframes energyRing{from{transform:scaleX(.45);opacity:1}to{transform:scaleX(1.16);opacity:0}}
+@keyframes energyBeam{from{height:20px;opacity:1}45%{height:105px;opacity:1}to{height:125px;opacity:0}}
+@keyframes energySpark{from{opacity:1}to{opacity:0;bottom:56px}}
+@media(prefers-reduced-motion:reduce){.game .impact,.game .impact *,.game .impact::before,.game .impact::after{animation-duration:.15s!important}}
 @media (max-height:800px){
  .beatforgeFullscreenShell>.resultBackdrop>.resultCard{padding:16px 24px!important}
  .beatforgeFullscreenShell .rankedResultInline{margin:7px 0!important;padding:8px 11px!important}
