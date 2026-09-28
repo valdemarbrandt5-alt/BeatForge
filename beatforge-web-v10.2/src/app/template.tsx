@@ -12,8 +12,7 @@ import '../battle-royale';
 import '../battle-royale-danger-zone';
 import '../main-ui-tweaks';
 import '../solo-ui-enhancements';
-import '../casual-social';
-import '../casual-live';
+import '../friend-lobby';
 
 export default function Template({children}:{children:React.ReactNode}){
  useEffect(()=>{
