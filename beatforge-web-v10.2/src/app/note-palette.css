@@ -1,31 +1,34 @@
-/* Palette is a personal rendering choice; combo lighting and hit feedback still work. */
-.game.notePaletteCustom .lane{--lane-note-color:var(--custom-note-color)}
-.game.notePaletteGuitar .lane:nth-child(1){--lane-note-color:#39dd75}
-.game.notePaletteGuitar .lane:nth-child(2){--lane-note-color:#ff536d}
-.game.notePaletteGuitar .lane:nth-child(3){--lane-note-color:#ffe15e}
-.game.notePaletteGuitar .lane:nth-child(4){--lane-note-color:#58aaff}
-.game.notePaletteGuitar .lane:nth-child(5){--lane-note-color:#ff9b45}
-.game.notePaletteCustom .lane,.game.notePaletteGuitar .lane{
+/* Subtle floor glow stays visible with the default combo palette. */
+.game{--ambient-color:#a655ff}
+.game.goldMode{--ambient-color:#ffb923}
+.game.streak100{--ambient-color:#2a8eff}
+.game.streak200{--ambient-color:#ff41b9}
+.game:not(.notePaletteGuitar) .lanes,
+.game:not(.notePaletteGuitar).streak100 .lanes,
+.game:not(.notePaletteGuitar).streak200 .lanes{
+  background:radial-gradient(ellipse 58% 48% at 50% 105%,color-mix(in srgb,var(--ambient-color) 18%,transparent),transparent 82%)!important;
+}
+.game.notePaletteGuitar .lane{
   background:linear-gradient(to top,color-mix(in srgb,var(--lane-note-color) 12%,transparent),transparent 45%);
   border-right-color:color-mix(in srgb,var(--lane-note-color) 22%,#252a35);
 }
-.game.notePaletteCustom .lane.pressed,.game.notePaletteGuitar .lane.pressed{
+.game.notePaletteGuitar .lane.pressed{
   background:linear-gradient(to top,color-mix(in srgb,var(--lane-note-color) 25%,transparent),transparent 55%);
 }
-.game.notePaletteCustom .lane .note,.game.notePaletteGuitar .lane .note,
-.game.notePaletteCustom .lane .holdHead,.game.notePaletteGuitar .lane .holdHead{
+.game.notePaletteGuitar .lane .note,.game.notePaletteGuitar .lane .holdHead{
   background:var(--lane-note-color)!important;
   box-shadow:0 0 16px color-mix(in srgb,var(--lane-note-color) 75%,transparent),0 0 32px color-mix(in srgb,var(--lane-note-color) 40%,transparent)!important;
 }
-.game.notePaletteCustom .lane .holdNote,.game.notePaletteGuitar .lane .holdNote,
-.game.notePaletteCustom .lane .holdNote.holding,.game.notePaletteGuitar .lane .holdNote.holding{
+.game.notePaletteGuitar .lane .holdNote,.game.notePaletteGuitar .lane .holdNote.holding{
   background:linear-gradient(to bottom,color-mix(in srgb,var(--lane-note-color) 80%,white),color-mix(in srgb,var(--lane-note-color) 65%,#10131e))!important;
   box-shadow:0 0 14px color-mix(in srgb,var(--lane-note-color) 45%,transparent)!important;
 }
-.game.notePaletteCustom .lane .receptor,.game.notePaletteGuitar .lane .receptor{
+.game.notePaletteGuitar .lane .receptor{
   border-color:var(--lane-note-color);
   box-shadow:0 0 10px color-mix(in srgb,var(--lane-note-color) 50%,transparent);
 }
-.notePaletteControl,.customNoteColor{display:grid;gap:5px;color:#9ca4b6;font-size:10px;font-weight:900;letter-spacing:.05em}
+.notePaletteControl,.laneColorChoices label{display:grid;gap:5px;color:#9ca4b6;font-size:10px;font-weight:900;letter-spacing:.05em}
 .notePaletteControl select{background:#171c29;color:#f1f4fb;border:1px solid #3b4355;border-radius:8px;padding:7px;min-height:34px}
-.customNoteColor input{width:48px;height:34px;padding:2px;border:1px solid #3b4355;border-radius:8px;background:#171c29;cursor:pointer}
+.laneColorChoices{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.laneColorChoices label{text-align:center}
+.laneColorChoices input{width:35px;height:34px;padding:2px;border:1px solid #3b4355;border-radius:8px;background:#171c29;cursor:pointer}
