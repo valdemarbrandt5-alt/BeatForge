@@ -20,7 +20,7 @@ if(typeof window!=='undefined'){
 
       card.classList.add('rankedHomeCard');
       const top=card.querySelector(':scope > small') as HTMLElement|null;
-      if(top&&/BEATFORGE COMPETITIVE/i.test(top.textContent||''))top.textContent='BEATFORGE';
+      if(top&&/BEATSTRIKE COMPETITIVE/i.test(top.textContent||''))top.textContent='BEATSTRIKE';
 
       badge.classList.remove('rhBronze','rhSilver','rhGold','rhPlatinum','rhDiamond','rhMaster','rhGrandmaster','rhChallenger');
       badge.classList.add('rankedHomeRank',rankClass(badge.querySelector('b')?.textContent||''));
