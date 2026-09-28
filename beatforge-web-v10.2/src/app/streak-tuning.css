@@ -46,69 +46,71 @@
 .beatforgeFullscreenShell .resultActions{position:relative!important;z-index:2!important;margin-top:10px!important;padding-bottom:2px!important}
 .beatforgeFullscreenShell .rankedResultInline{width:auto!important}
 
-/* The note breaks at the receptor. Keep the burst centered on its 73px baseline. */
-.game{--hit-rgb:155 124 255;--hit-color:#9b7cff}
-.game.goldMode{--hit-rgb:255 213 74;--hit-color:#ffd54a}
-.game.streak100{--hit-rgb:88 166 255;--hit-color:#58a6ff}
-.game.streak200{--hit-rgb:255 114 210;--hit-color:#ff72d2}
+/* Blast layers are positioned relative to the same box as the receptor. */
 .game .impact{
-  --hit-size:1;
-  position:absolute;left:50%;bottom:73px;width:100%;height:94px;
+  --blast-rgb:155 124 255;--blast-strength:1;
+  position:absolute;left:12%;bottom:64px;width:76%;height:18px;
+  container-type:inline-size;overflow:visible;z-index:4;pointer-events:none;
   border:0!important;border-radius:0!important;background:none!important;
-  color:var(--hit-color)!important;pointer-events:none;z-index:4;
-  transform:translateX(-50%) scale(var(--hit-size));transform-origin:center bottom;
-  animation:energyHitFade .36s ease-out forwards!important;
+  transform:none!important;animation:none!important;
 }
-.game .impact::before{
-  content:'';position:absolute;left:-7%;right:-7%;bottom:-11px;height:22px;
-  border:1.5px solid rgb(var(--hit-rgb) / .9);border-radius:50%;
-  box-shadow:0 0 5px 1px rgb(var(--hit-rgb) / .8),inset 0 0 5px rgb(var(--hit-rgb) / .65);
-  animation:energyRing .35s cubic-bezier(.15,.65,.3,1) forwards;
+.game .impact[data-stage="gold"]{--blast-rgb:255 213 74}
+.game .impact[data-stage="blue"]{--blast-rgb:88 166 255}
+.game .impact[data-stage="pink"]{--blast-rgb:255 114 210}
+.game .impact.great{--blast-strength:.84}
+.game .impact.good{--blast-strength:.68}
+.game .impactGlow,.game .impactRing,.game .impactCore,.game .impactBeam,.game .impactSparks{
+  position:absolute;inset:0;display:block;pointer-events:none;
 }
-.game .impact::after{
-  content:'';position:absolute;left:0;right:0;bottom:-23px;height:46px;
-  border-radius:50%;
-  background:radial-gradient(ellipse,rgb(255 255 255 / .98) 0%,rgb(255 255 255 / .76) 12%,rgb(var(--hit-rgb) / .78) 28%,rgb(var(--hit-rgb) / .32) 53%,transparent 78%);
-  filter:blur(3px);animation:energyFlash .31s ease-out forwards;
+.game .impactGlow{
+  inset:auto -16% -1.4cqw;height:62cqw;
+  background:radial-gradient(ellipse 46% 35% at 50% 88%,rgb(var(--blast-rgb) / .53),rgb(var(--blast-rgb) / .24) 35%,transparent 84%);
+  filter:blur(9px);animation:blastGlow .28s ease-out both;
 }
-.game .impactBeam{
-  position:absolute;left:50%;bottom:0;width:70%;height:86px;
-  transform:translateX(-50%);
-  background:radial-gradient(ellipse 42% 92% at 50% 100%,rgb(var(--hit-rgb) / .88),rgb(var(--hit-rgb) / .37) 40%,transparent 75%);
-  filter:blur(8px);animation:energyBeam .34s ease-out forwards;
+.game .impactRing{
+  inset:-4px -19%;border:1.5px solid rgb(var(--blast-rgb) / .9);border-radius:50%;
+  box-shadow:0 0 6px rgb(var(--blast-rgb) / .75);
+  animation:blastRing .28s cubic-bezier(.14,.5,.27,1) both;
 }
-.game .impactBeam::before,.game .impactBeam::after{
-  content:'';position:absolute;bottom:15px;width:3px;border-radius:2px;
-  background:linear-gradient(to top,rgb(255 255 255 / .9),rgb(var(--hit-rgb) / .75) 55%,transparent);
-  box-shadow:0 0 8px 2px rgb(var(--hit-rgb) / .7);
-}
-.game .impactBeam::before{left:23%;height:39px}
-.game .impactBeam::after{right:22%;height:63px}
 .game .impactCore{
-  position:absolute;left:50%;bottom:-2px;width:6px;height:74px;transform:translateX(-50%);
-  background:linear-gradient(to top,#fff,rgb(255 255 255 / .8) 18%,rgb(var(--hit-rgb) / .6) 50%,transparent);
-  box-shadow:0 0 10px 3px rgb(var(--hit-rgb) / .8);
-  filter:blur(2px);animation:energyBeam .32s ease-out forwards;
+  inset:-5px -4%;border-radius:8px;
+  background:radial-gradient(ellipse 44% 88% at 50% 50%,#fff 0%,rgb(255 255 255 / .98) 35%,rgb(var(--blast-rgb) / .95) 65%,transparent 100%);
+  box-shadow:0 0 12px 3px rgb(var(--blast-rgb) / .8),0 0 22px 5px rgb(var(--blast-rgb) / .38);
+  animation:blastCore .28s ease-out both;
 }
-.game .impactSparks{position:absolute;inset:0;pointer-events:none}
-.game .impactSparks::before,.game .impactSparks::after{
-  content:'';position:absolute;bottom:18px;width:3px;height:3px;
-  background:rgb(var(--hit-rgb));
-  box-shadow:0 0 6px 2px rgb(var(--hit-rgb) / .8),15px -20px 0 -1px rgb(var(--hit-rgb) / .9),-9px -34px 0 -1px rgb(var(--hit-rgb) / .7);
-  animation:energySpark .32s ease-out forwards;
+.game .impactBeam i{
+  --beam-x:50%;--beam-h:64cqw;--beam-delay:0ms;
+  position:absolute;left:var(--beam-x);bottom:50%;width:2.7cqw;height:var(--beam-h);
+  min-width:2px;max-width:5px;max-height:100cqw;
+  background:linear-gradient(to top,#fff,rgb(255 255 255 / .93) 9%,rgb(var(--blast-rgb) / .88) 35%,rgb(var(--blast-rgb) / .4) 75%,transparent);
+  clip-path:polygon(30% 100%,0 45%,50% 0,100% 48%,70% 100%);
+  filter:drop-shadow(0 0 4px rgb(var(--blast-rgb) / .9));
+  transform-origin:center bottom;animation:blastBeam .28s ease-out var(--beam-delay) both;
 }
-.game .impactSparks::before{left:28%}
-.game .impactSparks::after{right:27%;animation-delay:.025s}
-.game .impact.perfect{--hit-size:1.12}
-.game .impact.great{--hit-size:.88}
-.game .impact.good{--hit-size:.65}
-.game .impact.miss{display:none}
-@keyframes energyHitFade{0%{opacity:0}8%{opacity:1}52%{opacity:.86}100%{opacity:0}}
-@keyframes energyRing{from{transform:scale(.45);opacity:1}to{transform:scale(1.18);opacity:0}}
-@keyframes energyFlash{from{transform:scale(.5);opacity:1}to{transform:scale(1.2);opacity:0}}
-@keyframes energyBeam{from{transform:translateX(-50%) scaleY(.35);opacity:1}45%{transform:translateX(-50%) scaleY(1);opacity:1}to{transform:translateX(-50%) scaleY(1.15);opacity:0}}
-@keyframes energySpark{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-36px)}}
-@media(prefers-reduced-motion:reduce){.game .impact,.game .impact *,.game .impact::before,.game .impact::after{animation-duration:.15s!important}}
+.game .impactBeam i:nth-child(1){--beam-x:20%;--beam-h:44cqw;--beam-delay:8ms}
+.game .impactBeam i:nth-child(2){--beam-x:34%;--beam-h:86cqw;--beam-delay:0ms}
+.game .impactBeam i:nth-child(3){--beam-x:51%;--beam-h:61cqw;--beam-delay:16ms}
+.game .impactBeam i:nth-child(4){--beam-x:67%;--beam-h:73cqw;--beam-delay:6ms}
+.game .impactBeam i:nth-child(5){--beam-x:81%;--beam-h:36cqw;--beam-delay:22ms}
+.game .impactSparks i{
+  --spark-x:50%;--spark-y:-25cqw;--spark-dx:0cqw;--spark-delay:0ms;
+  position:absolute;left:var(--spark-x);top:15%;width:3cqw;height:3cqw;
+  min-width:3px;max-width:6px;min-height:3px;max-height:6px;
+  background:rgb(255 255 255 / .95);box-shadow:0 0 6px 1px rgb(var(--blast-rgb) / .85);
+  animation:blastSpark .26s ease-out var(--spark-delay) both;
+}
+.game .impactSparks i:nth-child(1){--spark-x:13%;--spark-y:-22cqw;--spark-dx:-9cqw;--spark-delay:2ms}
+.game .impactSparks i:nth-child(2){--spark-x:27%;--spark-y:-45cqw;--spark-dx:-6cqw;--spark-delay:18ms}
+.game .impactSparks i:nth-child(3){--spark-x:43%;--spark-y:-31cqw;--spark-dx:2cqw;--spark-delay:11ms}
+.game .impactSparks i:nth-child(4){--spark-x:59%;--spark-y:-53cqw;--spark-dx:6cqw;--spark-delay:5ms}
+.game .impactSparks i:nth-child(5){--spark-x:74%;--spark-y:-24cqw;--spark-dx:8cqw;--spark-delay:20ms}
+.game .impactSparks i:nth-child(6){--spark-x:86%;--spark-y:-38cqw;--spark-dx:12cqw;--spark-delay:12ms}
+@keyframes blastCore{0%{opacity:.95;transform:scaleX(.72) scaleY(.75)}12%{opacity:var(--blast-strength);transform:scale(1)}40%{opacity:.64}100%{opacity:0;transform:scaleX(1.1) scaleY(.4)}}
+@keyframes blastGlow{0%{opacity:.75}14%{opacity:var(--blast-strength)}100%{opacity:0}}
+@keyframes blastRing{0%{opacity:0;transform:scaleX(.65) scaleY(.6)}12%{opacity:var(--blast-strength)}100%{opacity:0;transform:scaleX(1.05) scaleY(1.7)}}
+@keyframes blastBeam{0%{opacity:.9;transform:translateY(0) scaleY(.24)}14%{opacity:var(--blast-strength);transform:translateY(-3cqw) scaleY(1)}100%{opacity:0;transform:translateY(-22cqw) scaleY(.72)}}
+@keyframes blastSpark{0%{opacity:0;transform:translate(0,0) scale(.6)}15%{opacity:var(--blast-strength)}100%{opacity:0;transform:translate(var(--spark-dx),var(--spark-y)) scale(.35)}}
+@media(prefers-reduced-motion:reduce){.game .impact *,.game .impact i{animation-duration:.12s!important}}
 @media (max-height:800px){
  .beatforgeFullscreenShell>.resultBackdrop>.resultCard{padding:16px 24px!important}
  .beatforgeFullscreenShell .rankedResultInline{margin:7px 0!important;padding:8px 11px!important}
