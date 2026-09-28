@@ -1,21 +1,4 @@
 if (typeof window !== 'undefined') {
-  const decorate = () => {
-    const list = document.querySelector('.brLiveHud .brLiveList') as HTMLElement | null;
-    if (!list) return;
-    const rows = [...list.querySelectorAll('.brLiveRow')] as HTMLElement[];
-    if (rows.length < 2) return;
-
-    rows.forEach(row => row.classList.remove('brDanger','brDangerStart'));
-    const round = Number(document.querySelector('.brLiveHud>small')?.textContent?.match(/ROUND\s+(\d+)/)?.[1]||1);
-    const target = round === 1 ? 6 : round === 2 ? 4 : round === 3 ? 2 : 1;
-    const dangerCount = Math.min(Math.max(rows.length-target,0),rows.length-1);
-    const firstDanger = rows.length - dangerCount;
-    rows.slice(firstDanger).forEach((row, index) => {
-      row.classList.add('brDanger');
-      if (index === 0) row.classList.add('brDangerStart');
-    });
-  };
-
   const addStyles = () => {
     if (document.getElementById('br-danger-zone-style')) return;
     const style = document.createElement('style');
@@ -33,8 +16,6 @@ if (typeof window !== 'undefined') {
 
   const start = () => {
     addStyles();
-    decorate();
-    new MutationObserver(decorate).observe(document.body,{childList:true,subtree:true});
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',start,{once:true});
