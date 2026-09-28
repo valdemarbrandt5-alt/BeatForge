@@ -42,7 +42,7 @@ begin
   max_combo:=least(hits,greatest(1,round(
     ln(greatest(2,notes*(1-hit_rate)))/(-ln(hit_rate))
     *(.85+((((hashtext(p_match::text)::bigint+2147483648)%37)::numeric/36)*.30)
-  )::integer));
+  ))::integer));
   quality:=(perfect+great*.8+good*.5)/notes::numeric;
   combo_bonus:=least(1,(hits::numeric/notes)/4*(
     case when max_combo>=10 then power(hit_rate,9) else 0 end+
