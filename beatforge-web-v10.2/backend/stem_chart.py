@@ -53,37 +53,22 @@ def analyze_stem(path: Path, instrument: str):
         local[i] = np.median(rms[max(0, i - radius):min(frames, i + radius + 1)])
     activity = rms / (local + np.percentile(rms, 20) + 1e-5)
     score = flux * (0.55 + 0.45 * np.clip(activity, 0, 3))
-    base = np.percentile(score, {"vocals": 80, "drums": 62, "bass": 70, "melody": 70}[instrument])
-    min_gap = {"vocals": .18, "drums": .12, "bass": .20, "melody": .13}[instrument]
+    base = np.percentile(score, {"vocals": 72, "drums": 62, "bass": 70, "melody": 70}[instrument])
+    min_gap = {"vocals": .14, "drums": .12, "bass": .20, "melody": .13}[instrument]
     candidates, last = [], -99
     quiet = np.percentile(rms, 18)
-    vocal_floor = max(quiet, np.percentile(rms, 85) * .12) if instrument == "vocals" else quiet
     for i in range(2, frames - 2):
         # The melodic onset belongs to the center of the FFT window. The
         # other instruments keep their existing timing and thresholds.
         t = (i * hop + (win / 2 if instrument in ("vocals", "melody") else 0)) / sr
         local_score = np.median(score[max(0, i - radius):min(frames, i + radius + 1)])
-        if instrument == "vocals":
-            threshold = max(base * .38, local_score * 1.45)
-        elif instrument == "melody":
+        if instrument in ("vocals", "melody"):
             threshold = max(base * .25, local_score * 1.2)
         else:
             threshold = max(base * .38, local_score * 1.45)
-        voiced_after = max(rms[i:min(i + 6, frames)]) >= vocal_floor if instrument == "vocals" else True
-        if score[i] > threshold and score[i] >= score[i - 1] and score[i] >= score[i + 1] and t - last >= min_gap and rms[i] > quiet and voiced_after:
+        if score[i] > threshold and score[i] >= score[i - 1] and score[i] >= score[i + 1] and t - last >= min_gap and rms[i] > quiet:
             candidates.append((i, t))
             last = t
-    if instrument == "vocals":
-        # Two close peaks usually belong to one syllable. Prefer the clearer
-        # attack instead of keeping whichever peak happened to come first.
-        distinct = []
-        for candidate in candidates:
-            if distinct and candidate[1] - distinct[-1][1] < .26:
-                if score[candidate[0]] > score[distinct[-1][0]]:
-                    distinct[-1] = candidate
-            else:
-                distinct.append(candidate)
-        candidates = distinct
     seed = int(hashlib.sha1((path.name + instrument).encode()).hexdigest()[:8], 16)
     rng = np.random.default_rng(seed)
     notes, prev_lane = [], -1
@@ -98,7 +83,7 @@ def analyze_stem(path: Path, instrument: str):
                     break
                 j += 1
             raw = (j - fi) * hop / sr
-            if raw >= .96:
+            if raw >= (.68 if instrument == "vocals" else .96):
                 length = min(raw - .06, 3.0)
         choices = [lane for lane in range(5) if lane != prev_lane]
         lane = int(rng.choice(choices))

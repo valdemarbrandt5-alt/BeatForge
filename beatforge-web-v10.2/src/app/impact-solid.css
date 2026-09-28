@@ -1,0 +1,35 @@
+/* One strong column of the active highway color rises from the hit box. */
+.game .impact{--blast-color:#a655ff}
+.game .impact[data-stage="gold"]{--blast-color:#ffb923}
+.game .impact[data-stage="blue"]{--blast-color:#2a8eff}
+.game .impact[data-stage="pink"]{--blast-color:#ff41b9}
+.game.notePaletteGuitar .lane .impact{--blast-color:var(--lane-note-color)}
+.game .impactGlow{
+  background:radial-gradient(ellipse 52% 65% at 50% 70%,color-mix(in srgb,var(--blast-color) 75%,transparent),transparent 80%);
+  filter:blur(12px);
+}
+.game .impactRing{
+  border-color:color-mix(in srgb,var(--blast-color) 82%,white);
+  box-shadow:0 0 13px 3px color-mix(in srgb,var(--blast-color) 72%,transparent),0 0 28px color-mix(in srgb,var(--blast-color) 48%,transparent);
+}
+.game .impactCore{
+  background:radial-gradient(ellipse 49% 88% at 50% 50%,#fff 0%,color-mix(in srgb,var(--blast-color) 40%,white) 53%,var(--blast-color) 82%,transparent 100%);
+  box-shadow:0 0 17px 5px var(--blast-color),0 0 36px 10px color-mix(in srgb,var(--blast-color) 65%,transparent);
+}
+.game .impactBeam{
+  inset:auto auto 50% 31%;width:38%;height:90cqw;
+  border-radius:3px 3px 0 0;
+  background:linear-gradient(to right,var(--blast-color),color-mix(in srgb,var(--blast-color) 48%,white) 22%,#fff 50%,color-mix(in srgb,var(--blast-color) 48%,white) 78%,var(--blast-color));
+  box-shadow:0 0 10px 3px var(--blast-color),0 0 28px 10px color-mix(in srgb,var(--blast-color) 72%,transparent),0 0 56px 17px color-mix(in srgb,var(--blast-color) 37%,transparent);
+  transform-origin:center bottom;animation:solidImpactBeam .29s ease-out both;
+}
+.game .impactBeam::before{
+  content:"";position:absolute;inset:-12% -18% -5%;border-radius:5px 5px 0 0;
+  background:var(--blast-color);filter:blur(13px);opacity:.75;z-index:-1;
+}
+@keyframes solidImpactBeam{
+  0%{opacity:.9;transform:translateY(0) scaleY(.25)}
+  15%{opacity:var(--blast-strength);transform:translateY(-4cqw) scaleY(1)}
+  100%{opacity:0;transform:translateY(-24cqw) scaleY(.67)}
+}
+@media(prefers-reduced-motion:reduce){.game .impactBeam{animation-duration:.12s!important}}

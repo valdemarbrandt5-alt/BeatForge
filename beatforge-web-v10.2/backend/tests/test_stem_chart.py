@@ -13,7 +13,20 @@ from stem_chart import analyze_stem
 
 
 class StemChartTest(unittest.TestCase):
-    def test_vocal_syllables_keep_phrase_pauses_without_double_hits(self):
+    def test_clear_medium_length_vocal_can_be_a_hold(self):
+        sr = 22050
+        audio = np.zeros(sr * 2, dtype=np.float32)
+        seconds = np.arange(round(.82 * sr)) / sr
+        envelope = 1 - np.exp(-seconds / .025)
+        start = round(.5 * sr)
+        audio[start:start + len(seconds)] = .6 * envelope * np.sin(2 * np.pi * 330 * seconds)
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'vocals.wav'
+            sf.write(path, audio, sr)
+            notes, _ = analyze_stem(path, 'vocals')
+        self.assertTrue(any(.65 <= note['duration'] <= 1 for note in notes), notes)
+
+    def test_vocal_syllables_keep_phrase_pauses_and_rhythmic_density(self):
         sr = 22050
         times = [.5, .82, 1.15, 1.47, 2.8, 3.12, 3.45, 3.78]
         audio = np.zeros(sr * 5, dtype=np.float32)
@@ -30,7 +43,7 @@ class StemChartTest(unittest.TestCase):
             notes, _ = analyze_stem(path, 'vocals')
         detected = [note['time'] for note in notes]
         self.assertGreaterEqual(sum(any(abs(n - t) < .1 for n in detected) for t in times), 6)
-        self.assertLessEqual(len(detected), len(times) + 1, detected)
+        self.assertLessEqual(len(detected), len(times) + 3, detected)
         self.assertFalse(any(1.75 < n < 2.65 for n in detected))
 
     def test_only_sustained_vocal_becomes_hold(self):

@@ -13,3 +13,8 @@ test('a sustained isolated note stays playable without crossing the next attack'
   assert.equal(clearHoldDuration(2,1.5,0),1.42);
   assert.equal(clearHoldDuration(4,undefined,0),3);
 });
+
+test('a clear vocal sustain can form a shorter hold without spanning the next syllable',()=>{
+  assert.equal(clearHoldDuration(.72,undefined,0,.6),.72);
+  assert.equal(clearHoldDuration(.72,.55,0,.6),0);
+});
