@@ -1,57 +1,102 @@
 /* Subtle floor glow stays visible with the default combo palette. */
-.game{--ambient-color:#a655ff}
-.game.goldMode{--ambient-color:#ffb923}
-.game.streak100{--ambient-color:#2a8eff}
-.game.streak200{--ambient-color:#ff41b9}
+.game{--ambient-color:var(--combo-color-base,#a655ff)}
+.game.goldMode{--ambient-color:var(--combo-color-50,#ffb923)}
+.game.streak100{--ambient-color:var(--combo-color-100,#2a8eff)}
+.game.streak200{--ambient-color:var(--combo-color-200,#ff41b9)}
 .game:not(.notePaletteGuitar) .lanes,
 .game:not(.notePaletteGuitar).streak100 .lanes,
 .game:not(.notePaletteGuitar).streak200 .lanes{
-  background:linear-gradient(to top,color-mix(in srgb,var(--ambient-color) 17%,transparent),color-mix(in srgb,var(--ambient-color) 9%,transparent) 20%,transparent 49%)!important;
+  background:linear-gradient(to top,color-mix(in srgb,var(--ambient-color) 10%,transparent),color-mix(in srgb,var(--ambient-color) 5%,transparent) 20%,transparent 49%)!important;
+}
+.game:not(.notePaletteGuitar) .lane .note,
+.game:not(.notePaletteGuitar) .lane .holdHead{
+  background:color-mix(in srgb,var(--ambient-color) 78%,white)!important;
+  box-shadow:0 0 7px color-mix(in srgb,var(--ambient-color) 42%,transparent)!important;
+}
+.game:not(.notePaletteGuitar) .lane .holdNote{
+  background:linear-gradient(to bottom,color-mix(in srgb,var(--ambient-color) 68%,white),color-mix(in srgb,var(--ambient-color) 65%,#10131e))!important;
+  box-shadow:0 0 7px color-mix(in srgb,var(--ambient-color) 32%,transparent)!important;
 }
 .game.notePaletteGuitar .lane{
-  background:linear-gradient(to top,color-mix(in srgb,var(--lane-note-color) 12%,transparent),transparent 45%);
+  background:linear-gradient(to top,color-mix(in srgb,var(--lane-note-color) 8%,transparent),transparent 45%);
   border-right-color:color-mix(in srgb,var(--lane-note-color) 22%,#252a35);
 }
 .game.notePaletteGuitar .lane.pressed{
-  background:linear-gradient(to top,color-mix(in srgb,var(--lane-note-color) 25%,transparent),transparent 55%);
+  background:linear-gradient(to top,color-mix(in srgb,var(--lane-note-color) 17%,transparent),transparent 55%);
 }
 .game.notePaletteGuitar .lane .note,.game.notePaletteGuitar .lane .holdHead{
   background:var(--lane-note-color)!important;
-  box-shadow:0 0 16px color-mix(in srgb,var(--lane-note-color) 75%,transparent),0 0 32px color-mix(in srgb,var(--lane-note-color) 40%,transparent)!important;
+  box-shadow:0 0 7px color-mix(in srgb,var(--lane-note-color) 38%,transparent)!important;
 }
 .game.notePaletteGuitar .lane .holdNote,.game.notePaletteGuitar .lane .holdNote.holding{
   background:linear-gradient(to bottom,color-mix(in srgb,var(--lane-note-color) 80%,white),color-mix(in srgb,var(--lane-note-color) 65%,#10131e))!important;
-  box-shadow:0 0 14px color-mix(in srgb,var(--lane-note-color) 45%,transparent)!important;
+  box-shadow:0 0 7px color-mix(in srgb,var(--lane-note-color) 30%,transparent)!important;
 }
 /* Keep the chosen note fill, but let each combo milestone illuminate its edges. */
 .game.goldMode .lane .note,.game.goldMode .lane .holdHead,
 .game.streak100 .lane .note,.game.streak100 .lane .holdHead,
 .game.streak200 .lane .note,.game.streak200 .lane .holdHead{
-  box-shadow:0 0 0 2px color-mix(in srgb,var(--ambient-color) 70%,transparent),
-    0 0 15px 3px color-mix(in srgb,var(--ambient-color) 70%,transparent),
-    0 0 28px 7px color-mix(in srgb,var(--ambient-color) 32%,transparent)!important;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--ambient-color) 52%,transparent),
+    0 0 8px 1px color-mix(in srgb,var(--ambient-color) 40%,transparent)!important;
 }
 .game.goldMode .lane .holdNote,.game.streak100 .lane .holdNote,.game.streak200 .lane .holdNote{
-  box-shadow:0 0 0 1px color-mix(in srgb,var(--ambient-color) 55%,transparent),
-    0 0 16px 3px color-mix(in srgb,var(--ambient-color) 48%,transparent)!important;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--ambient-color) 40%,transparent),
+    0 0 8px color-mix(in srgb,var(--ambient-color) 30%,transparent)!important;
 }
 /* Custom lanes keep their own hue. Combo stages raise brightness, not change color. */
-.game.notePaletteGuitar.goldMode{--custom-halo:48%;--custom-rim:78%}
-.game.notePaletteGuitar.streak100{--custom-halo:68%;--custom-rim:62%}
-.game.notePaletteGuitar.streak200{--custom-halo:88%;--custom-rim:45%}
+.game.notePaletteGuitar.goldMode{--custom-halo:29%;--custom-rim:86%}
+.game.notePaletteGuitar.streak100{--custom-halo:38%;--custom-rim:75%}
+.game.notePaletteGuitar.streak200{--custom-halo:48%;--custom-rim:65%}
 .game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .note,
 .game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .holdHead{
-  box-shadow:0 0 0 2px color-mix(in srgb,var(--lane-note-color) var(--custom-rim),white),
-    0 0 17px 3px color-mix(in srgb,var(--lane-note-color) var(--custom-halo),transparent),
-    0 0 30px 6px color-mix(in srgb,var(--lane-note-color) 35%,transparent)!important;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--lane-note-color) var(--custom-rim),white),
+    0 0 9px 1px color-mix(in srgb,var(--lane-note-color) var(--custom-halo),transparent)!important;
 }
 .game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .holdNote{
-  box-shadow:0 0 0 1px color-mix(in srgb,var(--lane-note-color) var(--custom-rim),white),
-    0 0 16px 3px color-mix(in srgb,var(--lane-note-color) var(--custom-halo),transparent)!important;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--lane-note-color) 40%,transparent),
+    0 0 8px color-mix(in srgb,var(--lane-note-color) var(--custom-halo),transparent)!important;
 }
 .game.notePaletteGuitar .lane .receptor{
   border-color:var(--lane-note-color);
-  box-shadow:0 0 10px color-mix(in srgb,var(--lane-note-color) 50%,transparent);
+  box-shadow:0 0 6px color-mix(in srgb,var(--lane-note-color) 32%,transparent);
+}
+/* The frame follows the selected streak color without a large outer bloom. */
+.game.goldMode:not(.streak100):not(.streak200){
+  border-color:color-mix(in srgb,var(--ambient-color) 55%,#252a35)!important;
+  box-shadow:0 0 12px color-mix(in srgb,var(--ambient-color) 16%,transparent),
+    inset 0 0 24px color-mix(in srgb,var(--ambient-color) 5%,transparent)!important;
+}
+.game:is(.streak100,.streak200){
+  background:linear-gradient(180deg,color-mix(in srgb,var(--ambient-color) 7%,#111520),#090b10)!important;
+  border-color:color-mix(in srgb,var(--ambient-color) 55%,#252a35)!important;
+  box-shadow:0 0 14px color-mix(in srgb,var(--ambient-color) 17%,transparent),
+    inset 0 0 28px color-mix(in srgb,var(--ambient-color) 5%,transparent)!important;
+}
+.game:is(.streak100,.streak200)::before{
+  color:color-mix(in srgb,var(--ambient-color) 22%,transparent)!important;
+  box-shadow:inset 0 0 28px color-mix(in srgb,var(--ambient-color) 7%,transparent)!important;
+}
+.game.notePaletteGuitar:is(.streak100,.streak200){
+  background:linear-gradient(180deg,#111520,#090b10)!important;
+  border-color:#41495b!important;
+  box-shadow:0 0 12px rgb(255 255 255 / .07),inset 0 0 22px rgb(255 255 255 / .025)!important;
+}
+.game.notePaletteGuitar:is(.streak100,.streak200)::before{
+  color:rgb(255 255 255 / .13)!important;
+  box-shadow:inset 0 0 24px rgb(255 255 255 / .035)!important;
+}
+.game.goldMode .hudCombo strong{color:var(--ambient-color);text-shadow:0 0 7px color-mix(in srgb,var(--ambient-color) 30%,transparent)}
+.game:not(.notePaletteGuitar).goldMode .lane .receptor{
+  border-color:color-mix(in srgb,var(--ambient-color) 50%,white);
+  box-shadow:0 0 8px color-mix(in srgb,var(--ambient-color) 32%,transparent);
+}
+.game.notePaletteGuitar.goldMode:not(.streak100):not(.streak200){
+  border-color:#41495b!important;
+  box-shadow:0 0 12px rgb(255 255 255 / .07),inset 0 0 22px rgb(255 255 255 / .025)!important;
+}
+.game.notePaletteGuitar.goldMode .lane .receptor{
+  border-color:var(--lane-note-color);
+  box-shadow:0 0 6px color-mix(in srgb,var(--lane-note-color) 32%,transparent);
 }
 .changeColorsBtn{display:inline-flex;align-items:center;gap:9px;white-space:nowrap;letter-spacing:.04em;padding:11px 14px!important;border:1px solid #363e51!important}
 .changeColorsBtn:hover{border-color:#a688ff!important;background:#252035!important}
@@ -71,6 +116,10 @@
 .laneColorTile{display:grid;justify-items:center;gap:6px;background:linear-gradient(to top,color-mix(in srgb,var(--tile-color) 15%,#11151f),#11151f 68%);border:1px solid color-mix(in srgb,var(--tile-color) 45%,#384052);border-radius:12px;padding:10px 4px;color:#aab1c1;cursor:pointer}
 .laneColorTile span{font-size:9px;font-weight:800;letter-spacing:.08em}.laneColorTile strong{font-size:21px;color:var(--tile-color);text-shadow:0 0 12px var(--tile-color)}
 .laneColorTile input{width:48px;height:34px;padding:2px;border:1px solid #566073;border-radius:8px;background:#151923;cursor:pointer}
+.comboColorGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:17px 0 8px}
+.comboColorTile{display:flex;align-items:center;justify-content:space-between;gap:7px;min-width:0;padding:12px 9px;border:1px solid color-mix(in srgb,var(--tile-color) 45%,#384052);border-radius:12px;background:linear-gradient(to top,color-mix(in srgb,var(--tile-color) 11%,#11151f),#11151f 70%);color:#dce0e9;cursor:pointer}
+.comboColorTile span{font-size:10px;font-weight:800;white-space:nowrap}
+.comboColorTile input{width:35px;height:32px;flex:none;padding:2px;border:1px solid #566073;border-radius:7px;background:#151923;cursor:pointer}
 .resetLaneColors{background:transparent;color:#b9a4ff;padding:8px 2px;font-size:10px;letter-spacing:.06em}
 .colorDialog .resultActions{justify-content:flex-end;margin-top:13px}
-@media(max-width:540px){.colorModeChoices{grid-template-columns:1fr}.laneColorGrid{gap:4px}.laneColorTile{padding:7px 2px}.laneColorTile input{width:36px}}
+@media(max-width:540px){.colorModeChoices{grid-template-columns:1fr}.laneColorGrid{gap:4px}.laneColorTile{padding:7px 2px}.laneColorTile input{width:36px}.comboColorGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
