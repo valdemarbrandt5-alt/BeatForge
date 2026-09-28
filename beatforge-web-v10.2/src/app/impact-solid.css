@@ -1,4 +1,4 @@
-/* A full receptor-width light trail rises from the hit, then fades into the lane. */
+/* A straight receptor-width light trail rises from the hit, then fades into the lane. */
 .game .impact{--blast-color:#a655ff}
 .game .impact[data-stage="gold"]{--blast-color:#ffb923}
 .game .impact[data-stage="blue"]{--blast-color:#2a8eff}
@@ -38,7 +38,6 @@
   inset:auto 0 50%;width:100%;height:125cqw;
   background:linear-gradient(to top,color-mix(in srgb,var(--blast-color) 74%,transparent),
     color-mix(in srgb,var(--blast-color) 39%,transparent) 35%,transparent 100%);
-  clip-path:polygon(0 100%,100% 100%,65% 0,35% 0);
   -webkit-mask-image:linear-gradient(to top,#000 0%,#0009 35%,transparent 100%);
   mask-image:linear-gradient(to top,#000 0%,#0009 35%,transparent 100%);
   transform-origin:center bottom;animation:solidImpactBeam .29s ease-out both;
@@ -57,16 +56,24 @@
   100%{opacity:0;transform:translateY(-20cqw) scaleY(.65)}
 }
 .game .impactSparks i{
-  top:40%;left:var(--spark-left);width:4cqw;height:4cqw;min-width:3px;max-width:5px;min-height:3px;max-height:5px;
+  top:40%;left:var(--spark-left);width:var(--spark-size,4cqw);height:var(--spark-size,4cqw);
+  min-width:2px;max-width:5px;min-height:2px;max-height:5px;
   background:color-mix(in srgb,var(--blast-color) 55%,white);
   box-shadow:0 0 7px 2px var(--blast-color);
-  animation:smallImpactSpark .26s ease-out both;
+  animation:smallImpactSpark .29s ease-out var(--spark-delay,0ms) both;
 }
-.game .impactSparks i:nth-child(1){--spark-left:13%;--spark-dx:-12cqw;--spark-dy:-6cqw}
-.game .impactSparks i:nth-child(2){--spark-left:29%;--spark-dx:-6cqw;--spark-dy:-17cqw}
-.game .impactSparks i:nth-child(3){--spark-left:51%;--spark-dx:1cqw;--spark-dy:-9cqw}
-.game .impactSparks i:nth-child(4){--spark-left:71%;--spark-dx:8cqw;--spark-dy:-15cqw}
-.game .impactSparks i:nth-child(5){--spark-left:86%;--spark-dx:11cqw;--spark-dy:-5cqw}
+.game .impactSparks i:nth-child(1){--spark-left:4%;--spark-dx:-12cqw;--spark-dy:-9cqw;--spark-size:3cqw}
+.game .impactSparks i:nth-child(2){--spark-left:15%;--spark-dx:-9cqw;--spark-dy:-25cqw;--spark-delay:12ms}
+.game .impactSparks i:nth-child(3){--spark-left:24%;--spark-dx:-8cqw;--spark-dy:-12cqw;--spark-size:3cqw}
+.game .impactSparks i:nth-child(4){--spark-left:31%;--spark-dx:-4cqw;--spark-dy:-34cqw;--spark-delay:15ms}
+.game .impactSparks i:nth-child(5){--spark-left:40%;--spark-dx:-3cqw;--spark-dy:-19cqw;--spark-size:3cqw}
+.game .impactSparks i:nth-child(6){--spark-left:48%;--spark-dx:2cqw;--spark-dy:-30cqw;--spark-delay:8ms}
+.game .impactSparks i:nth-child(7){--spark-left:57%;--spark-dx:3cqw;--spark-dy:-13cqw;--spark-size:3cqw}
+.game .impactSparks i:nth-child(8){--spark-left:64%;--spark-dx:5cqw;--spark-dy:-29cqw;--spark-delay:19ms}
+.game .impactSparks i:nth-child(9){--spark-left:72%;--spark-dx:7cqw;--spark-dy:-17cqw;--spark-size:3cqw}
+.game .impactSparks i:nth-child(10){--spark-left:80%;--spark-dx:9cqw;--spark-dy:-32cqw;--spark-delay:7ms}
+.game .impactSparks i:nth-child(11){--spark-left:88%;--spark-dx:11cqw;--spark-dy:-14cqw;--spark-size:3cqw}
+.game .impactSparks i:nth-child(12){--spark-left:96%;--spark-dx:14cqw;--spark-dy:-22cqw;--spark-delay:16ms}
 @keyframes smallImpactSpark{
   0%{opacity:0;transform:translate(0,0) scale(.5)}
   16%{opacity:var(--blast-strength);transform:translate(0,-3cqw) scale(1)}
