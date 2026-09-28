@@ -43,18 +43,19 @@
   box-shadow:0 0 0 1px color-mix(in srgb,var(--ambient-color) 40%,transparent),
     0 0 8px color-mix(in srgb,var(--ambient-color) 30%,transparent)!important;
 }
-/* Custom lanes keep their own hue. Combo stages raise brightness, not change color. */
-.game.notePaletteGuitar.goldMode{--custom-halo:29%;--custom-rim:86%}
-.game.notePaletteGuitar.streak100{--custom-halo:38%;--custom-rim:75%}
-.game.notePaletteGuitar.streak200{--custom-halo:48%;--custom-rim:65%}
+/* Guitar Hero keeps lane fills and uses its own configurable streak accent. */
+.game.notePaletteGuitar.goldMode{--guitar-streak-color:var(--guitar-streak-50,#b8c1d1)}
+.game.notePaletteGuitar.streak100{--guitar-streak-color:var(--guitar-streak-100,#e0e6ef)}
+.game.notePaletteGuitar.streak200{--guitar-streak-color:var(--guitar-streak-200,#ffffff)}
 .game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .note,
 .game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .holdHead{
-  box-shadow:0 0 0 1px color-mix(in srgb,var(--lane-note-color) var(--custom-rim),white),
-    0 0 9px 1px color-mix(in srgb,var(--lane-note-color) var(--custom-halo),transparent)!important;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--guitar-streak-color) 75%,transparent),
+    0 0 7px color-mix(in srgb,var(--guitar-streak-color) 27%,transparent),
+    0 0 5px color-mix(in srgb,var(--lane-note-color) 25%,transparent)!important;
 }
 .game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .holdNote{
-  box-shadow:0 0 0 1px color-mix(in srgb,var(--lane-note-color) 40%,transparent),
-    0 0 8px color-mix(in srgb,var(--lane-note-color) var(--custom-halo),transparent)!important;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--guitar-streak-color) 55%,transparent),
+    0 0 7px color-mix(in srgb,var(--guitar-streak-color) 22%,transparent)!important;
 }
 .game.notePaletteGuitar .lane .receptor{
   border-color:var(--lane-note-color);
@@ -78,21 +79,27 @@
 }
 .game.notePaletteGuitar:is(.streak100,.streak200){
   background:linear-gradient(180deg,#111520,#090b10)!important;
-  border-color:#41495b!important;
-  box-shadow:0 0 12px rgb(255 255 255 / .07),inset 0 0 22px rgb(255 255 255 / .025)!important;
+  border-color:color-mix(in srgb,var(--guitar-streak-color) 40%,#41495b)!important;
+  box-shadow:0 0 12px color-mix(in srgb,var(--guitar-streak-color) 12%,transparent),
+    inset 0 0 22px color-mix(in srgb,var(--guitar-streak-color) 3%,transparent)!important;
 }
 .game.notePaletteGuitar:is(.streak100,.streak200)::before{
-  color:rgb(255 255 255 / .13)!important;
-  box-shadow:inset 0 0 24px rgb(255 255 255 / .035)!important;
+  color:color-mix(in srgb,var(--guitar-streak-color) 18%,transparent)!important;
+  box-shadow:inset 0 0 24px color-mix(in srgb,var(--guitar-streak-color) 4%,transparent)!important;
 }
 .game.goldMode .hudCombo strong{color:var(--ambient-color);text-shadow:0 0 7px color-mix(in srgb,var(--ambient-color) 30%,transparent)}
+.game.notePaletteGuitar.goldMode .hudCombo strong{
+  color:var(--guitar-streak-color);
+  text-shadow:0 0 7px color-mix(in srgb,var(--guitar-streak-color) 26%,transparent);
+}
 .game:not(.notePaletteGuitar).goldMode .lane .receptor{
   border-color:color-mix(in srgb,var(--ambient-color) 50%,white);
   box-shadow:0 0 8px color-mix(in srgb,var(--ambient-color) 32%,transparent);
 }
 .game.notePaletteGuitar.goldMode:not(.streak100):not(.streak200){
-  border-color:#41495b!important;
-  box-shadow:0 0 12px rgb(255 255 255 / .07),inset 0 0 22px rgb(255 255 255 / .025)!important;
+  border-color:color-mix(in srgb,var(--guitar-streak-color) 40%,#41495b)!important;
+  box-shadow:0 0 12px color-mix(in srgb,var(--guitar-streak-color) 12%,transparent),
+    inset 0 0 22px color-mix(in srgb,var(--guitar-streak-color) 3%,transparent)!important;
 }
 .game.notePaletteGuitar.goldMode .lane .receptor{
   border-color:var(--lane-note-color);
@@ -104,7 +111,7 @@
 .colorSwatches i{display:block;width:13px;height:13px;border:2px solid #171b24;border-radius:50%;margin-left:-4px;background:#39dd75;box-shadow:0 0 6px #39dd7560}
 .colorSwatches i:nth-child(2){background:#ff536d;box-shadow:0 0 6px #ff536d60}
 .colorSwatches i:nth-child(3){background:#58aaff;box-shadow:0 0 6px #58aaff60}
-.colorDialog{width:min(550px,94vw)!important;max-width:550px!important;text-align:left}
+.colorDialog{width:min(550px,94vw)!important;max-width:550px!important;max-height:90vh;overflow-y:auto;text-align:left}
 .colorDialog>small{color:#a98bff;font-size:10px;font-weight:900;letter-spacing:.2em}
 .colorDialog h2{margin:5px 0 4px;font-size:26px}
 .colorDialog p{margin:0 0 18px;color:#a7afbf;font-size:13px;line-height:1.5}
@@ -120,6 +127,10 @@
 .comboColorTile{display:flex;align-items:center;justify-content:space-between;gap:7px;min-width:0;padding:12px 9px;border:1px solid color-mix(in srgb,var(--tile-color) 45%,#384052);border-radius:12px;background:linear-gradient(to top,color-mix(in srgb,var(--tile-color) 11%,#11151f),#11151f 70%);color:#dce0e9;cursor:pointer}
 .comboColorTile span{font-size:10px;font-weight:800;white-space:nowrap}
 .comboColorTile input{width:35px;height:32px;flex:none;padding:2px;border:1px solid #566073;border-radius:7px;background:#151923;cursor:pointer}
+.guitarStreakHeader{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:18px;color:#dce0e9}
+.guitarStreakHeader strong{font-size:10px;letter-spacing:.12em}
+.guitarStreakHeader span{font-size:10px;color:#9aa5b8}
+.guitarStreakGrid{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:9px}
 .resetLaneColors{background:transparent;color:#b9a4ff;padding:8px 2px;font-size:10px;letter-spacing:.06em}
 .colorDialog .resultActions{justify-content:flex-end;margin-top:13px}
-@media(max-width:540px){.colorModeChoices{grid-template-columns:1fr}.laneColorGrid{gap:4px}.laneColorTile{padding:7px 2px}.laneColorTile input{width:36px}.comboColorGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){.colorModeChoices{grid-template-columns:1fr}.laneColorGrid{gap:4px}.laneColorTile{padding:7px 2px}.laneColorTile input{width:36px}.comboColorGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.guitarStreakGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.guitarStreakGrid .comboColorTile{flex-direction:column;align-items:flex-start}}
