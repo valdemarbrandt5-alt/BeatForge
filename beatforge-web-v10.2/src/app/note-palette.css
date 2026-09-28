@@ -35,6 +35,20 @@
   box-shadow:0 0 0 1px color-mix(in srgb,var(--ambient-color) 55%,transparent),
     0 0 16px 3px color-mix(in srgb,var(--ambient-color) 48%,transparent)!important;
 }
+/* Custom lanes keep their own hue. Combo stages raise brightness, not change color. */
+.game.notePaletteGuitar.goldMode{--custom-halo:48%;--custom-rim:78%}
+.game.notePaletteGuitar.streak100{--custom-halo:68%;--custom-rim:62%}
+.game.notePaletteGuitar.streak200{--custom-halo:88%;--custom-rim:45%}
+.game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .note,
+.game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .holdHead{
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--lane-note-color) var(--custom-rim),white),
+    0 0 17px 3px color-mix(in srgb,var(--lane-note-color) var(--custom-halo),transparent),
+    0 0 30px 6px color-mix(in srgb,var(--lane-note-color) 35%,transparent)!important;
+}
+.game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .holdNote{
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--lane-note-color) var(--custom-rim),white),
+    0 0 16px 3px color-mix(in srgb,var(--lane-note-color) var(--custom-halo),transparent)!important;
+}
 .game.notePaletteGuitar .lane .receptor{
   border-color:var(--lane-note-color);
   box-shadow:0 0 10px color-mix(in srgb,var(--lane-note-color) 50%,transparent);
