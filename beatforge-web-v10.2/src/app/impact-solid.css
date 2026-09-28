@@ -1,4 +1,4 @@
-/* One strong column of the active highway color rises from the hit box. */
+/* A brief translucent beam and small square sparks erupt from the hit box. */
 .game .impact{--blast-color:#a655ff}
 .game .impact[data-stage="gold"]{--blast-color:#ffb923}
 .game .impact[data-stage="blue"]{--blast-color:#2a8eff}
@@ -17,19 +17,38 @@
   box-shadow:0 0 17px 5px var(--blast-color),0 0 36px 10px color-mix(in srgb,var(--blast-color) 65%,transparent);
 }
 .game .impactBeam{
-  inset:auto auto 50% 31%;width:38%;height:90cqw;
+  inset:auto auto 50% 35%;width:30%;height:82cqw;
   border-radius:3px 3px 0 0;
-  background:linear-gradient(to right,var(--blast-color),color-mix(in srgb,var(--blast-color) 48%,white) 22%,#fff 50%,color-mix(in srgb,var(--blast-color) 48%,white) 78%,var(--blast-color));
-  box-shadow:0 0 10px 3px var(--blast-color),0 0 28px 10px color-mix(in srgb,var(--blast-color) 72%,transparent),0 0 56px 17px color-mix(in srgb,var(--blast-color) 37%,transparent);
+  background:linear-gradient(to right,transparent,color-mix(in srgb,var(--blast-color) 75%,transparent) 25%,color-mix(in srgb,var(--blast-color) 55%,white) 50%,color-mix(in srgb,var(--blast-color) 75%,transparent) 75%,transparent);
+  box-shadow:0 0 12px 4px color-mix(in srgb,var(--blast-color) 70%,transparent),0 0 30px 10px color-mix(in srgb,var(--blast-color) 38%,transparent);
+  -webkit-mask-image:linear-gradient(to top,transparent,#000 24%,#000 65%,transparent);
+  mask-image:linear-gradient(to top,transparent,#000 24%,#000 65%,transparent);
   transform-origin:center bottom;animation:solidImpactBeam .29s ease-out both;
 }
 .game .impactBeam::before{
-  content:"";position:absolute;inset:-12% -18% -5%;border-radius:5px 5px 0 0;
-  background:var(--blast-color);filter:blur(13px);opacity:.75;z-index:-1;
+  content:"";position:absolute;inset:-10% -22% -5%;border-radius:5px 5px 0 0;
+  background:var(--blast-color);filter:blur(14px);opacity:.42;z-index:-1;
 }
 @keyframes solidImpactBeam{
-  0%{opacity:.9;transform:translateY(0) scaleY(.25)}
-  15%{opacity:var(--blast-strength);transform:translateY(-4cqw) scaleY(1)}
-  100%{opacity:0;transform:translateY(-24cqw) scaleY(.67)}
+  0%{opacity:.45;transform:translateY(0) scaleY(.3)}
+  14%{opacity:var(--blast-strength);transform:translateY(-4cqw) scaleY(1)}
+  42%{opacity:.38;transform:translateY(-12cqw) scaleY(.95)}
+  100%{opacity:0;transform:translateY(-24cqw) scaleY(.65)}
+}
+.game .impactSparks i{
+  top:40%;left:var(--spark-left);width:4cqw;height:4cqw;min-width:3px;max-width:5px;min-height:3px;max-height:5px;
+  background:color-mix(in srgb,var(--blast-color) 55%,white);
+  box-shadow:0 0 7px 2px var(--blast-color);
+  animation:smallImpactSpark .26s ease-out both;
+}
+.game .impactSparks i:nth-child(1){--spark-left:13%;--spark-dx:-12cqw;--spark-dy:-6cqw}
+.game .impactSparks i:nth-child(2){--spark-left:29%;--spark-dx:-6cqw;--spark-dy:-17cqw}
+.game .impactSparks i:nth-child(3){--spark-left:51%;--spark-dx:1cqw;--spark-dy:-9cqw}
+.game .impactSparks i:nth-child(4){--spark-left:71%;--spark-dx:8cqw;--spark-dy:-15cqw}
+.game .impactSparks i:nth-child(5){--spark-left:86%;--spark-dx:11cqw;--spark-dy:-5cqw}
+@keyframes smallImpactSpark{
+  0%{opacity:0;transform:translate(0,0) scale(.5)}
+  16%{opacity:var(--blast-strength);transform:translate(0,-3cqw) scale(1)}
+  100%{opacity:0;transform:translate(var(--spark-dx),var(--spark-dy)) scale(.45)}
 }
 @media(prefers-reduced-motion:reduce){.game .impactBeam{animation-duration:.12s!important}}
