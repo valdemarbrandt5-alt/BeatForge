@@ -209,12 +209,16 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
 
   const startPlay=()=>{
     if(gameStarted)return;
+    const play=Array.from(document.querySelectorAll<HTMLButtonElement>('.controls button')).find(button=>button.textContent?.trim()==='PLAY'&&!button.disabled);
+    if(!play){toast('Could not start the song.');return}
     gameStarted=true;
-    window.dispatchEvent(new CustomEvent('beatforge:casual-match-started',{detail:{inviteId:activeInviteId}}));
     clearPlayTimer();
     closeFlow();
-    const play=Array.from(document.querySelectorAll('button')).find((b:any)=>b.textContent?.trim()==='PLAY'&&!b.closest('.rankedBackdrop')&&!b.closest('.casualFlowBackdrop')) as HTMLButtonElement|undefined;
-    if(play)play.click();else toast('Could not start the song.');
+    play.click();
+    // Let React advance the song run before the live tracker attaches to it.
+    requestAnimationFrame(()=>window.dispatchEvent(new CustomEvent('beatforge:casual-match-started',{
+      detail:{inviteId:activeInviteId,friendName:activeFriendName,runId:document.querySelector<HTMLElement>('main')?.dataset.scoreRunId||''}
+    })));
   };
 
   const scheduleSharedStart=(startAt:string)=>{

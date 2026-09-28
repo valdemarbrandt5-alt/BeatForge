@@ -43,6 +43,8 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   let finishSubmitting=false;
   let comparisonRendered=false;
   let pendingInviteId='';
+  let activeRunId='';
+  let pendingFriendName='Your friend';
   const previousResults=new WeakSet<Element>();
 
   const numberFrom=(value:string|null|undefined)=>{
@@ -53,7 +55,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   const streakTone=(combo:number)=>combo>=200?'streakPink':combo>=100?'streakBlue':combo>=50?'streakGold':'streakBase';
   const resultCard=()=>[...document.querySelectorAll('.resultBackdrop .resultCard')].find(x=>{
     const backdrop=x.closest('.resultBackdrop') as HTMLElement|null;
-    return backdrop&&!previousResults.has(backdrop)&&backdrop.style.display!=='none'&&/SONG COMPLETE/i.test(x.textContent||'');
+    return backdrop&&activeRunId&&backdrop.dataset.scoreRunId===activeRunId&&!previousResults.has(backdrop)&&backdrop.style.display!=='none'&&/SONG COMPLETE/i.test(x.textContent||'');
   }) as HTMLElement|undefined;
   const resultOpen=()=>!!resultCard();
 
@@ -197,6 +199,18 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     return hud;
   };
 
+  const showHudStatus=(message:string)=>{
+    const label=ensureHud()?.querySelector('small');
+    if(label)label.textContent=`VS FRIENDS · ${message}`;
+  };
+
+  const showWaitingHud=()=>{
+    const root=ensureHud();if(!root)return;
+    root.querySelector('.casualLiveA .casualLiveName')!.textContent='YOU';
+    root.querySelector('.casualLiveB .casualLiveName')!.textContent=pendingFriendName;
+    showHudStatus('CONNECTING');
+  };
+
   const renderHud=(row:CasualLiveRow,inviterScore:number,inviteeScore:number,inviterCombo:number,inviteeCombo:number)=>{
     const root=ensureHud();if(!root)return;
     const players=[
@@ -223,7 +237,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     if(!uid)return null;
     const cutoff=new Date(Date.now()-20*60*1000).toISOString();
     let query=db.from('casual_invites')
-      .select('id,inviter_id,invitee_id,status,start_at,inviter_score,invitee_score,inviter_combo,invitee_combo,inviter_finished,invitee_finished,inviter_perfect,invitee_perfect,inviter_great,invitee_great,inviter_good,invitee_good,inviter_miss,invitee_miss,inviter_max_combo,invitee_max_combo,chart:charts!casual_invites_chart_id_fkey(title),inviter:profiles!casual_invites_inviter_id_fkey(username),invitee:profiles!casual_invites_invitee_id_fkey(username)')
+      .select('id,inviter_id,invitee_id,status,start_at,inviter_score,invitee_score,chart:charts!casual_invites_chart_id_fkey(title),inviter:profiles!casual_invites_inviter_id_fkey(username),invitee:profiles!casual_invites_invitee_id_fkey(username)')
       .eq('status','accepted').not('start_at','is',null)
       .or(`inviter_id.eq.${uid},invitee_id.eq.${uid}`)
       .gt('created_at',cutoff);
@@ -384,7 +398,11 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
         active=await findActive(pendingInviteId);
         if(active)pendingInviteId='';
       }else if(!active)active=await findActive();
-      if(!active){removeHud();setControlLock(false);return}
+      if(!active){
+        if(pendingInviteId){showWaitingHud();if(schemaErrorShown)showHudStatus('SYNC ERROR · CHECK SUPABASE SQL')}
+        else removeHud();
+        setControlLock(false);return;
+      }
 
       const starts=active.start_at?new Date(active.start_at).getTime():0;
       if(!starts||Date.now()<starts-800){removeHud();setControlLock(false);return}
@@ -406,7 +424,16 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
         const fresh=await refreshLiveAndStatus();
         if(fresh?.status&&fresh.status!=='accepted'){opponentLeft();return}
         if(!schemaErrorShown){schemaErrorShown=true;console.error('casual_update_live',error)}
-        removeHud();return;
+        // A missing live RPC must be visible, not silently turn Friends into solo.
+        const {data:scoreRow,error:scoreError}=await db.rpc('casual_update_score',{p_invite:active.id,p_score:score});
+        if(!scoreError){
+          const row=Array.isArray(scoreRow)?scoreRow[0]:scoreRow;
+          active.inviter_score=Number(row?.inviter_score??active.inviter_score??0);
+          active.invitee_score=Number(row?.invitee_score??active.invitee_score??0);
+          renderHud(active,active.inviter_score||0,active.invitee_score||0,active.inviter_combo||0,active.invitee_combo||0);
+          showHudStatus('LIVE · SCORE ONLY');
+        }else{renderHud(active,active.inviter_score||0,active.invitee_score||0,active.inviter_combo||0,active.invitee_combo||0);showHudStatus('SYNC ERROR · UPDATE SUPABASE SQL')}
+        return;
       }
       schemaErrorShown=false;
 
@@ -423,13 +450,15 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       active.inviter_combo=inviterCombo;
       active.invitee_combo=inviteeCombo;
       renderHud(active,inviterScore,inviteeScore,inviterCombo,inviteeCombo);
+      showHudStatus('LIVE');
     }finally{busy=false}
   };
 
   const start=()=>{
     addStyles();void loadUid();
     window.addEventListener('beatforge:casual-match-started',(event:Event)=>{
-      const inviteId=(event as CustomEvent<{inviteId:string}>).detail?.inviteId;
+      const detail=(event as CustomEvent<{inviteId:string;friendName?:string;runId?:string}>).detail;
+      const inviteId=detail?.inviteId;
       if(!inviteId)return;
       if(active?.id!==inviteId){
         document.querySelectorAll('.resultBackdrop').forEach(result=>previousResults.add(result));
@@ -437,6 +466,9 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
         removeHud();setControlLock(false);
       }
       pendingInviteId=inviteId;
+      activeRunId=detail.runId||'';
+      pendingFriendName=detail.friendName||'Your friend';
+      showWaitingHud();
       void tick();
     });
     document.addEventListener('click',blockSyncedControlClick,true);
