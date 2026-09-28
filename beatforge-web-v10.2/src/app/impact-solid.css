@@ -1,9 +1,27 @@
-/* A brief translucent beam and small square sparks erupt from the hit box. */
+/* A full receptor-width light trail rises from the hit, then fades into the lane. */
 .game .impact{--blast-color:#a655ff}
 .game .impact[data-stage="gold"]{--blast-color:#ffb923}
 .game .impact[data-stage="blue"]{--blast-color:#2a8eff}
 .game .impact[data-stage="pink"]{--blast-color:#ff41b9}
 .game.notePaletteGuitar .lane .impact{--blast-color:var(--lane-note-color)}
+.game .lane:has(> .impact)::before{
+  content:"";position:absolute;inset:auto 0 55px;height:min(72%,450px);
+  z-index:1;pointer-events:none;
+  background:linear-gradient(to top,color-mix(in srgb,var(--ambient-color) 25%,transparent),color-mix(in srgb,var(--ambient-color) 8%,transparent) 42%,transparent 95%);
+  animation:impactLaneWash .29s ease-out both;
+}
+.game.notePaletteGuitar .lane:has(> .impact)::before{
+  background:linear-gradient(to top,color-mix(in srgb,var(--lane-note-color) 27%,transparent),color-mix(in srgb,var(--lane-note-color) 9%,transparent) 42%,transparent 95%);
+}
+.game .lane:has(> .impact) .receptor{
+  box-shadow:0 0 14px 3px color-mix(in srgb,var(--ambient-color) 70%,transparent),
+    0 0 28px 6px color-mix(in srgb,var(--ambient-color) 40%,transparent);
+}
+.game.notePaletteGuitar .lane:has(> .impact) .receptor{
+  box-shadow:0 0 14px 3px color-mix(in srgb,var(--lane-note-color) 70%,transparent),
+    0 0 28px 6px color-mix(in srgb,var(--lane-note-color) 40%,transparent);
+}
+@keyframes impactLaneWash{0%{opacity:.8}14%{opacity:1}100%{opacity:0}}
 .game .impactGlow{
   background:radial-gradient(ellipse 52% 65% at 50% 70%,color-mix(in srgb,var(--blast-color) 75%,transparent),transparent 80%);
   filter:blur(12px);
@@ -17,23 +35,26 @@
   box-shadow:0 0 17px 5px var(--blast-color),0 0 36px 10px color-mix(in srgb,var(--blast-color) 65%,transparent);
 }
 .game .impactBeam{
-  inset:auto auto 50% 35%;width:30%;height:82cqw;
-  border-radius:3px 3px 0 0;
-  background:linear-gradient(to right,transparent,color-mix(in srgb,var(--blast-color) 75%,transparent) 25%,color-mix(in srgb,var(--blast-color) 55%,white) 50%,color-mix(in srgb,var(--blast-color) 75%,transparent) 75%,transparent);
-  box-shadow:0 0 12px 4px color-mix(in srgb,var(--blast-color) 70%,transparent),0 0 30px 10px color-mix(in srgb,var(--blast-color) 38%,transparent);
-  -webkit-mask-image:linear-gradient(to top,transparent,#000 24%,#000 65%,transparent);
-  mask-image:linear-gradient(to top,transparent,#000 24%,#000 65%,transparent);
+  inset:auto 0 50%;width:100%;height:125cqw;
+  background:linear-gradient(to top,color-mix(in srgb,var(--blast-color) 74%,transparent),
+    color-mix(in srgb,var(--blast-color) 39%,transparent) 35%,transparent 100%);
+  clip-path:polygon(0 100%,100% 100%,65% 0,35% 0);
+  -webkit-mask-image:linear-gradient(to top,#000 0%,#0009 35%,transparent 100%);
+  mask-image:linear-gradient(to top,#000 0%,#0009 35%,transparent 100%);
   transform-origin:center bottom;animation:solidImpactBeam .29s ease-out both;
 }
 .game .impactBeam::before{
-  content:"";position:absolute;inset:-10% -22% -5%;border-radius:5px 5px 0 0;
-  background:var(--blast-color);filter:blur(14px);opacity:.42;z-index:-1;
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(to right,transparent 8%,color-mix(in srgb,var(--blast-color) 55%,white) 28%,
+    transparent 43%,color-mix(in srgb,var(--blast-color) 35%,white) 54%,transparent 72%,
+    color-mix(in srgb,var(--blast-color) 50%,white) 89%,transparent);
+  filter:blur(7px);opacity:.62;
 }
 @keyframes solidImpactBeam{
-  0%{opacity:.45;transform:translateY(0) scaleY(.3)}
-  14%{opacity:var(--blast-strength);transform:translateY(-4cqw) scaleY(1)}
-  42%{opacity:.38;transform:translateY(-12cqw) scaleY(.95)}
-  100%{opacity:0;transform:translateY(-24cqw) scaleY(.65)}
+  0%{opacity:.28;transform:translateY(0) scaleY(.3)}
+  14%{opacity:calc(var(--blast-strength) * .76);transform:translateY(-3cqw) scaleY(1)}
+  42%{opacity:.3;transform:translateY(-10cqw) scaleY(.92)}
+  100%{opacity:0;transform:translateY(-20cqw) scaleY(.65)}
 }
 .game .impactSparks i{
   top:40%;left:var(--spark-left);width:4cqw;height:4cqw;min-width:3px;max-width:5px;min-height:3px;max-height:5px;
