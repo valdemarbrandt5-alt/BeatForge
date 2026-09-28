@@ -1,8 +1,8 @@
 /* A straight receptor-width light trail rises from the hit, then fades into the lane. */
-.game .impact{--blast-color:#a655ff}
-.game .impact[data-stage="gold"]{--blast-color:#ffb923}
-.game .impact[data-stage="blue"]{--blast-color:#2a8eff}
-.game .impact[data-stage="pink"]{--blast-color:#ff41b9}
+.game .impact{--blast-color:var(--combo-color-base,#a655ff)}
+.game .impact[data-stage="gold"]{--blast-color:var(--combo-color-50,#ffb923)}
+.game .impact[data-stage="blue"]{--blast-color:var(--combo-color-100,#2a8eff)}
+.game .impact[data-stage="pink"]{--blast-color:var(--combo-color-200,#ff41b9)}
 .game.notePaletteGuitar .lane .impact{--blast-color:var(--lane-note-color)}
 .game .lane:has(> .impact)::before{
   content:"";position:absolute;inset:auto 0 55px;height:min(72%,450px);
