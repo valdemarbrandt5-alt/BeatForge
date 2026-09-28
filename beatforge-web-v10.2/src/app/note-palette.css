@@ -44,14 +44,22 @@
     0 0 8px color-mix(in srgb,var(--ambient-color) 30%,transparent)!important;
 }
 /* The selected lane palette changes at each combo milestone. */
+.game.notePaletteGuitar.goldMode{--guitar-bg-color:var(--guitar-bg-50,#ffb923)}
+.game.notePaletteGuitar.streak100{--guitar-bg-color:var(--guitar-bg-100,#2a8eff)}
+.game.notePaletteGuitar.streak200{--guitar-bg-color:var(--guitar-bg-200,#ff41b9)}
 .game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .note,
 .game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .holdHead{
-  box-shadow:0 0 0 1px color-mix(in srgb,var(--lane-note-color) 38%,white),
-    0 0 7px color-mix(in srgb,var(--lane-note-color) 32%,transparent)!important;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--lane-note-color) 55%,white),
+    0 0 10px 2px color-mix(in srgb,var(--lane-note-color) 43%,transparent),
+    0 0 19px 3px color-mix(in srgb,var(--lane-note-color) 14%,transparent)!important;
 }
 .game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lane .holdNote{
-  box-shadow:0 0 0 1px color-mix(in srgb,var(--lane-note-color) 35%,transparent),
-    0 0 7px color-mix(in srgb,var(--lane-note-color) 25%,transparent)!important;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--lane-note-color) 42%,transparent),
+    0 0 10px 1px color-mix(in srgb,var(--lane-note-color) 32%,transparent)!important;
+}
+.game.notePaletteGuitar:is(.goldMode,.streak100,.streak200) .lanes{
+  background:radial-gradient(ellipse at 50% 95%,color-mix(in srgb,var(--guitar-bg-color) 23%,transparent),transparent 65%),
+    linear-gradient(to top,color-mix(in srgb,var(--guitar-bg-color) 8%,transparent),transparent 65%)!important;
 }
 .game.notePaletteGuitar .lane .receptor{
   border-color:var(--lane-note-color);
@@ -74,26 +82,29 @@
   box-shadow:inset 0 0 28px color-mix(in srgb,var(--ambient-color) 7%,transparent)!important;
 }
 .game.notePaletteGuitar:is(.streak100,.streak200){
-  background:linear-gradient(180deg,#111520,#090b10)!important;
-  border-color:#41495b!important;
-  box-shadow:0 0 12px rgb(255 255 255 / .07),inset 0 0 22px rgb(255 255 255 / .025)!important;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--guitar-bg-color) 9%,#111520),color-mix(in srgb,var(--guitar-bg-color) 5%,#090b10))!important;
+  border-color:color-mix(in srgb,var(--guitar-bg-color) 48%,#41495b)!important;
+  box-shadow:0 0 16px color-mix(in srgb,var(--guitar-bg-color) 18%,transparent),
+    inset 0 0 30px color-mix(in srgb,var(--guitar-bg-color) 8%,transparent)!important;
 }
 .game.notePaletteGuitar:is(.streak100,.streak200)::before{
-  color:rgb(255 255 255 / .13)!important;
-  box-shadow:inset 0 0 24px rgb(255 255 255 / .035)!important;
+  color:color-mix(in srgb,var(--guitar-bg-color) 22%,transparent)!important;
+  box-shadow:inset 0 0 30px color-mix(in srgb,var(--guitar-bg-color) 8%,transparent)!important;
 }
 .game.goldMode .hudCombo strong{color:var(--ambient-color);text-shadow:0 0 7px color-mix(in srgb,var(--ambient-color) 30%,transparent)}
 .game.notePaletteGuitar.goldMode .hudCombo strong{
-  color:#e7eaf2;
-  text-shadow:none;
+  color:color-mix(in srgb,var(--guitar-bg-color) 65%,white);
+  text-shadow:0 0 7px color-mix(in srgb,var(--guitar-bg-color) 28%,transparent);
 }
 .game:not(.notePaletteGuitar).goldMode .lane .receptor{
   border-color:color-mix(in srgb,var(--ambient-color) 50%,white);
   box-shadow:0 0 8px color-mix(in srgb,var(--ambient-color) 32%,transparent);
 }
 .game.notePaletteGuitar.goldMode:not(.streak100):not(.streak200){
-  border-color:#41495b!important;
-  box-shadow:0 0 12px rgb(255 255 255 / .07),inset 0 0 22px rgb(255 255 255 / .025)!important;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--guitar-bg-color) 9%,#111520),color-mix(in srgb,var(--guitar-bg-color) 5%,#090b10))!important;
+  border-color:color-mix(in srgb,var(--guitar-bg-color) 48%,#41495b)!important;
+  box-shadow:0 0 16px color-mix(in srgb,var(--guitar-bg-color) 18%,transparent),
+    inset 0 0 30px color-mix(in srgb,var(--guitar-bg-color) 8%,transparent)!important;
 }
 .game.notePaletteGuitar.goldMode .lane .receptor{
   border-color:var(--lane-note-color);
@@ -127,6 +138,9 @@
 .guitarStageHeader{display:flex;align-items:baseline;justify-content:space-between;gap:10px;color:#dce0e9}
 .guitarStageHeader strong{font-size:11px;letter-spacing:.12em}
 .guitarStageHeader span{font-size:10px;color:#9aa5b8}
+.guitarBackgroundColor{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--tile-color) 35%,#384052);border-radius:9px;background:color-mix(in srgb,var(--tile-color) 8%,#11151f);color:#cfd5e3;cursor:pointer}
+.guitarBackgroundColor span{font-size:10px;font-weight:800;letter-spacing:.08em}
+.guitarBackgroundColor input{width:36px;height:28px;padding:2px;border:1px solid #566073;border-radius:6px;background:#151923;cursor:pointer}
 .guitarPaletteStage .laneColorGrid{margin:9px 0 3px}
 .guitarPaletteStage .laneColorTile{padding:8px 4px;gap:3px}
 .guitarPaletteStage .laneColorTile strong{font-size:17px}
