@@ -6,7 +6,7 @@
 .game:not(.notePaletteGuitar) .lanes,
 .game:not(.notePaletteGuitar).streak100 .lanes,
 .game:not(.notePaletteGuitar).streak200 .lanes{
-  background:radial-gradient(ellipse 58% 48% at 50% 105%,color-mix(in srgb,var(--ambient-color) 18%,transparent),transparent 82%)!important;
+  background:linear-gradient(to top,color-mix(in srgb,var(--ambient-color) 17%,transparent),color-mix(in srgb,var(--ambient-color) 9%,transparent) 20%,transparent 49%)!important;
 }
 .game.notePaletteGuitar .lane{
   background:linear-gradient(to top,color-mix(in srgb,var(--lane-note-color) 12%,transparent),transparent 45%);
@@ -27,8 +27,24 @@
   border-color:var(--lane-note-color);
   box-shadow:0 0 10px color-mix(in srgb,var(--lane-note-color) 50%,transparent);
 }
-.notePaletteControl,.laneColorChoices label{display:grid;gap:5px;color:#9ca4b6;font-size:10px;font-weight:900;letter-spacing:.05em}
-.notePaletteControl select{background:#171c29;color:#f1f4fb;border:1px solid #3b4355;border-radius:8px;padding:7px;min-height:34px}
-.laneColorChoices{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.laneColorChoices label{text-align:center}
-.laneColorChoices input{width:35px;height:34px;padding:2px;border:1px solid #3b4355;border-radius:8px;background:#171c29;cursor:pointer}
+.changeColorsBtn{display:inline-flex;align-items:center;gap:9px;white-space:nowrap;letter-spacing:.04em;padding:11px 14px!important;border:1px solid #363e51!important}
+.changeColorsBtn:hover{border-color:#a688ff!important;background:#252035!important}
+.colorSwatches{display:flex;align-items:center;padding-left:3px}
+.colorSwatches i{display:block;width:13px;height:13px;border:2px solid #171b24;border-radius:50%;margin-left:-4px;background:#39dd75;box-shadow:0 0 6px #39dd7560}
+.colorSwatches i:nth-child(2){background:#ff536d;box-shadow:0 0 6px #ff536d60}
+.colorSwatches i:nth-child(3){background:#58aaff;box-shadow:0 0 6px #58aaff60}
+.colorDialog{width:min(550px,94vw)!important;max-width:550px!important;text-align:left}
+.colorDialog>small{color:#a98bff;font-size:10px;font-weight:900;letter-spacing:.2em}
+.colorDialog h2{margin:5px 0 4px;font-size:26px}
+.colorDialog p{margin:0 0 18px;color:#a7afbf;font-size:13px;line-height:1.5}
+.colorModeChoices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.colorMode{background:#121722;color:#e7eaf2;border:1px solid #353d4d;border-radius:12px;text-align:left;padding:15px;display:grid;gap:5px}
+.colorMode strong{font-size:14px}.colorMode span{font-size:11px;color:#9aa5b8;font-weight:500;line-height:1.4}
+.colorMode.active{border-color:#a282ff;background:linear-gradient(140deg,#2a2145,#171b28);box-shadow:0 0 20px #9b7cff22}
+.laneColorGrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:17px 0 8px}
+.laneColorTile{display:grid;justify-items:center;gap:6px;background:linear-gradient(to top,color-mix(in srgb,var(--tile-color) 15%,#11151f),#11151f 68%);border:1px solid color-mix(in srgb,var(--tile-color) 45%,#384052);border-radius:12px;padding:10px 4px;color:#aab1c1;cursor:pointer}
+.laneColorTile span{font-size:9px;font-weight:800;letter-spacing:.08em}.laneColorTile strong{font-size:21px;color:var(--tile-color);text-shadow:0 0 12px var(--tile-color)}
+.laneColorTile input{width:48px;height:34px;padding:2px;border:1px solid #566073;border-radius:8px;background:#151923;cursor:pointer}
+.resetLaneColors{background:transparent;color:#b9a4ff;padding:8px 2px;font-size:10px;letter-spacing:.06em}
+.colorDialog .resultActions{justify-content:flex-end;margin-top:13px}
+@media(max-width:540px){.colorModeChoices{grid-template-columns:1fr}.laneColorGrid{gap:4px}.laneColorTile{padding:7px 2px}.laneColorTile input{width:36px}}
