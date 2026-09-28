@@ -127,19 +127,19 @@ export default function ProfilePage(){
   const winrate=decisiveGames?ranked.wins/decisiveGames*100:0;
   const rank=rankInfo(ranked.mmr);
   const rankProgress=rank.next===null?100:((ranked.mmr-rank.floor)/(rank.next-rank.floor))*100;
-  const username=profile?.username||'BeatForge Player';
+  const username=profile?.username||'BeatStrike Player';
   const initial=username.slice(0,1).toUpperCase();
   const sortLabel=sortMode==='accuracy'?'HIGHEST ACCURACY':sortMode==='score'?'HIGHEST SCORE':'HIGHEST STREAK';
 
   if(loading)return <main className={styles.page}><div className={styles.loading}><div className={styles.spinner}/><b>LOADING PROFILE</b></div></main>;
-  if(!signedIn)return <main className={styles.page}><section className={styles.emptyState}><div className={styles.logo}>BEAT<span>FORGE</span></div><h1>Sign in to view profiles</h1><p>Player scores, Ranked stats and best songs live here.</p><a href="/">BACK TO BEATFORGE</a></section></main>;
+  if(!signedIn)return <main className={styles.page}><section className={styles.emptyState}><div className={styles.logo}>BEAT<span>STRIKE</span></div><h1>Sign in to view profiles</h1><p>Player scores, Ranked stats and best songs live here.</p><a href="/">BACK TO BEATSTRIKE</a></section></main>;
 
   return <main className={styles.page}><div className={styles.shell}>
-    <header className={styles.topbar}><a className={styles.brand} href="/">BEAT<span>FORGE</span></a><a className={styles.back} href="/">← BACK TO GAME</a></header>
+    <header className={styles.topbar}><a className={styles.brand} href="/">BEAT<span>STRIKE</span></a><a className={styles.back} href="/">← BACK TO GAME</a></header>
     {error&&<div className={styles.error}>{error}</div>}
 
     <section className={styles.hero}>
-      <div className={styles.identity}><div className={styles.avatar}>{profile?.avatar_url?<img src={profile.avatar_url} alt=""/>:<span>{initial}</span>}</div><div><small>{viewingOwn?'YOUR PLAYER PROFILE':'PLAYER PROFILE'}</small><h1>{username}</h1><p>{profile?.created_at?`BeatForge player since ${new Date(profile.created_at).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`:'BeatForge player'}</p>{!viewingOwn&&<span className={styles.friendProfileBadge}>FRIEND PROFILE</span>}</div></div>
+      <div className={styles.identity}><div className={styles.avatar}>{profile?.avatar_url?<img src={profile.avatar_url} alt=""/>:<span>{initial}</span>}</div><div><small>{viewingOwn?'YOUR PLAYER PROFILE':'PLAYER PROFILE'}</small><h1>{username}</h1><p>{profile?.created_at?`BeatStrike player since ${new Date(profile.created_at).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`:'BeatStrike player'}</p>{!viewingOwn&&<span className={styles.friendProfileBadge}>FRIEND PROFILE</span>}</div></div>
       <div className={`${styles.rankCard} ${styles[rank.cls]}`}><div className={styles.rankGlow}/><small>CURRENT RANK</small><strong>{rank.name}</strong><b>{ranked.mmr.toLocaleString()} MMR</b><div className={styles.rankRail}><i style={{width:`${rankProgress}%`}}/></div><span>{rank.next===null?(worldPosition?`WORLD RANK #${worldPosition.toLocaleString()}`:'Top rank reached'):`${Math.max(0,rank.next-ranked.mmr)} MMR to ${rankInfo(rank.next).name}`}</span></div>
     </section>
 
