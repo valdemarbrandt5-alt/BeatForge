@@ -48,15 +48,15 @@
 
 /* Blast layers are positioned relative to the same box as the receptor. */
 .game .impact{
-  --blast-rgb:155 124 255;--blast-strength:1;
+  --blast-rgb:166 85 255;--blast-strength:1;
   position:absolute;left:12%;bottom:64px;width:76%;height:18px;
   container-type:inline-size;overflow:visible;z-index:4;pointer-events:none;
   border:0!important;border-radius:0!important;background:none!important;
   transform:none!important;animation:none!important;
 }
-.game .impact[data-stage="gold"]{--blast-rgb:255 213 74}
-.game .impact[data-stage="blue"]{--blast-rgb:88 166 255}
-.game .impact[data-stage="pink"]{--blast-rgb:255 114 210}
+.game .impact[data-stage="gold"]{--blast-rgb:255 185 35}
+.game .impact[data-stage="blue"]{--blast-rgb:42 142 255}
+.game .impact[data-stage="pink"]{--blast-rgb:255 65 185}
 .game .impact.great{--blast-strength:.84}
 .game .impact.good{--blast-strength:.68}
 .game .impactGlow,.game .impactRing,.game .impactCore,.game .impactBeam,.game .impactSparks{
@@ -64,41 +64,35 @@
 }
 .game .impactGlow{
   inset:auto -16% -1.4cqw;height:62cqw;
-  background:radial-gradient(ellipse 38% 52% at 50% 70%,rgb(var(--blast-rgb) / .36),transparent 78%),
-    radial-gradient(ellipse 46% 35% at 50% 88%,rgb(var(--blast-rgb) / .53),rgb(var(--blast-rgb) / .24) 35%,transparent 84%);
-  filter:blur(9px);animation:blastGlow .28s ease-out both;
+  background:radial-gradient(ellipse 38% 52% at 50% 70%,rgb(var(--blast-rgb) / .57),transparent 78%),
+    radial-gradient(ellipse 46% 35% at 50% 88%,rgb(var(--blast-rgb) / .75),rgb(var(--blast-rgb) / .38) 35%,transparent 84%);
+  filter:blur(10px);animation:blastGlow .28s ease-out both;
 }
 .game .impactRing{
   inset:-4px -19%;border:1.5px solid rgb(var(--blast-rgb) / .9);border-radius:50%;
-  box-shadow:0 0 6px rgb(var(--blast-rgb) / .75);
+  box-shadow:0 0 8px 1px rgb(var(--blast-rgb) / .9),0 0 17px rgb(var(--blast-rgb) / .55);
   animation:blastRing .28s cubic-bezier(.14,.5,.27,1) both;
 }
 .game .impactCore{
   inset:-5px -4%;border-radius:8px;
   background:radial-gradient(ellipse 44% 88% at 50% 50%,#fff 0%,rgb(255 255 255 / .98) 35%,rgb(var(--blast-rgb) / .95) 65%,transparent 100%);
-  box-shadow:0 0 12px 3px rgb(var(--blast-rgb) / .8),0 0 22px 5px rgb(var(--blast-rgb) / .38);
+  box-shadow:0 0 14px 4px rgb(var(--blast-rgb) / .95),0 0 28px 7px rgb(var(--blast-rgb) / .55);
   animation:blastCore .28s ease-out both;
 }
 .game .impactBeam i{
-  --beam-x:50%;--beam-h:64cqw;--beam-w:2.8cqw;--beam-delay:0ms;
-  position:absolute;left:var(--beam-x);bottom:50%;width:var(--beam-w);height:var(--beam-h);
+  position:absolute;left:50%;bottom:50%;width:2.8cqw;height:64cqw;
   min-width:2px;max-width:4px;max-height:100cqw;border-radius:1px 1px 0 0;
-  background:linear-gradient(to right,rgb(var(--blast-rgb) / .82),#fff 35% 65%,rgb(var(--blast-rgb) / .82));
+  background:linear-gradient(to right,rgb(var(--blast-rgb) / .95),#fff 35% 65%,rgb(var(--blast-rgb) / .95));
   -webkit-mask-image:linear-gradient(to top,transparent,#000 22%,#000);
   mask-image:linear-gradient(to top,transparent,#000 22%,#000);
-  box-shadow:0 0 4px 1px rgb(var(--blast-rgb) / .8),0 0 10px 2px rgb(var(--blast-rgb) / .45);
-  transform-origin:center bottom;animation:blastBeam .28s ease-out var(--beam-delay) both;
+  box-shadow:0 0 5px 2px rgb(var(--blast-rgb) / .95),0 0 15px 3px rgb(var(--blast-rgb) / .65);
+  transform-origin:center bottom;animation:blastBeam .28s ease-out both;
 }
-.game .impactBeam i:nth-child(1){--beam-x:18%;--beam-h:34cqw;--beam-w:2.6cqw;--beam-delay:8ms}
-.game .impactBeam i:nth-child(2){--beam-x:33%;--beam-h:88cqw;--beam-w:3.3cqw;--beam-delay:0ms}
-.game .impactBeam i:nth-child(3){--beam-x:51%;--beam-h:52cqw;--beam-w:2.5cqw;--beam-delay:16ms}
-.game .impactBeam i:nth-child(4){--beam-x:69%;--beam-h:94cqw;--beam-w:3.1cqw;--beam-delay:6ms}
-.game .impactBeam i:nth-child(5){--beam-x:83%;--beam-h:38cqw;--beam-w:2.7cqw;--beam-delay:22ms}
 .game .impactSparks i{
   --spark-x:50%;--spark-y:-25cqw;--spark-dx:0cqw;--spark-delay:0ms;
   position:absolute;left:var(--spark-x);top:15%;width:3.5cqw;height:3.5cqw;
   min-width:3px;max-width:5px;min-height:3px;max-height:5px;
-  background:#fff;box-shadow:0 0 2px 1px #fff,0 0 7px 2px rgb(var(--blast-rgb) / .9);
+  background:#fff;box-shadow:0 0 3px 1px #fff,0 0 9px 3px rgb(var(--blast-rgb) / .95);
   animation:blastSpark .26s ease-out var(--spark-delay) both;
 }
 .game .impactSparks i:nth-child(1){--spark-x:12%;--spark-y:-22cqw;--spark-dx:-9cqw;--spark-delay:2ms}
