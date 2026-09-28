@@ -92,6 +92,14 @@ body :is(.realRanked,.rankedBotBackdrop,.casualFlowBackdrop) :is(.queueSpinner,.
 body .realRanked .rankedQueueCount{margin:12px 0 0;color:var(--mode-accent);font-size:48px;font-weight:1000;line-height:1}
 body .realRanked .rankedQueueCount span{display:block;margin-top:4px;color:#8993a6;font-size:9px;letter-spacing:1.5px}
 body .realRanked .queueRank{border:0;padding:0;background:none;color:var(--mode-accent)}
+body .realRanked .queueRank.rank-bronze{color:#cd7f32}
+body .realRanked .queueRank.rank-silver{color:#cbd2dd}
+body .realRanked .queueRank.rank-gold{color:#ffd43b}
+body .realRanked .queueRank.rank-platinum{color:#57e0d1}
+body .realRanked .queueRank.rank-diamond{color:#66a9ff}
+body .realRanked .queueRank.rank-master{color:#c084fc}
+body .realRanked .queueRank.rank-grandmaster{color:#ff6cab}
+body .realRanked .queueRank.rank-challenger{color:#ffd54a}
 body .realRanked .rankedFlow{color:#a8b0c0}
 body .realRanked .rankedFlow span{background:var(--mode-surface);border:1px solid var(--mode-border);color:var(--mode-accent)}
 body .realRanked .rankVoteGrid,
