@@ -261,7 +261,7 @@ def generate_stem_charts(audio: Path, directory: Path, instruments: set[str]):
         path = stem_directory / STEMS[instrument]
         if not path.is_file():
             raise RuntimeError(f"Demucs did not produce {STEMS[instrument]}")
-        notes, duration = (merge_melody_sources(path, melodic_directory)
+        notes, duration = (merge_melody_sources(path, melodic_directory, audio)
                            if instrument == "melody" and melodic_directory else
                            analyze_stem(path, instrument))
         if len(notes) < 4:
