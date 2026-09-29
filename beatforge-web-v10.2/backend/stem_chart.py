@@ -47,7 +47,7 @@ def _leaked_from_companion(y, peak, sr, frame, hop, companions):
     return False
 
 
-def analyze_stem(path: Path, instrument: str):
+def analyze_stem(path: Path, instrument: str, source_kind: str = ""):
     """Analyze one of the four original Demucs stems, keeping audio timestamps."""
     y, sr = sf.read(path, always_2d=True, dtype="float32")
     y = y.mean(axis=1)
@@ -94,7 +94,7 @@ def analyze_stem(path: Path, instrument: str):
     # ripples inside a held tone from turning into many separate taps.
     base = max(np.percentile(score, {"vocals": 72, "drums": 62, "bass": 70, "melody": 70}[instrument]),
                np.max(score) * .004)
-    min_gap = {"vocals": .14, "drums": .12, "bass": .20, "melody": .13}[instrument]
+    min_gap = .075 if source_kind == "piano" else {"vocals": .14, "drums": .12, "bass": .20, "melody": .13}[instrument]
     candidates, last = [], -99
     quiet = np.percentile(rms, 18)
     for i in range(2, frames - 2):
@@ -102,7 +102,9 @@ def analyze_stem(path: Path, instrument: str):
         # other instruments keep their existing timing and thresholds.
         t = (i * hop + (win / 2 if instrument in ("vocals", "melody") else 0)) / sr
         local_score = np.median(score[max(0, i - radius):min(frames, i + radius + 1)])
-        if instrument in ("vocals", "melody"):
+        if source_kind == "piano":
+            threshold = max(base * .18, local_score * 1.12)
+        elif instrument in ("vocals", "melody"):
             threshold = max(base * .25, local_score * 1.2)
         else:
             threshold = max(base * .38, local_score * 1.45)
@@ -118,9 +120,11 @@ def analyze_stem(path: Path, instrument: str):
         companions = [stack.enter_context(sf.SoundFile(path.with_name(STEMS[name])))
                       for name in competing.get(instrument, ()) if path.with_name(STEMS[name]).is_file()]
         companions = [other for other in companions if other.samplerate == sr and len(other) >= len(y)]
-        accepted = [(fi, t) for fi, t in candidates[:1600]
+        accepted = [(fi, t) for fi, t in candidates[:3200 if source_kind == "piano" else 1600]
                     if not companions or not _leaked_from_companion(y, peak, sr, fi, hop, companions)]
-        shaped = ([(i, 0.0) for i in range(len(accepted))] if instrument == "drums" else
+        # Piano chords and arpeggios ring across subsequent attacks; each
+        # detected key strike must remain playable even during that decay.
+        shaped = ([(i, 0.0) for i in range(len(accepted))] if instrument == "drums" or source_kind == "piano" else
                   sustain_notes(accepted, rms, hop / sr,
                                 {"vocals": .68, "melody": .82, "bass": .86}[instrument], pitches,
                                 gap_tolerance=.085 if instrument == "vocals" else .03,
@@ -155,7 +159,7 @@ def merge_melody_sources(original: Path, six_directory: Path):
             sound = stack.enter_context(sf.SoundFile(path))
             if sound.samplerate != sf.info(original).samplerate:
                 continue
-            notes = original_notes if name == "original" else analyze_stem(path, "melody")[0]
+            notes = original_notes if name == "original" else analyze_stem(path, "melody", source_kind=name)[0]
             values = []
             for note in notes:
                 sound.seek(min(len(sound), max(0, round(note["time"] * sound.samplerate))))
@@ -163,27 +167,25 @@ def merge_melody_sources(original: Path, six_directory: Path):
                 values.append(float(np.sqrt(np.mean(sample * sample))) if len(sample) else 0.0)
             typical = float(np.percentile(values, 75)) if values else 0.0
             for note, energy in zip(notes, values):
-                if energy < max(typical * .23, 1e-5):
+                if energy < max(typical * (.12 if name == "piano" else .23), 1e-5):
                     continue
                 # Specific sources get a modest preference, never a free pass.
                 confidence = min(3.0, energy / (typical + 1e-8)) * (1.12 if name in ("piano", "guitar") else 1.0)
-                candidates.append((note, confidence))
+                candidates.append((note, confidence, name))
     candidates.sort(key=lambda item: (item[0]["time"], -item[1]))
-    groups = []
-    for note, confidence in candidates:
-        if groups and note["time"] - groups[-1][-1][0]["time"] < .11:
-            groups[-1].append((note, confidence))
-        else:
-            groups.append([(note, confidence)])
+    # Only collapse coincident hits from different stems. Chaining adjacent
+    # groups used to swallow fast notes from the same piano stem.
     distinct = []
-    for group in groups:
-        note, confidence = max(group, key=lambda item: item[1])
-        distinct.append((note, confidence))
+    for note, confidence, name in sorted(candidates, key=lambda item: -item[1]):
+        if any(other_name != name and abs(note["time"] - other["time"]) < .07
+               for other, _, other_name in distinct):
+            continue
+        distinct.append((note, confidence, name))
     # Cap extreme density per second, retaining the strongest musical attacks.
     buckets = {}
-    for note, confidence in distinct:
+    for note, confidence, _ in distinct:
         buckets.setdefault(int(note["time"]), []).append((note, confidence))
     selected = [note for bucket in buckets.values()
-                for note, _ in sorted(bucket, key=lambda item: item[1], reverse=True)[:6]]
+                for note, _ in sorted(bucket, key=lambda item: item[1], reverse=True)[:10]]
     selected.sort(key=lambda note: note["time"])
     return [{**note, "id": index} for index, note in enumerate(selected)], duration
