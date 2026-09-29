@@ -379,8 +379,16 @@ def main():
                 charts = {}
                 if "mix" in pending:
                     charts["mix"] = generate_chart(audio, directory)
-                if pending - {"mix"}:
-                    charts.update(generate_stem_charts(audio, directory, pending - {"mix"}))
+                stem_pending = pending - {"mix"}
+                mix_sources = {"vocals", "melody", "drums", "bass"} if "mix" in pending and args.instruments == "all" else set()
+                stem_charts = (generate_stem_charts(audio, directory, stem_pending | mix_sources)
+                               if stem_pending or mix_sources else {})
+                charts.update({name: chart for name, chart in stem_charts.items() if name in stem_pending})
+                if mix_sources and mix_sources.issubset(stem_charts):
+                    from instant_chart import compose_full_mix
+                    composed = compose_full_mix(stem_charts)
+                    if len(composed[0]) >= 8:
+                        charts["mix"] = composed
                 for instrument, (notes, duration) in charts.items():
                     if instrument in refresh:
                         route = "charts?id=eq." + urllib.parse.quote(str(refresh[instrument]), safe="") + "&user_id=eq." + admin_id
