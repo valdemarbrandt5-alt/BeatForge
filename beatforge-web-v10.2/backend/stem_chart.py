@@ -4,6 +4,7 @@ Shared by the local importer and the optional /analyze-all backend endpoint.
 """
 
 import hashlib
+from bisect import bisect_left, bisect_right
 from contextlib import ExitStack
 from pathlib import Path
 
@@ -138,6 +139,38 @@ def analyze_stem(path: Path, instrument: str, source_kind: str = ""):
     return notes, duration
 
 
+def _playable_melody(candidates):
+    """Follow one instrument at a time, filling pauses with another source."""
+    if not candidates:
+        return []
+    preference = {"piano": 1.1, "guitar": 1.05, "other": 1.0, "original": .95}
+    chosen = []
+    candidates = sorted(candidates, key=lambda item: item[0]["time"])
+    times = [item[0]["time"] for item in candidates]
+    for note, confidence, name in candidates:
+        at = note["time"]
+        nearby = candidates[bisect_left(times, at - 1):bisect_right(times, at + 1)]
+        sources = {source for _, _, source in nearby}
+        lead = max(sources, key=lambda source: (
+            sum(min(strength, 2) for _, strength, kind in nearby if kind == source)
+            * preference.get(source, 1), preference.get(source, 1)))
+        if name != lead and any(source == lead and abs(other["time"] - at) < .4
+                                for other, _, source in nearby):
+            continue
+        chosen.append((note, confidence))
+    # One shared stream of notes must be playable with fingers, even when
+    # separate instruments have interleaved attacks.
+    selected = []
+    for note, confidence in sorted(chosen, key=lambda item: (-item[1], item[0]["time"])):
+        at = note["time"]
+        if any(abs(other["time"] - at) < .09 for other in selected):
+            continue
+        if sum(at - 1 < other["time"] <= at + 1 for other in selected) >= 16:
+            continue
+        selected.append(note)
+    return sorted(selected, key=lambda note: note["time"])
+
+
 def merge_melody_sources(original: Path, six_directory: Path, mix_path: Path = None):
     """Use strong piano/guitar/other attacks without multiplying duplicate hits.
 
@@ -201,11 +234,5 @@ def merge_melody_sources(original: Path, six_directory: Path, mix_path: Path = N
                for other, _, other_name in distinct):
             continue
         distinct.append((note, confidence, name))
-    # Cap extreme density per second, retaining the strongest musical attacks.
-    buckets = {}
-    for note, confidence, _ in distinct:
-        buckets.setdefault(int(note["time"]), []).append((note, confidence))
-    selected = [note for bucket in buckets.values()
-                for note, _ in sorted(bucket, key=lambda item: item[1], reverse=True)[:10]]
-    selected.sort(key=lambda note: note["time"])
+    selected = _playable_melody(distinct)
     return [{**note, "id": index} for index, note in enumerate(selected)], duration
