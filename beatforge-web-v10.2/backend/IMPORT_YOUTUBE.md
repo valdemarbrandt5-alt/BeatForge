@@ -42,7 +42,7 @@ To apply an improved stem analyzer to songs that were already imported, run:
 
 ```powershell
 py .\import_youtube_charts.py --export-links
-py .\import_youtube_charts.py .\beatforge-links.txt --instruments stems --refresh-stems
+py .\import_youtube_charts.py .\beatforge-links.txt --instruments stems --refresh-stems --completed-file .\genanalyse-faerdig.txt
 ```
 
 The export reads all existing BeatForge charts through your local Supabase
@@ -59,6 +59,14 @@ note pattern, so compare new scores only with plays made after the refresh.
 The change becomes visible on BeatForge once each updated song is saved; reload
 the page before playing it again. The command needs the updated local
 `stem_chart.py`; a Railway redeploy is not needed for local imports.
+
+`--export-links` writes one URL per YouTube video, even if BeatForge stores
+five instrument charts for it. The importer also removes duplicate video IDs
+from the input file, including links from `music.youtube.com`, `youtube.com`
+and `youtu.be`. The checkpoint file records each successfully refreshed song;
+rerunning the same command skips those songs, while failures can be retried.
+Use a new checkpoint filename when you intentionally refresh everything again
+after another analyzer update.
 
 The updated analyzer compares vocals and melody against the other Demucs tracks
 to reject shared instrumental attacks, and preserves clear sustained melody and
