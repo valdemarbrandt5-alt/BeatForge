@@ -57,12 +57,18 @@
 .liveRank span{font-size:9px;letter-spacing:.13em;opacity:.55}.liveRank b{font-size:20px}.liveRank strong{grid-column:1/3;font-size:13px;margin-top:3px}
 .leaderRow.podium.gold strong,.leaderRow.podium.gold>span,.leaderRow.podium.gold>b{color:#ffd34e}.leaderRow.podium.silver strong,.leaderRow.podium.silver>span,.leaderRow.podium.silver>b{color:#dce6ef}.leaderRow.podium.bronze strong,.leaderRow.podium.bronze>span,.leaderRow.podium.bronze>b{color:#d9955c}
 .leaderRow.youLive{outline:1px solid rgba(255,255,255,.38);background:rgba(255,255,255,.08)}
+.leaderSide{overflow:hidden;display:flex;flex-direction:column;max-height:calc(100dvh - 205px)}
+.leaderSide .leaderboard.compact{height:min(465px,calc(100dvh - 285px));min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;align-content:start;grid-auto-rows:52px;flex-shrink:1;scrollbar-width:thin}
+.leaderSide .leaderRow{height:52px;min-width:0;box-sizing:border-box;grid-template-columns:28px minmax(0,1fr) auto}
+.leaderSide .leaderRow strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.leaderSide .leaderRow>span{white-space:nowrap;font-size:12px}
+.leaderSide .leaderRow.youLive:last-child{position:sticky;bottom:0;z-index:1}
 @media(max-width:1250px){.leaderSide{position:relative;right:auto;top:auto;width:min(1180px,94vw);max-height:none;margin:14px auto}}
 
 /* v0.25.1 dual side leaderboards */
 .leaderSide.leaderGlobal{position:fixed;left:16px;right:auto;top:190px;width:255px;margin:0;z-index:12}
 .leaderSide.leaderFriends{position:fixed;right:16px;left:auto;top:190px;width:255px;margin:0;z-index:12}
-.leaderSide .leaderRow{grid-template-columns:28px 1fr auto;gap:6px;padding:8px}
+.leaderSide .leaderRow{grid-template-columns:28px minmax(0,1fr) auto;gap:6px;padding:8px}
 .leaderSide .leaderRow em{grid-column:2/4;font-size:9px}
 @media(min-width:1251px) and (max-width:1500px){.leaderSide.leaderGlobal,.leaderSide.leaderFriends{width:210px}.leaderSide{font-size:11px}}
 @media(max-width:1250px){.leaderSide.leaderGlobal,.leaderSide.leaderFriends{position:relative;left:auto;right:auto;top:auto;width:min(1180px,94vw);margin:12px auto}}
