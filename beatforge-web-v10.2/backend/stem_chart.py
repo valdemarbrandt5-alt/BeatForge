@@ -4,6 +4,7 @@ Shared by the local importer and the optional /analyze-all backend endpoint.
 """
 
 import hashlib
+from contextlib import ExitStack
 from pathlib import Path
 
 import numpy as np
@@ -17,6 +18,32 @@ STEMS = {
     "bass": "bass.wav",
     "melody": "other.wav",
 }
+
+
+def _leaked_from_companion(y, peak, sr, frame, hop, companions):
+    """Reject a shared attack only when another stem clearly owns its waveform."""
+    start = frame * hop
+    count = min(round(sr * .14), len(y) - start)
+    if count < 32:
+        return False
+    target = y[start:start + count] * peak
+    target = target - target.mean()
+    target_power = float(np.dot(target, target))
+    if target_power < 1e-10:
+        return False
+    for other in companions:
+        other.seek(start)
+        sample = other.read(count, dtype="float32", always_2d=True).mean(axis=1)
+        if len(sample) != count:
+            continue
+        sample -= sample.mean()
+        other_power = float(np.dot(sample, sample))
+        if other_power <= target_power * .64:
+            continue
+        correlation = abs(float(np.dot(target, sample))) / (np.sqrt(target_power * other_power) + 1e-10)
+        if (other_power > target_power * 1.21 and correlation > .62) or correlation > .88:
+            return True
+    return False
 
 
 def analyze_stem(path: Path, instrument: str):
@@ -53,7 +80,10 @@ def analyze_stem(path: Path, instrument: str):
         local[i] = np.median(rms[max(0, i - radius):min(frames, i + radius + 1)])
     activity = rms / (local + np.percentile(rms, 20) + 1e-5)
     score = flux * (0.55 + 0.45 * np.clip(activity, 0, 3))
-    base = np.percentile(score, {"vocals": 72, "drums": 62, "bass": 70, "melody": 70}[instrument])
+    # Silence can make the percentile zero; a relative floor prevents tiny FFT
+    # ripples inside a held tone from turning into many separate taps.
+    base = max(np.percentile(score, {"vocals": 72, "drums": 62, "bass": 70, "melody": 70}[instrument]),
+               np.max(score) * .004)
     min_gap = {"vocals": .14, "drums": .12, "bass": .20, "melody": .13}[instrument]
     candidates, last = [], -99
     quiet = np.percentile(rms, 18)
@@ -66,27 +96,36 @@ def analyze_stem(path: Path, instrument: str):
             threshold = max(base * .25, local_score * 1.2)
         else:
             threshold = max(base * .38, local_score * 1.45)
-        if score[i] > threshold and score[i] >= score[i - 1] and score[i] >= score[i + 1] and t - last >= min_gap and rms[i] > quiet:
+        if (score[i] > threshold and score[i] >= score[i - 1] and score[i] >= score[i + 1]
+                and t - last >= min_gap and rms[i] > quiet):
             candidates.append((i, t))
             last = t
     seed = int(hashlib.sha1((path.name + instrument).encode()).hexdigest()[:8], 16)
     rng = np.random.default_rng(seed)
     notes, prev_lane = [], -1
-    for idx, (fi, t) in enumerate(candidates[:1600]):
-        length = 0.0
-        if instrument != "drums":
-            floor = max(np.percentile(rms, 30) * 1.25, rms[fi] * .45)
-            next_onset = candidates[idx + 1][0] if idx + 1 < len(candidates) else frames
-            j, max_frames = fi + 1, int(3.0 * sr / hop)
-            while j < next_onset and j < frames and j - fi < max_frames and rms[j] > floor:
-                if j > fi + int(.28 * sr / hop) and score[j] > max(base * .7, score[fi] * .8):
-                    break
-                j += 1
-            raw = (j - fi) * hop / sr
-            if raw >= (.68 if instrument == "vocals" else .96):
-                length = min(raw - .06, 3.0)
-        choices = [lane for lane in range(5) if lane != prev_lane]
-        lane = int(rng.choice(choices))
-        prev_lane = lane
-        notes.append({"id": idx, "time": round(float(t), 4), "lane": lane, "duration": round(float(length), 4)})
+    competing = {"vocals": ("melody", "drums", "bass"), "melody": ("vocals", "drums")}
+    with ExitStack() as stack:
+        companions = [stack.enter_context(sf.SoundFile(path.with_name(STEMS[name])))
+                      for name in competing.get(instrument, ()) if path.with_name(STEMS[name]).is_file()]
+        companions = [other for other in companions if other.samplerate == sr and len(other) >= len(y)]
+        accepted = [(fi, t) for fi, t in candidates[:1600]
+                    if not companions or not _leaked_from_companion(y, peak, sr, fi, hop, companions)]
+        for idx, (fi, t) in enumerate(accepted):
+            length = 0.0
+            if instrument != "drums":
+                floor = max(np.percentile(rms, 30) * 1.25, rms[fi] * .45)
+                next_onset = accepted[idx + 1][0] if idx + 1 < len(accepted) else frames
+                j, max_frames = fi + 1, int(3.0 * sr / hop)
+                while j < next_onset and j < frames and j - fi < max_frames and rms[j] > floor:
+                    if j > fi + int(.28 * sr / hop) and score[j] > max(base * .7, score[fi] * .8):
+                        break
+                    j += 1
+                raw = (j - fi) * hop / sr
+                min_hold = {"vocals": .68, "melody": .82, "bass": .86}[instrument]
+                if raw >= min_hold:
+                    length = min(raw - .06, 3.0)
+            choices = [lane for lane in range(5) if lane != prev_lane]
+            lane = int(rng.choice(choices))
+            prev_lane = lane
+            notes.append({"id": len(notes), "time": round(float(t), 4), "lane": lane, "duration": round(float(length), 4)})
     return notes, duration
