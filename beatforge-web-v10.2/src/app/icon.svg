@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BeatStrike disc icon">
+  <defs>
+    <linearGradient id="disc" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#f8f5ff"/>
+      <stop offset=".22" stop-color="#b0a5dc"/>
+      <stop offset=".53" stop-color="#523c91"/>
+      <stop offset=".76" stop-color="#8cdaee"/>
+      <stop offset="1" stop-color="#f7e9ff"/>
+    </linearGradient>
+    <linearGradient id="scratch" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#fff"/>
+      <stop offset=".55" stop-color="#c898ff"/>
+      <stop offset="1" stop-color="#69e9f1"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#090b16"/>
+  <circle cx="32" cy="32" r="25" fill="none" stroke="#7f4cf2" stroke-opacity=".38" stroke-width="1.5"/>
+  <circle cx="32" cy="32" r="21.5" fill="url(#disc)"/>
+  <circle cx="32" cy="32" r="16.5" fill="none" stroke="#f5ecff" stroke-opacity=".27" stroke-width="1"/>
+  <circle cx="32" cy="32" r="12.5" fill="none" stroke="#180d38" stroke-opacity=".34" stroke-width="1"/>
+  <circle cx="32" cy="32" r="7.5" fill="#101226" stroke="#e0bbff" stroke-width="2"/>
+  <circle cx="32" cy="32" r="2.2" fill="#f8f4ff"/>
+  <path d="m14 43 11-23M23 47l10-22M39 42l10-22" fill="none" stroke="#090b16" stroke-opacity=".7" stroke-width="4.7" stroke-linecap="round"/>
+  <path d="m14 43 11-23M23 47l10-22M39 42l10-22" fill="none" stroke="url(#scratch)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M12 29a21 21 0 0 1 35-13" fill="none" stroke="#fff" stroke-opacity=".65" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

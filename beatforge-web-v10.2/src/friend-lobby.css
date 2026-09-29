@@ -1,0 +1,90 @@
+.friendLobbyDock{position:fixed;bottom:18px;left:18px;z-index:12000;padding:11px 15px;background:#17142b;color:#d5caff;border:1px solid #8d70eb;border-radius:11px;box-shadow:0 8px 30px #0009;font-size:10px;font-weight:1000;letter-spacing:.07em}
+.friendLobbyInvite{margin-left:8px;background:#7255da!important;color:#fff!important;font-size:9px!important;padding:8px 10px!important;white-space:nowrap}
+.friendLobbyOverlay{position:fixed;inset:0;z-index:14500;background:#03050be8;backdrop-filter:blur(12px);display:grid;place-items:center;padding:18px}
+.friendLobbyCard{position:relative;width:min(640px,96vw);max-height:88vh;overflow:auto;background:#111520;border:1px solid #51417c;border-radius:20px;padding:30px;color:#f4f5fa;text-align:center;box-shadow:0 26px 90px #000b}
+.friendLobbyCard>small{display:block;color:#ad90ff;font-size:9px;font-weight:1000;letter-spacing:2px;margin-bottom:8px}.friendLobbyCard h2{font-size:26px;line-height:1.1;margin:0 0 9px}.friendLobbyCard>p{font-size:11px;line-height:1.5;color:#a2aaba;margin:0 auto 18px;max-width:470px}
+.friendLobbyCard .friendLobbyClose{position:absolute;right:14px;top:13px;width:34px;height:34px;padding:0;font-size:22px;background:#1d2431;color:white;border:1px solid #424b5c;border-radius:9px}
+.friendLobbyMembers{display:grid;gap:6px;margin:16px 0;max-height:270px;overflow:auto}.friendLobbyMember{display:grid;grid-template-columns:26px minmax(0,1fr) auto;align-items:center;gap:8px;text-align:left;padding:10px 13px;background:#0c121d;border:1px solid #343b4d;border-radius:10px;font-size:11px}
+.friendLobbyMember>b{color:#9e83ef}.friendLobbyMember>span{font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.friendLobbyMember em{font-size:8px;color:#ad8fff;font-style:normal}.friendLobbyMember strong{font-size:9px;color:#65d9b0}.friendLobbyMember.invited strong{color:#a9a5b4}
+.friendLobbySong{display:grid;gap:4px;padding:15px;text-align:left;background:#0b111d;border:1px solid #3d4660;border-radius:12px;margin:14px 0}.friendLobbySong strong{font-size:15px}.friendLobbySong span{font-size:10px;color:#a4acc0}
+.friendLobbyChoices{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;text-align:left}.friendLobbyChoices label{font-size:9px;color:#a9b1c1;font-weight:1000;letter-spacing:.06em}.friendLobbyChoices select{display:block;margin-top:6px;width:100%;padding:11px;border:1px solid #4c5370;border-radius:9px;background:#0c121d;color:white;font:inherit;font-size:12px}.friendLobbyCountdown{font-size:30px;color:#b293ff;font-weight:1000;margin:15px 0}
+.friendLobbyActions{display:flex;justify-content:center;gap:9px;flex-wrap:wrap;margin:18px 0 10px}.friendLobbyActions button{background:#7558e6;color:white;border:1px solid #9b82ff;font-size:10px;font-weight:1000;min-width:120px}.friendLobbyActions button.secondary{background:#1a202c;border-color:#414b5c;color:#d0d5df}.friendLobbyCard>small:last-child{color:#838da2;font-size:9px;letter-spacing:0}
+.friendLobbyPickList{display:grid;gap:7px;margin-top:16px}.friendLobbyPickList button{display:flex;justify-content:space-between;align-items:center;background:#111b29;color:white;border:1px solid #3b465b;text-align:left;font-size:13px}.friendLobbyPickList span{color:#bda9ff;font-size:9px}
+.friendLobbyWide{width:min(960px,96vw)}.friendLobbySearch{width:100%;background:#0b111b;border:1px solid #454c62;color:#fff;border-radius:10px;padding:13px;margin:8px 0 15px;outline:none}.friendLobbySongs{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:9px;max-height:55vh;overflow:auto}.friendLobbySongs button{display:grid;grid-template-columns:65px 1fr;gap:9px;background:#0c121d;border:1px solid #3a4356;border-radius:11px;padding:7px;color:#fff;text-align:left}.friendLobbySongs img,.friendLobbySongs button>span{grid-row:span 2;width:65px;height:50px;object-fit:cover;border-radius:6px;background:#222b3b;display:grid;place-items:center}.friendLobbySongs b{min-width:0;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.friendLobbySongs b small{display:block;color:#929cac;font-size:9px;margin-top:3px}.friendLobbySongs em{font-size:8px;color:#ae94ff;font-style:normal}.friendLobbyMore{margin-top:12px}
+.game>.friendLobbyHud{position:absolute;top:16px;left:16px;width:200px;z-index:14;padding:9px;background:#0a101aef;border:1px solid #656080;border-radius:12px;pointer-events:none;display:grid;gap:4px;backdrop-filter:blur(8px)}.friendLobbyHud>small{color:#bd9dff;font-size:8px;font-weight:1000;letter-spacing:1px;text-align:center}.friendLobbyHudRow{display:grid;grid-template-columns:20px minmax(0,1fr) auto auto;gap:4px;align-items:center;background:#111825;border:1px solid #303b51;border-radius:7px;padding:5px;font-size:9px;font-weight:900}.friendLobbyHudRow>b{color:#b99aff}.friendLobbyHudRow>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.friendLobbyHudRow>strong{font-size:10px;font-variant-numeric:tabular-nums}.friendLobbyHudRow>em{font-style:normal;color:#a98cff;font-size:8px}
+.friendLobbyResult{border:1px solid #4d4266;border-radius:12px;padding:13px;margin:14px 0;background:#0d1421}.friendLobbyResult>small{font-size:8px;font-weight:1000;color:#aa8eff}.friendLobbyResult h3{margin:5px 0 12px;font-size:17px}.friendLobbyResult>div{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;border-top:1px solid #313b4b;padding:8px 0;text-align:left;font-size:10px}.friendLobbyResult span{font-size:8px;color:#9fa8b7}.friendLobbyResult button{margin-top:12px;background:#7257dd;color:white}
+.friendLobbyToast{position:fixed;right:18px;bottom:18px;z-index:15000;background:#151d2a;border:1px solid #635697;color:#fff;border-radius:11px;padding:12px 16px;font-size:11px;font-weight:900;box-shadow:0 12px 35px #0009}
+@media(max-width:620px){.friendLobbyCard{padding:25px 15px}.friendLobbyChoices{grid-template-columns:1fr}.game>.friendLobbyHud{width:155px}.friendLobbyHudRow{grid-template-columns:15px minmax(0,1fr) auto}.friendLobbyHudRow em{display:none}}
+
+.friendLobbyCreate{width:100%;margin:8px 0 14px;background:#2b2054!important;color:#ede7ff!important;border:1px solid #8e72e8!important;font-size:10px!important;font-weight:1000!important}
+
+/* Friends uses the same bright blue accent from its Community entry point. */
+.friendLobbyOverlay,.friendLobbyDock,.friendLobbyResult,.friendLobbyCreate,.friendLobbyInvite,.game>.friendLobbyHud{--friend-accent:#55c9f4;--friend-fill:#1687be}
+.friendLobbyDock,.friendLobbyOverlay .friendLobbyCard,.friendLobbyResult,.game>.friendLobbyHud{border-color:#55c9f477}
+.friendLobbyDock{background:#10232f;color:#d7f6ff}
+.friendLobbyOverlay .friendLobbyCard>small,.friendLobbyOverlay .friendLobbyCard>small:last-child,.friendLobbyOverlay .friendLobbyMember>b,.friendLobbyOverlay .friendLobbyMember em,.friendLobbyOverlay .friendLobbyCountdown,.friendLobbyResult>small,.game>.friendLobbyHud>small,.game .friendLobbyHudRow>b{color:var(--friend-accent)}
+.friendLobbyOverlay .friendLobbyActions button,.friendLobbyOverlay .friendLobbyMore,.friendLobbyResult>button,.friendLobbyCreate,.friendLobbyInvite{background:var(--friend-fill)!important;border-color:var(--friend-accent)!important;color:#fff!important}
+.friendLobbyOverlay .friendLobbyActions button.secondary{background:#1a202c!important;border-color:#414b5c!important;color:#d0d5df!important}
+.friendLobbyOverlay .friendLobbyMember em{font-style:normal}
+.friendLobbyOverlay .friendLobbyChoices select{border-color:#55c9f477}
+.friendLobbyOverlay .friendLobbyChoices select:focus-visible,.friendLobbyOverlay button:focus-visible{outline:2px solid var(--friend-accent);outline-offset:2px}
+.friendLobbyChoices{grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);align-items:end}
+.friendLobbyDifficulty{min-width:0;margin:0;padding:0;border:0}
+.friendLobbyDifficulty legend{font-size:9px;color:#a9b1c1;font-weight:1000;letter-spacing:.06em;margin-bottom:6px;text-align:left}
+.friendLobbyDifficultyLevels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.friendLobbyDifficultyLevels button{min-width:0;padding:11px 3px;border:1px solid #3d5568;border-radius:9px;background:#111c28;color:#deedf4;font-size:11px;font-weight:900;cursor:pointer}
+.friendLobbyDifficultyLevels button.active{background:var(--friend-fill);border-color:var(--friend-accent);color:#fff;box-shadow:0 0 0 1px #55c9f455}
+.friendLobbyDifficultyLevels button:disabled{opacity:.55;cursor:default}
+
+/* The song browser reuses the Community cards and spacing. */
+.friendLobbySongPicker{padding:12px}
+.friendLobbyBrowser{--friend-accent:#55c9f4;--friend-fill:#1687be;width:min(1220px,calc(100vw - 36px));max-height:94vh;overflow:auto;padding:30px 34px 14px;border:1px solid #55c9f46b;border-radius:20px;background:#0d121b;color:#f4f6fb;box-shadow:0 28px 90px #000b}
+.friendLobbyBrowserTop{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:27px}
+.friendLobbyBrowserTop small,.friendLobbyBrowser .sectionHeading small{font-size:10px;letter-spacing:.22em;font-weight:900;color:var(--friend-accent)}
+.friendLobbyBrowserTop h2{font-size:40px;line-height:1;margin:8px 0 10px;letter-spacing:-.035em}
+.friendLobbyBrowserTop p{margin:0;color:#8791a4;font-size:14px}
+.friendLobbyBrowser .friendLobbyClose{position:static;flex:none;display:grid;place-items:center;width:42px;height:42px;border-radius:50%;border:1px solid #314254;background:#141d2a;color:#dce3ee;font-size:16px;cursor:pointer}
+.friendLobbyBrowser .friendLobbySearch{width:100%;height:54px;padding:0 18px;margin:0 0 18px}
+.friendLobbyBrowser .friendLobbySearch input{margin:0;padding:0;box-shadow:none}
+.friendLobbyBrowser .friendLobbyTabs button.active,.friendLobbyBrowser .friendLobbyTabs button:hover{background:var(--friend-fill);border-color:var(--friend-accent)}
+.friendLobbyBrowser .friendLobbyFilters label{display:flex;align-items:center;gap:9px}
+.friendLobbyBrowser .friendLobbyFilters select{margin:0}
+.friendLobbyBrowser .friendLobbySongs{grid-template-columns:repeat(4,minmax(0,1fr));max-height:none;overflow:visible;gap:16px}
+.friendLobbySongPicker .friendLobbySongs .communityTile{display:block;padding:0 0 14px;border-color:#243443;background:#0e1721}
+.friendLobbySongPicker .friendLobbySongs .communityTile:hover{border-color:var(--friend-accent);background:#112331}
+.friendLobbySongPicker .friendLobbySongs button.communityTileHit{position:absolute;inset:0;z-index:2;display:block;width:100%;height:100%;padding:0;border:0;border-radius:15px;background:transparent;box-shadow:none}
+.friendLobbySongPicker .friendLobbySongs button.communityTileHit:focus-visible{outline-color:var(--friend-accent)}
+.friendLobbySongPicker .friendLobbySongs .communityCover img{width:100%;height:100%;object-fit:cover;grid-row:auto;border-radius:0}
+.friendLobbySongPicker .friendLobbySongs .communityCover .tilePlay{background:var(--friend-fill)}
+.friendLobbySongPicker .friendLobbySongs .coverFallback{width:100%;height:100%;border-radius:0;background:radial-gradient(circle at 25% 20%,#1687be,#17364a 50%,#0b1420)}
+.friendLobbySongPicker .friendLobbySongs .coverFallback span{width:auto;height:auto;background:none;color:#b9ecff}
+.friendLobbySongPicker .friendLobbySongs .difficultyPill{font-size:9px;color:#fff}
+.friendLobbySongPicker .friendLobbySongs .tileInfo strong{font-size:15px;white-space:nowrap}
+.friendLobbySongPicker .friendLobbySongs .tileInfo span{font-size:12px;color:#a4adbd}
+.friendLobbySongPicker .friendLobbySongs .tileInfo .chartInstrument{color:var(--friend-accent);border-color:#55c9f477;background:#55c9f422;font-size:10px}
+.friendLobbySongPicker .communityPagination{margin:24px 0 8px}
+.friendLobbySongPicker .communityPagination button:hover:not(:disabled){border-color:var(--friend-accent)}
+
+/* Each friend has the same readable performance breakdown as the local result. */
+.friendLobbyResult .friendLobbyResultPlayer{display:block;border-top:1px solid #314254;padding:10px 0;text-align:left}
+.friendLobbyResultHead{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;font-size:11px}
+.friendLobbyResultHead strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.friendLobbyResultHead>b{font-size:14px;font-variant-numeric:tabular-nums}
+.friendLobbyResultHead>span{font-size:9px;color:#9fa8b7}
+.friendLobbyResult .friendLobbyResultStats{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:7px;margin-top:10px}
+.friendLobbyResult .friendLobbyResultStats span{grid-column:span 3;display:grid;align-content:center;justify-items:center;gap:3px;min-width:0;min-height:52px;padding:7px 3px;border:1px solid #304354;border-radius:9px;background:#151d29;color:#aeb8c8;font-size:8px;font-weight:900;white-space:normal;text-align:center;line-height:1.1}
+.friendLobbyResult .friendLobbyResultStats span:nth-child(n+5){grid-column:span 4}
+.friendLobbyResult .friendLobbyResultStats b{display:block;color:#eafaff;font-size:16px;line-height:1.1;font-variant-numeric:tabular-nums}
+.friendLobbyResult .friendLobbyResultStats span:nth-child(1) b{color:var(--friend-accent)}
+.friendLobbyResult .friendLobbyResultStats span:nth-child(2) b{color:#ffd54a}
+.friendLobbyResult .friendLobbyResultStats span:nth-child(3) b{color:#4ade80}
+.friendLobbyResult .friendLobbyResultStats span:nth-child(4) b{color:#ffab55}
+.friendLobbyResult .friendLobbyResultStats span:nth-child(5) b{color:#fa6973}
+.friendLobbyResult .friendLobbyResultStats span:nth-child(6) b{color:var(--friend-accent)}
+.friendLobbyResult .friendLobbyResultStats span:nth-child(7) b{color:#a5deff}
+.friendLobbyResultPending{margin:8px 0 0;color:#9fa8b7;font-size:10px}
+.friendLobbyRoundResult{margin-top:16px}
+
+@media(max-width:980px){.friendLobbyBrowser .friendLobbySongs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.friendLobbyBrowser{width:min(100%,calc(100vw - 24px));padding:24px 16px}.friendLobbyBrowserTop h2{font-size:32px}.friendLobbyBrowser .friendLobbySongs{grid-template-columns:repeat(2,minmax(0,1fr))}.friendLobbyChoices{grid-template-columns:1fr}}
+@media(max-width:430px){.friendLobbyBrowser .friendLobbySongs{grid-template-columns:1fr}.friendLobbyResultHead{grid-template-columns:minmax(0,1fr) auto}.friendLobbyResultHead>span{grid-column:1/-1}.friendLobbyResult .friendLobbyResultStats{grid-template-columns:repeat(2,minmax(0,1fr))}.friendLobbyResult .friendLobbyResultStats span,.friendLobbyResult .friendLobbyResultStats span:nth-child(n+5){grid-column:span 1}.friendLobbyResult .friendLobbyResultStats span:last-child{grid-column:span 2}}

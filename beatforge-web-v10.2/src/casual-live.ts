@@ -42,6 +42,10 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   let localFinished=false;
   let finishSubmitting=false;
   let comparisonRendered=false;
+  let pendingInviteId='';
+  let activeRunId='';
+  let pendingFriendName='Your friend';
+  const previousResults=new WeakSet<Element>();
 
   const numberFrom=(value:string|null|undefined)=>{
     const n=Number(String(value||'0').replace(/[^0-9-]/g,''));
@@ -49,7 +53,10 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   };
 
   const streakTone=(combo:number)=>combo>=200?'streakPink':combo>=100?'streakBlue':combo>=50?'streakGold':'streakBase';
-  const resultCard=()=>[...document.querySelectorAll('.resultBackdrop .resultCard')].find(x=>/SONG COMPLETE/i.test(x.textContent||'')) as HTMLElement|undefined;
+  const resultCard=()=>[...document.querySelectorAll('.resultBackdrop .resultCard')].find(x=>{
+    const backdrop=x.closest('.resultBackdrop') as HTMLElement|null;
+    return backdrop&&activeRunId&&backdrop.dataset.scoreRunId===activeRunId&&!previousResults.has(backdrop)&&backdrop.style.display!=='none'&&/SONG COMPLETE/i.test(x.textContent||'');
+  }) as HTMLElement|undefined;
   const resultOpen=()=>!!resultCard();
 
   const loadUid=async()=>{
@@ -158,8 +165,8 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     const style=document.createElement('style');
     style.id='casual-live-score-style';
     style.textContent=`
-      .game>.casualLiveHud{position:absolute!important;left:18px!important;bottom:304px!important;top:auto!important;right:auto!important;width:145px!important;min-width:145px!important;max-width:145px!important;z-index:12!important;display:flex!important;flex-direction:column!important;gap:4px!important;pointer-events:none!important}
-      .casualLiveHud .casualLiveRow{position:relative!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;width:145px!important;min-width:145px!important;max-width:145px!important;height:38px!important;padding:4px 6px 4px 22px!important;border-radius:9px!important;background:#0f131c!important;border:1px solid #303747!important;box-sizing:border-box!important}
+      .game>.casualLiveHud{position:absolute!important;left:16px!important;top:16px!important;bottom:auto!important;right:auto!important;width:190px!important;min-width:190px!important;max-width:190px!important;z-index:12!important;display:flex!important;flex-direction:column!important;gap:4px!important;pointer-events:none!important}
+      .casualLiveHud .casualLiveRow{position:relative!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;width:190px!important;min-width:190px!important;max-width:190px!important;height:28px!important;padding:4px 6px 4px 22px!important;border-radius:9px!important;background:#0f131c!important;border:1px solid #303747!important;box-sizing:border-box!important}
       .casualLiveHud .casualLiveRow:before{content:'#' attr(data-place);position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:1000;color:#7e8799}
       .casualLiveHud .casualLiveRow[data-place='1']:before{color:#ffd43b}
       .casualLiveHud .casualLiveName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px!important;font-weight:1000;color:#fff}
@@ -174,7 +181,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       .casualLeaveCard small{font-size:8px;font-weight:1000;letter-spacing:1.7px;color:#9c7cff}.casualLeaveCard h2{margin:8px 0 8px;font-size:24px}.casualLeaveCard p{margin:0 auto 18px;color:#99a3b5;font-size:11px;line-height:1.5}.casualLeaveCard>div{display:flex;justify-content:center;gap:9px}.casualLeaveCard button{min-width:120px;padding:11px 14px;border-radius:10px;font-size:9px;font-weight:1000}.casualLeaveConfirm{background:#2a1118;border:1px solid #7c3343;color:#ff8190}.casualLeaveContinue{background:#7658ff;border:1px solid #8b72ff;color:white}
       .casualFriendLeft{position:fixed;left:50%;top:24px;transform:translateX(-50%);z-index:15500;background:#151a25;border:1px solid #465064;border-radius:11px;padding:11px 16px;color:#fff;font-size:10px;font-weight:1000;box-shadow:0 14px 42px #0009;pointer-events:none}.casualFriendLeft b{color:#ff8190}
       .casualResultCompare{margin:18px 0 4px;padding:14px;border:1px solid #343c4c;border-radius:13px;background:#0b1018;text-align:left}.casualResultCompare>small{display:block;text-align:center;color:#9c83ff;font-size:8px;font-weight:1000;letter-spacing:1.4px}.casualResultCompare h3{text-align:center;margin:5px 0 12px;font-size:16px}.casualCompareNames{display:grid;grid-template-columns:1fr 64px 1fr;align-items:center;text-align:center;margin-bottom:8px}.casualCompareNames b{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.casualCompareNames span{font-size:7px;color:#687184;font-weight:1000}.casualCompareRow{display:grid;grid-template-columns:1fr 64px 1fr;align-items:center;text-align:center;min-height:28px;border-top:1px solid #202734}.casualCompareRow span{font-size:7px;color:#7f899b;font-weight:1000;letter-spacing:.6px}.casualCompareRow b{font-size:11px}.casualCompareRow.perfect b{color:#ffd43b}.casualCompareRow.great b{color:#4ee6a8}.casualCompareRow.good b{color:#ffad42}.casualCompareRow.miss b{color:#ff5d6c}.casualCompareWinner{text-align:center;margin:0 0 9px;font-size:11px;font-weight:1000;color:#fff}.casualCompareWaiting{text-align:center;color:#8993a6;font-size:9px;padding:8px 0 2px}
-      @media(max-width:760px){.game>.casualLiveHud,.casualLiveHud .casualLiveRow{width:132px!important;min-width:132px!important;max-width:132px!important}.casualLiveHud .casualLiveRow{height:36px!important}}
+      @media(max-width:760px){.game>.casualLiveHud,.casualLiveHud .casualLiveRow{width:160px!important;min-width:160px!important;max-width:160px!important}.casualLiveHud .casualLiveRow{height:28px!important}}
     `;
     document.head.appendChild(style);
   };
@@ -186,10 +193,22 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     if(!hud){
       const el=document.createElement('div');
       el.className='casualLiveHud';
-      el.innerHTML='<div class="casualLiveRow casualLiveA streakBase"><b class="casualLiveName"></b><span class="casualLiveNumbers"><strong class="casualLiveScore">0</strong><em class="casualLiveCombo">0x</em></span></div><div class="casualLiveRow casualLiveB streakBase"><b class="casualLiveName"></b><span class="casualLiveNumbers"><strong class="casualLiveScore">0</strong><em class="casualLiveCombo">0x</em></span></div>';
+      el.innerHTML='<small>VS FRIENDS · LIVE</small><div class="casualLiveRow casualLiveA streakBase"><b class="casualLiveName"></b><span class="casualLiveNumbers"><strong class="casualLiveScore">0</strong><em class="casualLiveCombo">0x</em></span></div><div class="casualLiveRow casualLiveB streakBase"><b class="casualLiveName"></b><span class="casualLiveNumbers"><strong class="casualLiveScore">0</strong><em class="casualLiveCombo">0x</em></span></div>';
       game.appendChild(el);hud=el;
     }else if(hud.parentElement!==game){game.appendChild(hud)}
     return hud;
+  };
+
+  const showHudStatus=(message:string)=>{
+    const label=ensureHud()?.querySelector('small');
+    if(label)label.textContent=`VS FRIENDS · ${message}`;
+  };
+
+  const showWaitingHud=()=>{
+    const root=ensureHud();if(!root)return;
+    root.querySelector('.casualLiveA .casualLiveName')!.textContent='YOU';
+    root.querySelector('.casualLiveB .casualLiveName')!.textContent=pendingFriendName;
+    showHudStatus('CONNECTING');
   };
 
   const renderHud=(row:CasualLiveRow,inviterScore:number,inviteeScore:number,inviterCombo:number,inviteeCombo:number)=>{
@@ -213,15 +232,17 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     });
   };
 
-  const findActive=async()=>{
+  const findActive=async(preferredId='')=>{
     if(!uid)await loadUid();
     if(!uid)return null;
     const cutoff=new Date(Date.now()-20*60*1000).toISOString();
-    const {data,error}=await db.from('casual_invites')
-      .select('id,inviter_id,invitee_id,status,start_at,inviter_score,invitee_score,inviter_combo,invitee_combo,inviter_finished,invitee_finished,inviter_perfect,invitee_perfect,inviter_great,invitee_great,inviter_good,invitee_good,inviter_miss,invitee_miss,inviter_max_combo,invitee_max_combo,chart:charts!casual_invites_chart_id_fkey(title),inviter:profiles!casual_invites_inviter_id_fkey(username),invitee:profiles!casual_invites_invitee_id_fkey(username)')
+    let query=db.from('casual_invites')
+      .select('id,inviter_id,invitee_id,status,start_at,inviter_score,invitee_score,chart:charts!casual_invites_chart_id_fkey(title),inviter:profiles!casual_invites_inviter_id_fkey(username),invitee:profiles!casual_invites_invitee_id_fkey(username)')
       .eq('status','accepted').not('start_at','is',null)
       .or(`inviter_id.eq.${uid},invitee_id.eq.${uid}`)
-      .gt('created_at',cutoff).order('created_at',{ascending:false}).limit(1).maybeSingle();
+      .gt('created_at',cutoff);
+    if(preferredId)query=query.eq('id',preferredId);
+    const {data,error}=await query.order('created_at',{ascending:false}).limit(1).maybeSingle();
     if(error){
       if(!schemaErrorShown){schemaErrorShown=true;console.error('casual live score schema',error)}
       return null;
@@ -373,8 +394,15 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     if(busy||leaving)return;
     busy=true;
     try{
-      if(!active)active=await findActive();
-      if(!active){removeHud();setControlLock(false);return}
+      if(pendingInviteId){
+        active=await findActive(pendingInviteId);
+        if(active)pendingInviteId='';
+      }else if(!active)active=await findActive();
+      if(!active){
+        if(pendingInviteId){showWaitingHud();if(schemaErrorShown)showHudStatus('SYNC ERROR · CHECK SUPABASE SQL')}
+        else removeHud();
+        setControlLock(false);return;
+      }
 
       const starts=active.start_at?new Date(active.start_at).getTime():0;
       if(!starts||Date.now()<starts-800){removeHud();setControlLock(false);return}
@@ -396,7 +424,16 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
         const fresh=await refreshLiveAndStatus();
         if(fresh?.status&&fresh.status!=='accepted'){opponentLeft();return}
         if(!schemaErrorShown){schemaErrorShown=true;console.error('casual_update_live',error)}
-        removeHud();return;
+        // A missing live RPC must be visible, not silently turn Friends into solo.
+        const {data:scoreRow,error:scoreError}=await db.rpc('casual_update_score',{p_invite:active.id,p_score:score});
+        if(!scoreError){
+          const row=Array.isArray(scoreRow)?scoreRow[0]:scoreRow;
+          active.inviter_score=Number(row?.inviter_score??active.inviter_score??0);
+          active.invitee_score=Number(row?.invitee_score??active.invitee_score??0);
+          renderHud(active,active.inviter_score||0,active.invitee_score||0,active.inviter_combo||0,active.invitee_combo||0);
+          showHudStatus('LIVE · SCORE ONLY');
+        }else{renderHud(active,active.inviter_score||0,active.invitee_score||0,active.inviter_combo||0,active.invitee_combo||0);showHudStatus('SYNC ERROR · UPDATE SUPABASE SQL')}
+        return;
       }
       schemaErrorShown=false;
 
@@ -413,11 +450,27 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       active.inviter_combo=inviterCombo;
       active.invitee_combo=inviteeCombo;
       renderHud(active,inviterScore,inviteeScore,inviterCombo,inviteeCombo);
+      showHudStatus('LIVE');
     }finally{busy=false}
   };
 
   const start=()=>{
     addStyles();void loadUid();
+    window.addEventListener('beatforge:casual-match-started',(event:Event)=>{
+      const detail=(event as CustomEvent<{inviteId:string;friendName?:string;runId?:string}>).detail;
+      const inviteId=detail?.inviteId;
+      if(!inviteId)return;
+      if(active?.id!==inviteId){
+        document.querySelectorAll('.resultBackdrop').forEach(result=>previousResults.add(result));
+        active=null;localFinished=false;finishSubmitting=false;comparisonRendered=false;
+        removeHud();setControlLock(false);
+      }
+      pendingInviteId=inviteId;
+      activeRunId=detail.runId||'';
+      pendingFriendName=detail.friendName||'Your friend';
+      showWaitingHud();
+      void tick();
+    });
     document.addEventListener('click',blockSyncedControlClick,true);
     window.addEventListener('keydown',blockSyncedHotkeys,true);
     window.setInterval(()=>void tick(),250);

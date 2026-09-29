@@ -1,0 +1,82 @@
+/* A straight receptor-width light trail rises from the hit, then fades into the lane. */
+.game .impact{--blast-color:var(--combo-color-base,#a655ff)}
+.game .impact[data-stage="gold"]{--blast-color:var(--combo-color-50,#ffb923)}
+.game .impact[data-stage="blue"]{--blast-color:var(--combo-color-100,#2a8eff)}
+.game .impact[data-stage="pink"]{--blast-color:var(--combo-color-200,#ff41b9)}
+.game.notePaletteGuitar .lane .impact{--blast-color:var(--lane-note-color)}
+.game .lane:has(> .impact)::before{
+  content:"";position:absolute;inset:auto 0 55px;height:min(72%,450px);
+  z-index:1;pointer-events:none;
+  background:linear-gradient(to top,color-mix(in srgb,var(--ambient-color) 25%,transparent),color-mix(in srgb,var(--ambient-color) 8%,transparent) 42%,transparent 95%);
+  animation:impactLaneWash .29s ease-out both;
+}
+.game.notePaletteGuitar .lane:has(> .impact)::before{
+  background:linear-gradient(to top,color-mix(in srgb,var(--lane-note-color) 27%,transparent),color-mix(in srgb,var(--lane-note-color) 9%,transparent) 42%,transparent 95%);
+}
+.game .lane:has(> .impact) .receptor{
+  box-shadow:0 0 14px 3px color-mix(in srgb,var(--ambient-color) 70%,transparent),
+    0 0 28px 6px color-mix(in srgb,var(--ambient-color) 40%,transparent);
+}
+.game.notePaletteGuitar .lane:has(> .impact) .receptor{
+  box-shadow:0 0 14px 3px color-mix(in srgb,var(--lane-note-color) 70%,transparent),
+    0 0 28px 6px color-mix(in srgb,var(--lane-note-color) 40%,transparent);
+}
+@keyframes impactLaneWash{0%{opacity:.8}14%{opacity:1}100%{opacity:0}}
+.game .impactGlow{
+  background:radial-gradient(ellipse 52% 65% at 50% 70%,color-mix(in srgb,var(--blast-color) 75%,transparent),transparent 80%);
+  filter:blur(12px);
+}
+.game .impactRing{
+  border-color:color-mix(in srgb,var(--blast-color) 82%,white);
+  box-shadow:0 0 13px 3px color-mix(in srgb,var(--blast-color) 72%,transparent),0 0 28px color-mix(in srgb,var(--blast-color) 48%,transparent);
+}
+.game .impactCore{
+  background:radial-gradient(ellipse 49% 88% at 50% 50%,#fff 0%,color-mix(in srgb,var(--blast-color) 40%,white) 53%,var(--blast-color) 82%,transparent 100%);
+  box-shadow:0 0 17px 5px var(--blast-color),0 0 36px 10px color-mix(in srgb,var(--blast-color) 65%,transparent);
+}
+.game .impactBeam{
+  inset:auto 0 50%;width:100%;height:125cqw;
+  background:linear-gradient(to top,color-mix(in srgb,var(--blast-color) 74%,transparent),
+    color-mix(in srgb,var(--blast-color) 39%,transparent) 35%,transparent 100%);
+  -webkit-mask-image:linear-gradient(to top,#000 0%,#0009 35%,transparent 100%);
+  mask-image:linear-gradient(to top,#000 0%,#0009 35%,transparent 100%);
+  transform-origin:center bottom;animation:solidImpactBeam .29s ease-out both;
+}
+.game .impactBeam::before{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(to right,transparent 8%,color-mix(in srgb,var(--blast-color) 55%,white) 28%,
+    transparent 43%,color-mix(in srgb,var(--blast-color) 35%,white) 54%,transparent 72%,
+    color-mix(in srgb,var(--blast-color) 50%,white) 89%,transparent);
+  filter:blur(7px);opacity:.62;
+}
+@keyframes solidImpactBeam{
+  0%{opacity:.28;transform:translateY(0) scaleY(.3)}
+  14%{opacity:calc(var(--blast-strength) * .76);transform:translateY(-3cqw) scaleY(1)}
+  42%{opacity:.3;transform:translateY(-10cqw) scaleY(.92)}
+  100%{opacity:0;transform:translateY(-20cqw) scaleY(.65)}
+}
+.game .impactSparks i{
+  top:40%;left:var(--spark-left);width:var(--spark-size,4cqw);height:var(--spark-size,4cqw);
+  min-width:2px;max-width:5px;min-height:2px;max-height:5px;
+  background:color-mix(in srgb,var(--blast-color) 55%,white);
+  box-shadow:0 0 7px 2px var(--blast-color);
+  animation:smallImpactSpark .29s ease-out var(--spark-delay,0ms) both;
+}
+.game .impactSparks i:nth-child(1){--spark-left:4%;--spark-dx:-12cqw;--spark-dy:-9cqw;--spark-size:3cqw}
+.game .impactSparks i:nth-child(2){--spark-left:15%;--spark-dx:-9cqw;--spark-dy:-25cqw;--spark-delay:12ms}
+.game .impactSparks i:nth-child(3){--spark-left:24%;--spark-dx:-8cqw;--spark-dy:-12cqw;--spark-size:3cqw}
+.game .impactSparks i:nth-child(4){--spark-left:31%;--spark-dx:-4cqw;--spark-dy:-34cqw;--spark-delay:15ms}
+.game .impactSparks i:nth-child(5){--spark-left:40%;--spark-dx:-3cqw;--spark-dy:-19cqw;--spark-size:3cqw}
+.game .impactSparks i:nth-child(6){--spark-left:48%;--spark-dx:2cqw;--spark-dy:-30cqw;--spark-delay:8ms}
+.game .impactSparks i:nth-child(7){--spark-left:57%;--spark-dx:3cqw;--spark-dy:-13cqw;--spark-size:3cqw}
+.game .impactSparks i:nth-child(8){--spark-left:64%;--spark-dx:5cqw;--spark-dy:-29cqw;--spark-delay:19ms}
+.game .impactSparks i:nth-child(9){--spark-left:72%;--spark-dx:7cqw;--spark-dy:-17cqw;--spark-size:3cqw}
+.game .impactSparks i:nth-child(10){--spark-left:80%;--spark-dx:9cqw;--spark-dy:-32cqw;--spark-delay:7ms}
+.game .impactSparks i:nth-child(11){--spark-left:88%;--spark-dx:11cqw;--spark-dy:-14cqw;--spark-size:3cqw}
+.game .impactSparks i:nth-child(12){--spark-left:96%;--spark-dx:14cqw;--spark-dy:-22cqw;--spark-delay:16ms}
+@keyframes smallImpactSpark{
+  0%{opacity:0;transform:translate(0,0) scale(.5)}
+  16%{opacity:var(--blast-strength);transform:translate(0,-3cqw) scale(1)}
+  100%{opacity:0;transform:translate(var(--spark-dx),var(--spark-dy)) scale(.45)}
+}
+@media(prefers-reduced-motion:reduce){.game .impactBeam{animation-duration:.12s!important}}

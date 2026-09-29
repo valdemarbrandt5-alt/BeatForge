@@ -1,6 +1,8 @@
 if(typeof window!=='undefined'){
   const rankClass=(text:string)=>{
     const t=text.toUpperCase();
+    if(t.includes('GRANDMASTER'))return 'rhGrandmaster';
+    if(t.includes('CHALLENGER'))return 'rhChallenger';
     if(t.includes('MASTER'))return 'rhMaster';
     if(t.includes('DIAMOND'))return 'rhDiamond';
     if(t.includes('PLATINUM'))return 'rhPlatinum';
@@ -18,9 +20,9 @@ if(typeof window!=='undefined'){
 
       card.classList.add('rankedHomeCard');
       const top=card.querySelector(':scope > small') as HTMLElement|null;
-      if(top&&/BEATFORGE COMPETITIVE/i.test(top.textContent||''))top.textContent='BEATFORGE';
+      if(top&&/BEATSTRIKE COMPETITIVE/i.test(top.textContent||''))top.textContent='BEATSTRIKE';
 
-      badge.classList.remove('rhBronze','rhSilver','rhGold','rhPlatinum','rhDiamond','rhMaster');
+      badge.classList.remove('rhBronze','rhSilver','rhGold','rhPlatinum','rhDiamond','rhMaster','rhGrandmaster','rhChallenger');
       badge.classList.add('rankedHomeRank',rankClass(badge.querySelector('b')?.textContent||''));
 
       const stats=badge.querySelector('span') as HTMLElement|null;
@@ -36,7 +38,7 @@ if(typeof window!=='undefined'){
       const style=document.createElement('style');
       style.id='ranked-home-style';
       style.textContent=`
-        .realRanked .rankedHomeCard>small{color:#ff7bce!important;font-size:8px!important;font-weight:1000!important;letter-spacing:2px!important}
+        .realRanked .rankedHomeCard>small{color:#a990ff!important;font-size:8px!important;font-weight:1000!important;letter-spacing:2px!important}
         .realRanked .rankedHomeCard .rankedHomeRank{
           display:grid!important;justify-items:center!important;gap:2px!important;
           width:min(300px,100%)!important;max-width:300px!important;box-sizing:border-box!important;
@@ -57,6 +59,8 @@ if(typeof window!=='undefined'){
         .realRanked .rankedHomeRank.rhPlatinum b{color:#57e0d1!important}
         .realRanked .rankedHomeRank.rhDiamond b{color:#6aa9ff!important}
         .realRanked .rankedHomeRank.rhMaster b{color:#c084fc!important}
+        .realRanked .rankedHomeRank.rhGrandmaster b{color:#ff6cab!important}
+        .realRanked .rankedHomeRank.rhChallenger b{color:#ffd54a!important}
       `;
       document.head.appendChild(style);
     }

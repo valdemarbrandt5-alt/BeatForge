@@ -1,12 +1,13 @@
 import { supabase } from './lib/supabase';
 
 if (typeof window !== 'undefined') {
-  let loadingCard: HTMLElement | null = null;
   let checkingLeave = false;
   let sendingLeave = false;
 
   const rankClass = (text: string) => {
     const t = text.toUpperCase();
+    if (t.includes('GRANDMASTER')) return 'rankGrandmaster';
+    if (t.includes('CHALLENGER')) return 'rankChallenger';
     if (t.includes('MASTER')) return 'rankMaster';
     if (t.includes('DIAMOND')) return 'rankDiamond';
     if (t.includes('PLATINUM')) return 'rankPlatinum';
@@ -45,7 +46,7 @@ if (typeof window !== 'undefined') {
       const cls = rankClass(mmr?.textContent || '');
       if (cls) card.classList.add(cls);
       card.querySelectorAll('.rankedPerformance > div').forEach((el, i) => {
-        (el as HTMLElement).dataset.stat = ['perfect','great','good','miss','accuracy','combo','timing'][i] || '';
+        (el as HTMLElement).dataset.stat = ['stars','perfect','great','good','miss','accuracy','combo','timing'][i] || '';
       });
     });
   };
@@ -57,17 +58,20 @@ if (typeof window !== 'undefined') {
     if (hud.parentElement !== game) game.appendChild(hud);
     hud.classList.add('rankedScoreboard');
     // Inline dimensions deliberately beat legacy live-HUD CSS that was stretching this element.
-    hud.style.setProperty('width', '145px', 'important');
-    hud.style.setProperty('min-width', '145px', 'important');
-    hud.style.setProperty('max-width', '145px', 'important');
-    hud.style.setProperty('left', '18px', 'important');
+    hud.style.setProperty('box-sizing', 'border-box', 'important');
+    hud.style.setProperty('width', '190px', 'important');
+    hud.style.setProperty('min-width', '190px', 'important');
+    hud.style.setProperty('max-width', '190px', 'important');
+    hud.style.setProperty('left', '16px', 'important');
+    hud.style.setProperty('top', '16px', 'important');
+    hud.style.setProperty('bottom', 'auto', 'important');
     hud.style.setProperty('right', 'auto', 'important');
     hud.style.setProperty('transform', 'none', 'important');
     const inner = hud.firstElementChild as HTMLElement | null;
     if (inner) {
-      inner.style.setProperty('width', '145px', 'important');
-      inner.style.setProperty('min-width', '145px', 'important');
-      inner.style.setProperty('max-width', '145px', 'important');
+      inner.style.setProperty('width', '100%', 'important');
+      inner.style.setProperty('min-width', '0', 'important');
+      inner.style.setProperty('max-width', '100%', 'important');
     }
     const players = [...hud.querySelectorAll('span')].filter(el => el.querySelector('.rrMe,.rrOpp')) as HTMLElement[];
     if (players.length < 2) return;
@@ -84,21 +88,12 @@ if (typeof window !== 'undefined') {
     const scoreOf = (p: HTMLElement) => Number((p.querySelector('.rrMe,.rrOpp')?.textContent || '0').replace(/[^0-9-]/g,'')) || 0;
     [...players].sort((a,b) => scoreOf(b)-scoreOf(a)).forEach((player,i) => {
       player.style.order=String(i); player.dataset.place=String(i+1);
-      player.style.setProperty('width','145px','important');
-      player.style.setProperty('min-width','145px','important');
-      player.style.setProperty('max-width','145px','important');
+      player.style.setProperty('width','100%','important');
+      player.style.setProperty('min-width','0','important');
+      player.style.setProperty('max-width','100%','important');
     });
   };
 
-  const autoLoadSelectedSong = () => {
-    const card = [...document.querySelectorAll('.rankedBackdrop.realRanked .rankedCard')].find(x => /SONG SELECTED/i.test(x.textContent || '')) as HTMLElement | undefined;
-    if (!card) { loadingCard = null; return; }
-    const overlay = card.closest('.rankedBackdrop.realRanked') as HTMLElement | null;
-    if (overlay) overlay.style.visibility = 'hidden';
-    const load = card.querySelector('.rankedLoad') as HTMLButtonElement | null;
-    if (!load || load.disabled || loadingCard === card) return;
-    loadingCard=card; load.click();
-  };
 
   const leaveCurrentLobby = async () => {
     if (!supabase || sendingLeave) return; sendingLeave=true;
@@ -113,7 +108,7 @@ if (typeof window !== 'undefined') {
   const recoverCancelledLobby = async () => {
     if(!supabase||checkingLeave)return;
     const card=document.querySelector('.rankedBackdrop.realRanked .rankedCard') as HTMLElement|null; if(!card)return;
-    if(!/(MATCH FOUND|CHOOSE THE SONG|SONG SELECTED|CHOOSE YOUR DIFFICULTY|SONG LOADED|GET READY|READY)/i.test(card.textContent||''))return;
+    if(!/(MATCH FOUND|CHOOSE THE SONG|CHOOSE YOUR INSTRUMENT|SONG LOADED|GET READY|READY)/i.test(card.textContent||''))return;
     checkingLeave=true;
     try {
       const {data:auth}=await supabase.auth.getUser(); const uid=auth.user?.id;if(!uid)return;
@@ -128,23 +123,23 @@ if (typeof window !== 'undefined') {
   const addStyles=()=>{
     if(document.getElementById('ranked-result-colors'))return;
     const style=document.createElement('style');style.id='ranked-result-colors';style.textContent=`
-      .rankedPerformance [data-stat="perfect"] b{color:#ffd43b!important}.rankedPerformance [data-stat="great"] b{color:#4ee6a8!important}.rankedPerformance [data-stat="good"] b{color:#ffad42!important}.rankedPerformance [data-stat="miss"] b{color:#ff4d5e!important}.rankedPerformance [data-stat="accuracy"] b{color:#66d9ff!important}.rankedPerformance [data-stat="combo"] b{color:#b58cff!important}.rankedPerformance [data-stat="timing"] b{color:#75a7ff!important}
+      .rankedPerformance [data-stat="stars"] b{color:#ffd54a!important}.rankedPerformance [data-stat="perfect"] b{color:#ffd43b!important}.rankedPerformance [data-stat="great"] b{color:#4ee6a8!important}.rankedPerformance [data-stat="good"] b{color:#ffad42!important}.rankedPerformance [data-stat="miss"] b{color:#ff4d5e!important}.rankedPerformance [data-stat="accuracy"] b{color:#66d9ff!important}.rankedPerformance [data-stat="combo"] b{color:#b58cff!important}.rankedPerformance [data-stat="timing"] b{color:#75a7ff!important}
       .streakBase{color:#8e95a5!important}.streakGold{color:#ffd43b!important}.streakBlue{color:#58a6ff!important}.streakPink{color:#ff72d2!important}
-      .matchPlayers .rankBronze{color:#cd7f32!important}.matchPlayers .rankSilver{color:#c8ced8!important}.matchPlayers .rankGold{color:#ffd43b!important}.matchPlayers .rankPlatinum{color:#57e0d1!important}.matchPlayers .rankDiamond{color:#6aa9ff!important}.matchPlayers .rankMaster{color:#c084fc!important}
-      .rankedCard.rankBronze{--rankAccent:#cd7f32}.rankedCard.rankSilver{--rankAccent:#c8ced8}.rankedCard.rankGold{--rankAccent:#ffd43b}.rankedCard.rankPlatinum{--rankAccent:#57e0d1}.rankedCard.rankDiamond{--rankAccent:#6aa9ff}.rankedCard.rankMaster{--rankAccent:#c084fc}.rankedCard[class*="rank"] .rankedMmrResult b{color:var(--rankAccent)!important}.rankedCard[class*="rank"] .rankedMmrResult{border-color:color-mix(in srgb,var(--rankAccent) 38%,#303646)!important}
-      .game>.realRankedLiveHud.rankedScoreboard{position:absolute!important;left:18px!important;bottom:304px!important;top:auto!important;right:auto!important;width:145px!important;min-width:145px!important;max-width:145px!important;height:auto!important;z-index:12!important;margin:0!important;padding:0!important;background:transparent!important;border:0!important;border-radius:0!important;backdrop-filter:none!important;box-shadow:none!important;pointer-events:none;overflow:visible!important;transform:none!important;inset-inline:auto!important}
-      .game>.realRankedLiveHud.rankedScoreboard>small{display:none!important}.game>.realRankedLiveHud.rankedScoreboard>div{display:flex!important;flex-direction:column!important;gap:4px!important;width:145px!important;min-width:145px!important;max-width:145px!important;align-items:stretch!important}.game>.realRankedLiveHud.rankedScoreboard i{display:none!important}
-      .game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp){position:relative!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:auto auto!important;align-items:center!important;box-sizing:border-box!important;width:145px!important;min-width:145px!important;max-width:145px!important;height:38px!important;margin:0!important;padding:4px 6px 4px 22px!important;border-radius:9px!important;background:#0f131c!important;border:1px solid #303747!important;text-align:left!important;transform:none!important;box-shadow:none!important;flex:none!important}.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp):before{content:'#' attr(data-place);position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:1000;color:#7e8799}.game>.realRankedLiveHud.rankedScoreboard span[data-place='1']:before{color:#ffd43b}
+      .matchPlayers .rankBronze{color:#cd7f32!important}.matchPlayers .rankSilver{color:#c8ced8!important}.matchPlayers .rankGold{color:#ffd43b!important}.matchPlayers .rankPlatinum{color:#57e0d1!important}.matchPlayers .rankDiamond{color:#6aa9ff!important}.matchPlayers .rankMaster{color:#c084fc!important}.matchPlayers .rankGrandmaster{color:#ff6cab!important}.matchPlayers .rankChallenger{color:#ffd54a!important}
+      .rankedCard.rankBronze{--rankAccent:#cd7f32}.rankedCard.rankSilver{--rankAccent:#c8ced8}.rankedCard.rankGold{--rankAccent:#ffd43b}.rankedCard.rankPlatinum{--rankAccent:#57e0d1}.rankedCard.rankDiamond{--rankAccent:#6aa9ff}.rankedCard.rankMaster{--rankAccent:#c084fc}.rankedCard.rankGrandmaster{--rankAccent:#ff6cab}.rankedCard.rankChallenger{--rankAccent:#ffd54a}.rankedCard[class*="rank"] .rankedMmrResult b{color:var(--rankAccent)!important}.rankedCard[class*="rank"] .rankedMmrResult{border-color:color-mix(in srgb,var(--rankAccent) 38%,#303646)!important}
+      .game>.realRankedLiveHud.rankedScoreboard{position:absolute!important;left:16px!important;top:16px!important;bottom:auto!important;right:auto!important;width:190px!important;min-width:190px!important;max-width:190px!important;height:auto!important;z-index:12!important;margin:0!important;padding:8px!important;background:#080c13ef!important;border:1px solid #3b4353!important;border-radius:12px!important;backdrop-filter:blur(8px)!important;box-shadow:none!important;pointer-events:none;overflow:visible!important;transform:none!important;inset-inline:auto!important}
+      .game>.realRankedLiveHud.rankedScoreboard>small{display:block!important;text-align:center!important;color:#a990ff!important;letter-spacing:1px!important;margin-bottom:5px!important}.game>.realRankedLiveHud.rankedScoreboard>div{display:flex!important;flex-direction:column!important;gap:4px!important;width:190px!important;min-width:190px!important;max-width:190px!important;align-items:stretch!important}.game>.realRankedLiveHud.rankedScoreboard i{display:none!important}
+      .game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp){position:relative!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:auto auto!important;align-items:center!important;box-sizing:border-box!important;width:190px!important;min-width:190px!important;max-width:190px!important;height:28px!important;margin:0!important;padding:4px 6px 4px 22px!important;border-radius:9px!important;background:#0f131c!important;border:1px solid #303747!important;text-align:left!important;transform:none!important;box-shadow:none!important;flex:none!important}.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp):before{content:'#' attr(data-place);position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:1000;color:#7e8799}.game>.realRankedLiveHud.rankedScoreboard span[data-place='1']:before{color:#ffd43b}
       .game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp)>b{grid-column:1;grid-row:1;font-size:8px!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;min-width:0!important}.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp)>em{grid-column:1;grid-row:2;font-size:6px!important;line-height:1!important;color:#788195!important;font-style:normal!important;white-space:nowrap!important}.game>.realRankedLiveHud.rankedScoreboard .rrMe,.game>.realRankedLiveHud.rankedScoreboard .rrOpp{grid-column:2!important;grid-row:1 / span 2!important;font-size:11px!important;line-height:1!important;font-variant-numeric:tabular-nums;margin-left:4px!important;white-space:nowrap!important;color:#fff!important}.game>.realRankedLiveHud.rankedScoreboard .rrMe:after,.game>.realRankedLiveHud.rankedScoreboard .rrOpp:after{content:' ' attr(data-combo);font-size:8px!important;margin-left:2px;font-weight:900!important}.game>.realRankedLiveHud.rankedScoreboard .rrLiveExtra{display:none!important}
       .game>.realRankedLiveHud.rankedScoreboard span.streakBase{border-color:#303747!important}.game>.realRankedLiveHud.rankedScoreboard span.streakBase .rrMe:after,.game>.realRankedLiveHud.rankedScoreboard span.streakBase .rrOpp:after{color:#8e95a5!important}
       .game>.realRankedLiveHud.rankedScoreboard span.streakGold{border-color:#ffd43b!important;box-shadow:0 0 8px #ffd43b22!important}.game>.realRankedLiveHud.rankedScoreboard span.streakGold .rrMe:after,.game>.realRankedLiveHud.rankedScoreboard span.streakGold .rrOpp:after{color:#ffd43b!important}
       .game>.realRankedLiveHud.rankedScoreboard span.streakBlue{border-color:#58a6ff!important;box-shadow:0 0 8px #58a6ff22!important}.game>.realRankedLiveHud.rankedScoreboard span.streakBlue .rrMe:after,.game>.realRankedLiveHud.rankedScoreboard span.streakBlue .rrOpp:after{color:#58a6ff!important}
       .game>.realRankedLiveHud.rankedScoreboard span.streakPink{border-color:#ff72d2!important;box-shadow:0 0 8px #ff72d222!important}.game>.realRankedLiveHud.rankedScoreboard span.streakPink .rrMe:after,.game>.realRankedLiveHud.rankedScoreboard span.streakPink .rrOpp:after{color:#ff72d2!important}
-      @media(max-width:760px){.game>.realRankedLiveHud.rankedScoreboard,.game>.realRankedLiveHud.rankedScoreboard>div,.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp){width:132px!important;min-width:132px!important;max-width:132px!important}.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp){height:36px!important}}
+      @media(max-width:760px){.game>.realRankedLiveHud.rankedScoreboard,.game>.realRankedLiveHud.rankedScoreboard>div,.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp){width:160px!important;min-width:160px!important;max-width:160px!important}.game>.realRankedLiveHud.rankedScoreboard span:has(.rrMe,.rrOpp){height:28px!important}}
     `;document.head.appendChild(style);
   };
 
-  const scan=()=>{addStyles();decorateRanks();decorateLeaderboardStreaks();decorateResult();decorateLiveHud();autoLoadSelectedSong();};
+  const scan=()=>{addStyles();decorateRanks();decorateLeaderboardStreaks();decorateResult();decorateLiveHud();};
   const start=()=>{scan();new MutationObserver(scan).observe(document.body,{childList:true,subtree:true,characterData:true});document.addEventListener('click',event=>{const target=event.target as HTMLElement|null;if(target?.closest('.realRanked .syncLeave,.realRanked .rankedLeave,.realRanked .cancelRealMatch'))void leaveCurrentLobby();},true);window.setInterval(()=>void recoverCancelledLobby(),500);};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 }

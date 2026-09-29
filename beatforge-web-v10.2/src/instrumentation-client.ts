@@ -61,6 +61,10 @@ if (typeof window !== 'undefined') {
 
   const reportRankedFinish = async (result: Element) => {
     if (!supabase || reporting || handled.has(result)) return;
+    const hud = document.querySelector<HTMLElement>('.realRankedLiveHud[data-match-id][data-score-run-id]');
+    if (!hud?.dataset.matchId || !hud.dataset.scoreRunId ||
+        result.getAttribute('data-score-run-id') !== hud.dataset.scoreRunId ||
+        (result as HTMLElement).style.display === 'none') return;
     handled.add(result);
     reporting = true;
     captureResult(result);
@@ -70,8 +74,7 @@ if (typeof window !== 'undefined') {
       if (!uid) return;
       const { data: match } = await supabase.from('ranked_matches')
         .select('id,status,player_1,player_2')
-        .or(`player_1.eq.${uid},player_2.eq.${uid}`).eq('status', 'playing')
-        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        .eq('id', hud.dataset.matchId).eq('status', 'playing').maybeSingle();
       if (!match) return;
       activeMatchId = match.id; activeUid = uid;
       const modalScore = numberFrom(result.querySelector('.finalScore')?.textContent);
@@ -99,27 +102,25 @@ if (typeof window !== 'undefined') {
     if (!cachedResult) return;
     const card = [...document.querySelectorAll('.realRanked .rankedCard')]
       .find((x) => /RANKED DUEL COMPLETE/i.test(x.textContent || '')) as HTMLElement | undefined;
-    if (!card || card.querySelector('.rankedPerformance')) return;
+    if (!card || card.querySelector('.rankedPerformance') || card.querySelector('.rankedStatsSheet .resultGrid')) return;
     const r = cachedResult;
     const html = `<div class="rankedPerformance"><div><b>${r.perfect}</b><span>PERFECT</span></div><div><b>${r.great}</b><span>GREAT</span></div><div><b>${r.good}</b><span>GOOD</span></div><div><b>${r.miss}</b><span>MISS</span></div><div><b>${r.accuracy}</b><span>ACCURACY</span></div><div><b>${r.maxCombo}</b><span>MAX COMBO</span></div><div><b>${r.timing}</b><span>${r.timingLabel}</span></div></div>`;
-    card.querySelector('.rankedFinalScores')?.insertAdjacentHTML('afterend', html);
+    (card.querySelector('.rankedStatsSheet')||card.querySelector('.rankedFinalScores'))?.insertAdjacentHTML('beforeend', html);
   };
 
   const telemetryTick = async () => {
     if (!supabase || telemetryBusy) return;
     const hud = document.querySelector('.realRankedLiveHud') as HTMLElement | null;
     if (!hud) { activeMatchId = null; activeUid = null; previousCombo = 0; previousJudge = 'READY'; localMisses = 0; opponentMisses = 0; return; }
+    if (activeMatchId !== hud.dataset.matchId) {
+      activeMatchId = hud.dataset.matchId || null;
+      previousCombo = 0; previousJudge = 'READY'; localMisses = 0; opponentMisses = 0;
+    }
     telemetryBusy = true;
     try {
       ensureHudExtras(hud);
       if (!activeUid) activeUid = (await supabase.auth.getUser()).data.user?.id || null;
       if (!activeUid) return;
-      if (!activeMatchId) {
-        const { data: match } = await supabase.from('ranked_matches').select('id')
-          .or(`player_1.eq.${activeUid},player_2.eq.${activeUid}`).eq('status','playing')
-          .order('created_at',{ascending:false}).limit(1).maybeSingle();
-        activeMatchId = match?.id || null;
-      }
       if (!activeMatchId) return;
       const score = numberFrom(document.querySelector('.hudScore b')?.textContent);
       const combo = numberFrom(document.querySelector('.hudCombo b')?.textContent);

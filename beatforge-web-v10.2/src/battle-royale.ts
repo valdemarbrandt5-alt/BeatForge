@@ -1,4 +1,7 @@
 import { supabase } from './lib/supabase';
+import { instrumentLabel, loadChartById, loadSongInstruments, youtubeVideoId, type ChartInstrument } from './chart-instruments';
+import {liveCompetitionPoints} from './competitive-score';
+import {rankName,challengerPosition} from './rank';
 
 type BRPlayer={
   id:string;user_id:string|null;name:string;is_bot:boolean;difficulty:string|null;ready:boolean;
@@ -8,7 +11,7 @@ type BRPlayer={
 type BRState={
   id:string;status:'lobby'|'loading'|'playing'|'round_result'|'finished'|'cancelled';round_no:number;
   start_at:string|null;server_now:string;lobby_deadline:string;ready_deadline:string|null;rating_center:number;
-  chart:null|{id:string;title:string;artist:string|null;youtube_url:string|null};players:BRPlayer[];
+  chart:null|{id:string;title:string;artist:string|null;youtube_url:string|null;instrument?:ChartInstrument};players:BRPlayer[];
 };
 
 if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
@@ -26,22 +29,45 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   let leavePrompt:HTMLElement|null=null;
   let liveActive=false;
   let lastState:BRState|null=null;
+  let selectedInstrument:ChartInstrument='mix';
+  const instrumentCache=new Map<string,ChartInstrument>();
   let searchStartedAt:number|null=null;
   let lobbyClock:number|null=null;
   let readyClock:number|null=null;
   let intermissionClock:number|null=null;
   let intermissionDeadline:number|null=null;
   let lastIntermissionTick=0;
+  let lastVotePoll=0;
+  let voting=false;
 
   const esc=(s:any)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]||c));
   const num=(v:string|null|undefined)=>Number(String(v||'0').replace(/[^0-9-]/g,''))||0;
   const portal=()=>document.fullscreenElement?.classList.contains('beatforgeFullscreenShell')?document.fullscreenElement:document.body;
   const streak=(combo:number)=>combo>=200?'brPink':combo>=100?'brBlue':combo>=50?'brGold':'brBase';
-  const rank=(mmr:number)=>mmr<800?'BRONZE':mmr<1000?'SILVER':mmr<1200?'GOLD':mmr<1400?'PLATINUM':mmr<1600?'DIAMOND':'MASTER';
+  const rank=rankName;
   const rankClass=(mmr:number)=>`brRank${rank(mmr)[0]}${rank(mmr).slice(1).toLowerCase()}`;
   const resultEl=()=>[...document.querySelectorAll('.resultBackdrop')].find(x=>/SONG COMPLETE/i.test(x.textContent||'')) as HTMLElement|undefined;
   const currentScore=()=>Math.max(num(resultEl()?.querySelector('.finalScore')?.textContent),num(document.querySelector('.hudScore b')?.textContent));
   const currentCombo=()=>num(document.querySelector('.hudCombo b')?.textContent);
+  const roundHits=()=>{
+    const result=soloResult||resultEl();
+    if(!result)return null;
+    return {
+      p_perfect:num(result.querySelector('.perfectStat b')?.textContent),
+      p_great:num(result.querySelector('.greatStat b')?.textContent),
+      p_good:num(result.querySelector('.goodStat b')?.textContent),
+      p_miss:num(result.querySelector('.missStat b')?.textContent),
+      p_max_combo:num(result.querySelector('.resultMeta>div:nth-child(2) b')?.textContent),
+    };
+  };
+  const roundAccuracy=()=>{
+    const text=(soloResult||resultEl())?.querySelector('.resultMeta>div:first-child b')?.textContent;
+    if(!text)return null;
+    const value=Number.parseFloat(text.replace(',','.'));
+    return Number.isFinite(value)?value:null;
+  };
+
+  const roundStars=()=>{const value=(soloResult||resultEl())?.querySelector('.resultStarsFinal')?.getAttribute('data-stars');return value===null||value===undefined?null:Number(value)};
 
   const stopCountdown=()=>{if(countdownTimer!==null){clearInterval(countdownTimer);countdownTimer=null}};
   const removeHud=()=>{hud?.remove();hud=null;document.documentElement.classList.remove('brInDangerActive');document.querySelector('.game')?.classList.remove('brInDanger','brDangerGame')};
@@ -70,12 +96,21 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     if(!matchId)return null;
     const {data,error}=await db.rpc('get_battle_royale_state',{p_match:matchId});
     if(error){console.error('battle royale state',error);return null}
-    return data as BRState|null;
+    const state=data as BRState|null;
+    if(state?.chart){
+      if(!instrumentCache.has(state.chart.id)){
+        const {data:chart}=await db.from('charts').select('instrument').eq('id',state.chart.id).maybeSingle();
+        instrumentCache.set(state.chart.id,(chart?.instrument||'mix') as ChartInstrument);
+      }
+      state.chart.instrument=instrumentCache.get(state.chart.id);
+    }
+    return state;
   };
 
   const renderLobby=(state:BRState)=>{
     const center=Number(state.rating_center||1000);
     const full=state.players.length>=8;
+    if(full&&overlay?.dataset.brVoteRound==='1')return;
     const signature=`${state.players.map(p=>p.id).join(',')}:${full?state.lobby_deadline:''}`;
     if(overlay?.dataset.brLobby===signature)return;
     const remaining=Math.max(0,Math.ceil((new Date(state.lobby_deadline).getTime()-new Date(state.server_now).getTime())/1000));
@@ -87,21 +122,36 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     (card.querySelector('.brLeaveLobby') as HTMLButtonElement).onclick=()=>void leaveMode();
   };
 
+  const refreshSongVote=async(state:BRState)=>{
+    if(!matchId||voting||(state.status==='lobby'&&state.players.length<8)||state.players.find(p=>p.me)?.eliminated)return;
+    const match=matchId;
+    const {data,error}=await db.rpc('get_battle_royale_song_vote',{p_match:match});
+    if(match!==matchId)return;
+    if(error){console.error('battle royale song vote',error);return}
+    if(!data?.songs?.length)return;
+    if(overlay?.dataset.brVoteRound!==String(data.round_no)){
+      const card=modal(`<small>BATTLE ROYALE · ROUND ${Number(data.round_no)}</small><h2>CHOOSE THE NEXT SONG</h2><p>The countdown is over. Pick one of six songs; bots cannot vote.</p><div class="brSongVote"></div><button class="brSecondary ${state.status==='lobby'?'brLeaveLobby':'brRoundLeave'}">LEAVE BATTLE ROYALE</button>`);
+      if(overlay)overlay.dataset.brVoteRound=String(data.round_no);
+      card.querySelector('.brLeaveLobby')?.addEventListener('click',()=>void leaveMode());
+      card.querySelector('.brRoundLeave')?.addEventListener('click',openLeavePrompt);
+    }
+    const panel=overlay?.querySelector<HTMLElement>('.brSongVote');
+    if(!panel)return;
+    const seconds=Math.max(0,Math.ceil((new Date(data.deadline).getTime()-new Date(data.server_now).getTime())/1000));
+    panel.innerHTML=`<div class="brVoteTitle">VOTE FOR ROUND ${Number(data.round_no)} <span>${seconds}s · ONLY PLAYERS VOTE</span></div><div class="brVoteGrid">${data.songs.map((song:{id:string;title:string;artist:string|null;youtube_url:string|null;votes:number})=>{const videoId=youtubeVideoId(song.youtube_url);return `<button class="brVoteOption ${data.my_vote===song.id?'chosen':''}" data-song="${esc(song.id)}" ${!seconds?'disabled':''}>${videoId?`<img src="https://i.ytimg.com/vi/${videoId}/mqdefault.jpg" alt="" loading="lazy">`:'<i class="brVoteCoverFallback" aria-hidden="true">♫</i>'}<span class="brVoteInfo"><b>${esc(song.title)}</b><span>${esc(song.artist||'Unknown artist')}</span><em>${Number(song.votes)||0} ${Number(song.votes)===1?'vote':'votes'}${data.my_vote===song.id?' · YOUR VOTE':''}</em></span></button>`}).join('')}</div><p>Most votes wins. A tie is decided at random.</p>`;
+    panel.querySelectorAll<HTMLButtonElement>('.brVoteOption').forEach(button=>button.onclick=async()=>{
+      if(voting||!matchId)return;
+      voting=true;panel.querySelectorAll<HTMLButtonElement>('.brVoteOption').forEach(b=>b.disabled=true);
+      const {error:voteError}=await db.rpc('vote_battle_royale_song',{p_match:matchId,p_chart:button.dataset.song});
+      voting=false;
+      if(voteError){panel.insertAdjacentHTML('beforeend',`<p role="alert">${esc(voteError.message)}</p>`);return}
+      await refreshSongVote(state);
+    });
+  };
+
   const clickChart=async(state:BRState)=>{
     const chart=state.chart;if(!chart)return false;
-    const community=[...document.querySelectorAll('button')].find(b=>b.textContent?.trim()==='COMMUNITY') as HTMLButtonElement|undefined;
-    community?.click();
-    return await new Promise<boolean>(resolve=>{
-      let tries=0;
-      const timer=window.setInterval(()=>{
-        tries++;
-        const cards=[...document.querySelectorAll('.communityTile')] as HTMLElement[];
-        const title=String(chart.title||'').trim().toLowerCase(),artist=String(chart.artist||'').trim().toLowerCase();
-        const target=cards.find(c=>(c.querySelector('.tileInfo strong')?.textContent?.trim().toLowerCase()||'')===title&&(!artist||(c.querySelector('.tileInfo span')?.textContent?.trim().toLowerCase()||'')===artist));
-        if(target){clearInterval(timer);target.click();resolve(true)}
-        else if(tries>45){clearInterval(timer);resolve(false)}
-      },150);
-    });
+    return loadChartById(chart.id);
   };
 
   const startReadyClock=(card:HTMLElement,state:BRState)=>{
@@ -115,11 +165,21 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const showDifficulty=async(state:BRState)=>{
     const chart=state.chart;if(!chart)return;
     if(lastState?.status!=='loading'||lastState.round_no!==state.round_no)return;
-    const card=modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><h2>CHOOSE YOUR DIFFICULTY</h2><p>Everyone plays the same song. Difficulty is individual.</p><div class="brReadyClock">TIME LEFT <b>15</b>s <span>Medium is selected automatically at zero.</span></div><div class="brSong"><b>${esc(chart.title)}</b><span>${esc(chart.artist||'')}</span></div><div class="brDifficultyGrid">${['Easy','Medium','Hard','Expert'].map(d=>`<button data-d="${d}"><b>${d}</b><span>${d==='Easy'?'Safer combos':d==='Medium'?'Balanced':d==='Hard'?'More scoring potential':'Maximum scoring potential'}</span></button>`).join('')}</div>`);
+    const variants=await loadSongInstruments(db,chart);
+    if(lastState?.status!=='loading'||lastState.round_no!==state.round_no)return;
+    const card=modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><h2>CHOOSE YOUR INSTRUMENT AND DIFFICULTY</h2><p>Everyone plays the same song. Choose your own instrument and difficulty.</p><div class="brReadyClock">TIME LEFT <b>15</b>s <span>Default instrument and Medium are selected automatically at zero.</span></div><div class="brSong"><b>${esc(chart.title)}</b><span>${esc(chart.artist||'')}</span></div><label class="brInstrumentLabel">YOUR INSTRUMENT <select class="brInstrument">${variants.map(v=>`<option value="${esc(v.id)}" ${v.id===chart.id?'selected':''}>${esc(instrumentLabel(v.instrument))}</option>`).join('')}</select></label><div class="brDifficultyGrid">${['Easy','Medium','Hard','Expert'].map(d=>`<button data-d="${d}"><b>${d}</b><span>${d==='Easy'?'Safer combos':d==='Medium'?'Balanced':d==='Hard'?'More scoring potential':'Maximum scoring potential'}</span></button>`).join('')}</div>`);
     startReadyClock(card,state);
     card.querySelectorAll<HTMLButtonElement>('[data-d]').forEach(button=>button.onclick=async()=>{
       const d=button.dataset.d||'Medium';
-      card.querySelectorAll('button').forEach((b:any)=>b.disabled=true);
+      card.querySelectorAll('button,select').forEach((b:any)=>b.disabled=true);
+      const selectedId=(card.querySelector('.brInstrument') as HTMLSelectElement).value||chart.id;
+      if(selectedId!==chart.id){
+        if(!await loadChartById(selectedId)){
+          const notice=document.createElement('p');notice.textContent='Could not load that instrument. Please choose another.';notice.setAttribute('role','alert');card.append(notice);
+          card.querySelectorAll('button,select').forEach((b:any)=>b.disabled=false);return;
+        }
+      }
+      selectedInstrument=(variants.find(v=>v.id===selectedId)?.instrument||'mix') as ChartInstrument;
       const pageButton=[...document.querySelectorAll('.chartOptions .seg button')].find(b=>b.textContent?.trim()===d) as HTMLButtonElement|undefined;
       pageButton?.click();
       const {error}=await db.rpc('battle_royale_choose_difficulty',{p_match:matchId,p_difficulty:d});
@@ -129,7 +189,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   };
 
   const showReady=(state:BRState,diff:string)=>{
-    const card=modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><h2>SONG LOADED</h2><div class="brReadyIcon">✓</div><div class="brChosen">YOUR DIFFICULTY <b>${esc(diff)}</b></div><div class="brReadyClock">TIME LEFT <b>15</b>s <span>Ready is automatic at zero.</span></div><p>Survive the round. The lowest scores are eliminated.</p><div class="brReadyStatus">PRESS READY WHEN YOU ARE SET</div><div class="brReadyError" role="alert" hidden></div><button class="brPrimary brReady">READY</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>`);
+    const card=modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><h2>SONG LOADED</h2><div class="brReadyIcon">✓</div><div class="brChosen">YOUR INSTRUMENT <b>${esc(instrumentLabel(selectedInstrument))}</b> · DIFFICULTY <b>${esc(diff)}</b></div><div class="brReadyClock">TIME LEFT <b>15</b>s <span>Ready is automatic at zero.</span></div><p>Survive the round. The lowest scores are eliminated.</p><div class="brReadyStatus">PRESS READY WHEN YOU ARE SET</div><div class="brReadyError" role="alert" hidden></div><button class="brPrimary brReady">READY</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>`);
     startReadyClock(card,state);
     updateReadyCount(lastState?.status==='loading'?lastState:state);
     (card.querySelector('.brReady') as HTMLButtonElement).onclick=async()=>{
@@ -147,8 +207,8 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const prepareRound=async(state:BRState)=>{
     if(preparedRound===state.round_no||!state.chart)return;
     const me=state.players.find(p=>p.me);if(me?.eliminated)return;
-    preparedRound=state.round_no;startedRound=0;localSubmittedRound=0;liveActive=false;removeHud();stopCountdown();
-    modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><div class="brSpinner"></div><h2>LOADING SONG</h2><p>${esc(state.chart.title)} · ${esc(state.chart.artist||'')}</p>`);
+    preparedRound=state.round_no;startedRound=0;localSubmittedRound=0;liveActive=false;selectedInstrument=state.chart.instrument||'mix';removeHud();stopCountdown();
+    modal(`<small>BATTLE ROYALE · ROUND ${state.round_no}</small><div class="brSpinner"></div><h2>LOADING SONG</h2><p>${esc(state.chart.title)} · ${esc(state.chart.artist||'')} · ${esc(instrumentLabel(state.chart.instrument))}</p>`);
     const loaded=await clickChart(state);
     if(!loaded){
       preparedRound=0;
@@ -188,10 +248,11 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     if(!hud)return;
     const list=hud.querySelector('.brLiveList');if(!list)return;
     const alive=state.players.filter(p=>!p.eliminated).sort((a,b)=>Number(b.score)-Number(a.score));
-    list.innerHTML=alive.map((p,i)=>`<div class="brLiveRow ${streak(Number(p.combo)||0)} ${p.me?'me':''}"><i>#${i+1}</i><b>${esc(p.name)}</b><span><strong>${Number(p.score||0).toLocaleString('da-DK')}</strong><small>${Number(p.combo||0)}x</small></span></div>`).join('');
-    const myIndex=alive.findIndex(p=>p.me);
     const target=state.round_no===1?6:state.round_no===2?4:state.round_no===3?2:1;
     const dangerCount=Math.min(Math.max(alive.length-target,0),alive.length-1);
+    const firstDanger=alive.length-dangerCount;
+    list.innerHTML=alive.map((p,i)=>`<div class="brLiveRow ${streak(Number(p.combo)||0)} ${p.me?'me':''} ${dangerCount&&i>=firstDanger?'brDanger':''} ${dangerCount&&i===firstDanger?'brDangerStart':''}"><i>#${i+1}</i><b>${esc(p.name)}</b><span><strong>${Number(p.score||0).toLocaleString('da-DK')}</strong><small>${Number(p.combo||0)}x</small></span></div>`).join('');
+    const myIndex=alive.findIndex(p=>p.me);
     const dangerous=liveActive&&myIndex>=0&&myIndex>=alive.length-dangerCount;
     document.documentElement.classList.toggle('brInDangerActive',dangerous);
   };
@@ -220,19 +281,37 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   const roundPerformance=()=>{
     const result=soloResult?.querySelector('.resultCard')||resultEl()?.querySelector('.resultCard');
     if(!result)return '<p>Your performance details are unavailable for this round.</p>';
-    const parts=['.finalScore','.scoreLabel','.resultGrid','.resultMeta','.personalBestResult'];
+    const parts=['.finalScore','.scoreLabel','.resultStarsFinal','.resultGrid','.resultMeta','.personalBestResult'];
     return parts.map(selector=>result.querySelector(selector)?.outerHTML||'').join('');
   };
   const showRoundResult=(state:BRState)=>{
-    if(overlay?.dataset.brResult===`${state.round_no}:${state.status}`)return;
+    if(overlay?.dataset.brResult===`${state.round_no}:${state.status}`||overlay?.dataset.brVoteRound===String(state.round_no+1))return;
     liveActive=false;removeHud();stopCountdown();
     const me=state.players.find(p=>p.me);if(!me)return;
+    const chartId=document.querySelector<HTMLElement>('main')?.dataset.activeChartId||state.chart?.id;
+    if(matchId&&chartId){
+      const roundMatch=matchId,round=state.round_no,hits=roundHits(),accuracy=roundAccuracy(),stars=roundStars();
+      void (async()=>{
+        const {error}=await db.rpc('record_competitive_result',{p_mode:'battle_royale',p_match:roundMatch,p_round:round,p_chart:chartId,p_difficulty:document.querySelector<HTMLElement>('main')?.dataset.competitionDifficulty||me.difficulty||'Medium',p_song_points:currentScore()});
+        if(error){console.error('battle royale result save',error);return}
+        if(hits){
+          const {error:hitError}=await db.rpc('record_competitive_hit_stats',{p_mode:'battle_royale',p_match:roundMatch,p_round:round,...hits});
+          if(hitError)console.error('battle royale hit stats save',hitError);
+        }
+        if(accuracy!==null){
+          const {error:accuracyError}=await db.rpc('record_competitive_display_accuracy',{p_mode:'battle_royale',p_match:roundMatch,p_round:round,p_accuracy:accuracy});
+          if(accuracyError)console.error('battle royale accuracy save',accuracyError);
+        }
+        if(stars!==null){const {error:starsError}=await db.rpc('record_competitive_stars',{p_mode:'battle_royale',p_match:roundMatch,p_round:round,p_stars:stars});if(starsError)console.error('battle royale stars save',starsError)}
+      })();
+    }
     const isWinner=state.status==='finished'&&me.placement===1;
     const out=!!me.eliminated&&!isWinner;
     const headline=isWinner?'VICTORY ROYALE':out?'ELIMINATED':`ROUND ${state.round_no} COMPLETE`;
     const sub=isWinner?'YOU ARE THE LAST PLAYER STANDING':out?`YOU FINISHED #${me.placement||'?'}`:'YOU SURVIVED';
-    const card=modal(`<small>BATTLE ROYALE</small><h1 class="brVerdict ${isWinner?'win':out?'loss':'survive'}">${headline}</h1><div class="brResultSub">${sub}</div><div class="brResultList">${roundRows(state)}</div>${mmrResult(me)}${state.status==='round_result'&&!out?'<div class="brIntermission">NEXT ROUND IN <b>30</b>s <span>Starting automatically</span></div><button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>':'<button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brDone">DONE</button>'}<div class="brStatsSheet" hidden><h2>YOUR PERFORMANCE</h2>${roundPerformance()}</div>`);
+    const card=modal(`<small>BATTLE ROYALE</small><h1 class="brVerdict ${isWinner?'win':out?'loss':'survive'}">${headline}</h1><div class="brResultSub">${sub}</div><div class="brResultList">${roundRows(state)}</div>${mmrResult(me)}${state.status==='round_result'&&!out?'<div class="brIntermission">SONG VOTE IN <b>30</b>s <span>Starting automatically</span></div><button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brRoundLeave">LEAVE BATTLE ROYALE</button>':'<button class="brPrimary brShowStats">SEE STATS</button><button class="brSecondary brDone">DONE</button>'}<div class="brStatsSheet" hidden><h2>YOUR PERFORMANCE</h2>${roundPerformance()}</div>`);
     if(overlay)overlay.dataset.brResult=`${state.round_no}:${state.status}`;
+    if(me.user_id&&typeof me.mmr_delta==='number'){const after=Math.max(0,Number(me.mmr_before||me.mmr||1000)+me.mmr_delta);void challengerPosition(db,me.user_id,after).then(position=>{const badge=card.querySelector('.brMmrResult b:nth-of-type(2)');if(position&&card.isConnected&&badge)badge.textContent+=` · WORLD #${position}`})}
     const stats=card.querySelector('.brShowStats') as HTMLButtonElement|null;
     if(stats)stats.onclick=()=>{const sheet=card.querySelector('.brStatsSheet') as HTMLElement;const open=sheet.hidden;sheet.hidden=!open;stats.textContent=open?'SHOW RESULTS':'SEE STATS';card.querySelector('.brResultList')?.classList.toggle('brResultsHidden',open);card.querySelector('.brMmrResult')?.classList.toggle('brResultsHidden',open)};
     card.querySelector('.brRoundLeave')?.addEventListener('click',openLeavePrompt);
@@ -249,7 +328,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     if(!matchId||state.status!=='playing'||!liveActive)return;
     const r=resultEl();const finished=!!r;
     if(finished&&localSubmittedRound!==state.round_no){localSubmittedRound=state.round_no;hideSoloResult()}
-    const {error}=await db.rpc('battle_royale_update',{p_match:matchId,p_score:currentScore(),p_combo:currentCombo(),p_finished:finished});
+    const {error}=await db.rpc('battle_royale_update',{p_match:matchId,p_score:liveCompetitionPoints(),p_combo:currentCombo(),p_finished:finished});
     if(error)console.error('battle royale score',error);
   };
 
@@ -287,7 +366,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
         if(error)console.error('battle royale intermission',error);
         else if(data?.deadline)intermissionDeadline=new Date(data.deadline).getTime()-(new Date(data.server_now).getTime()-(sent+Date.now())/2);
       }
-      const state=await getState();if(state)await handleState(state);
+      const state=await getState();if(state){await handleState(state);if((state.status==='lobby'||state.status==='round_result')&&Date.now()-lastVotePoll>=1000){lastVotePoll=Date.now();await refreshSongVote(state)}}
     }finally{busy=false}
   };
 
@@ -306,7 +385,8 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     const {data}=await db.rpc('get_battle_royale_rating');
     const row=Array.isArray(data)?data[0]:data;
     if(row){mmr=Number(row.mmr||1000);wins=Number(row.wins||0);games=Number(row.games||0);top4=Number(row.top4||0)}
-    const card=modal(`<button class="brX">×</button><small>BEATFORGE</small><h1>BATTLE ROYALE</h1><div class="brModeBadge">8 PLAYERS · 4 ROUNDS</div><div class="brHomeRank"><small>YOUR BATTLE ROYALE RANK</small><b class="${rankClass(mmr)}">${rank(mmr)}</b><strong>${mmr} MMR</strong><span>${wins} WINS · ${top4} TOP 4 · ${games} GAMES</span></div><p>Same song. Same start. Choose your own difficulty. The lowest scores are eliminated after every round until one player remains.</p><div class="brFlow"><span>8</span> → <span>6</span> → <span>4</span> → <span>2</span> → <b>1</b></div><button class="brPrimary brFind">FIND BATTLE ROYALE</button>`);
+    const {data:viewer}=await db.auth.getUser();const worldPosition=viewer.user?await challengerPosition(db,viewer.user.id,mmr):null;
+    const card=modal(`<button class="brX">×</button><small>BEATSTRIKE</small><h1>BATTLE ROYALE</h1><div class="brModeBadge">8 PLAYERS · 4 ROUNDS</div><div class="brHomeRank"><small>YOUR BATTLE ROYALE RANK</small><b class="${rankClass(mmr)}">${rank(mmr)}</b><strong>${mmr} MMR</strong><span>${worldPosition?`WORLD #${worldPosition} · `:''}${wins} WINS · ${top4} TOP 4 · ${games} GAMES</span></div><p>Same song. Same start. Choose your own difficulty. The lowest scores are eliminated after every round until one player remains.</p><div class="brFlow"><span>8</span> → <span>6</span> → <span>4</span> → <span>2</span> → <b>1</b></div><button class="brPrimary brFind">FIND BATTLE ROYALE</button>`);
     (card.querySelector('.brFind') as HTMLButtonElement).onclick=()=>void join();
     (card.querySelector('.brX') as HTMLButtonElement).onclick=closeOverlay;
   }
@@ -352,13 +432,14 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     const s=document.createElement('style');s.id='battle-royale-style';s.textContent=`
       .brBackdrop,.brLeaveBackdrop{position:fixed;inset:0;z-index:2147483646;background:#03050bec;backdrop-filter:blur(13px);display:grid;place-items:center;padding:18px}.brCard{position:relative;width:min(620px,94vw);max-height:90vh;overflow:auto;background:linear-gradient(150deg,#151a26,#0c1018);border:1px solid #3b4353;border-radius:20px;padding:28px;text-align:center;box-shadow:0 30px 100px #000b}.brCard>small,.brLeaveCard>small{font-size:8px;font-weight:1000;letter-spacing:2px;color:#ff7bce}.brCard h1{font-size:32px;margin:7px 0}.brCard h2{font-size:23px;margin:8px 0}.brCard>p{max-width:510px;margin:8px auto 17px;color:#a8b0c0;font-size:11px;line-height:1.5}.brX{position:absolute;right:15px;top:15px;width:34px;height:34px;padding:0!important;border:1px solid #343c4c!important;border-radius:9px!important;background:#151b27!important;color:#fff!important}.brPrimary,.brSecondary{padding:12px 18px!important;border-radius:11px!important;font-size:10px!important;font-weight:1000!important;letter-spacing:.05em}.brPrimary{background:#ed4eb9!important;border-color:#ff73cf!important;color:#fff!important}.brSecondary{background:#151b27!important;border-color:#343c4c!important;color:#c2c8d4!important;margin-left:8px}.brModeBadge{display:inline-block;margin:8px 0 4px;padding:8px 13px;border:1px solid #653a61;border-radius:999px;color:#ff83d2;font-size:9px;font-weight:1000}.brFlow{display:flex;justify-content:center;align-items:center;gap:10px;margin:18px 0;color:#8992a5;font-weight:1000}.brFlow span,.brFlow b{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#29172a;border:1px solid #7b3d73;color:#ff83d2}.brFlow b{background:#ed4eb9;color:#fff}.brSpinner{width:46px;height:46px;margin:14px auto;border:4px solid #303747;border-top-color:#ed4eb9;border-radius:50%;animation:brSpin .8s linear infinite}@keyframes brSpin{to{transform:rotate(360deg)}}
       .brHomeRank{display:grid;justify-items:center;gap:2px;margin:13px auto 15px;padding:13px;border:1px solid #343c4c;border-radius:13px;background:#0c1119;max-width:300px}.brHomeRank small{font-size:7px;color:#7f899c;font-weight:1000;letter-spacing:1px}.brHomeRank b{font-size:18px}.brHomeRank strong{font-size:12px}.brHomeRank span{font-size:7px;color:#7f899c;font-weight:900;margin-top:3px}.brSearchBand{margin:8px 0 14px;font-size:8px;color:#8993a6;font-weight:1000;letter-spacing:.8px}.brSearchBand b{margin-left:4px}.brLobbyCount{font-size:48px;font-weight:1000;color:#ff78cd;margin:10px 0 0}.brLobbyCount span{display:block;font-size:9px;color:#8993a6;letter-spacing:1.5px}.brLobbyClock{font-size:10px;font-weight:900;color:#a8b3c5;letter-spacing:1px}.brLobbyClock b{color:#ff78cd;font-size:18px}.brLobbyPlayers{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:14px 0}.brLobbyPlayers span{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid #303747;border-radius:10px;background:#0c1119;animation:brPlayerIn .22s ease}.brLobbyPlayers span.me{border-color:#ff71cc;box-shadow:inset 2px 0 #ff71cc}.brLobbyPlayers b{font-size:10px}.brLobbyPlayers em{font-size:7px;font-style:normal;font-weight:1000}@keyframes brPlayerIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-      .brRankBronze{color:#cd7f32!important}.brRankSilver{color:#c8ced8!important}.brRankGold{color:#ffd43b!important}.brRankPlatinum{color:#57e0d1!important}.brRankDiamond{color:#6aa9ff!important}.brRankMaster{color:#c084fc!important}
+      .brRankBronze{color:#cd7f32!important}.brRankSilver{color:#c8ced8!important}.brRankGold{color:#ffd43b!important}.brRankPlatinum{color:#57e0d1!important}.brRankDiamond{color:#6aa9ff!important}.brRankMaster{color:#c084fc!important}.brRankGrandmaster{color:#ff6cab!important}.brRankChallenger{color:#ffd54a!important}
       .brSong{display:grid;text-align:left;margin:14px 0;padding:11px 13px;border:1px solid #303747;border-radius:11px;background:#0a0f17}.brSong b{font-size:12px}.brSong span{font-size:8px;color:#8993a7}.brDifficultyGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.brDifficultyGrid button{min-height:62px;text-align:left;background:#121824!important;color:#fff!important;border:1px solid #343c4e!important}.brDifficultyGrid button:hover{border-color:#ff72ce!important}.brDifficultyGrid b{display:block;font-size:13px}.brDifficultyGrid span{font-size:8px;color:#8993a7}.brReadyIcon{margin:14px auto;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;border:1px solid #ff72ce;background:#ff72ce18;color:#ff8bd5;font-size:23px}.brChosen{display:inline-flex;gap:7px;padding:8px 12px;border:1px solid #653a61;border-radius:999px;color:#aab1c1}.brChosen b{color:#fff}.brReadyStatus{margin:14px 0 10px;font-size:8px;color:#9099ab;font-weight:1000;letter-spacing:1.2px}.brCountdown{font-size:54px;font-weight:1000;color:#ff78cd;margin:20px 0}.brWaitingFinish{font-size:18px;font-weight:1000;color:#ff78cd;margin:22px 0}
-      .game>.brLiveHud{position:absolute!important;left:16px!important;top:16px!important;width:190px!important;z-index:13!important;background:#080c13eF;border:1px solid #3b4353;border-radius:12px;padding:8px;pointer-events:none;backdrop-filter:blur(8px)}.brLiveHud>small{display:block;text-align:center;font-size:7px;color:#ff7bce;font-weight:1000;letter-spacing:1px;margin-bottom:5px}.brLiveList{display:flex;flex-direction:column;gap:3px}.brLiveRow{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;height:28px;padding:0 6px;border:1px solid #303747;border-radius:7px;background:#10151e}.brLiveRow>i{font-style:normal;font-size:8px;color:#818b9c}.brLiveRow>b{font-size:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left}.brLiveRow>span{display:grid;text-align:right}.brLiveRow strong{font-size:8px}.brLiveRow small{font-size:6px;font-weight:1000}.brLiveRow.me{box-shadow:inset 2px 0 #fff}.brLiveRow.brBase small{color:#8e95a5}.brLiveRow.brGold{border-color:#ffd43b}.brLiveRow.brGold small{color:#ffd43b}.brLiveRow.brBlue{border-color:#58a6ff}.brLiveRow.brBlue small{color:#58a6ff}.brLiveRow.brPink{border-color:#ff72d2}.brLiveRow.brPink small{color:#ff72d2}
-      .game.brInDanger{background:linear-gradient(180deg,#40141c,#220d15 45%,#100b10)!important;border-color:#ff4d5e!important;box-shadow:inset 0 0 110px #ff263e55,0 0 22px #ff263e44!important}html.brInDangerActive .game{background:linear-gradient(180deg,#40141c,#220d15 45%,#100b10)!important;border-color:#ff4d5e!important;box-shadow:inset 0 0 110px #ff263e55,0 0 22px #ff263e44!important}.game.brInDanger .lanes{background:linear-gradient(180deg,#ff30401b,#ff304008 65%,#ff30401b)}html.brInDangerActive .game .lanes{background:linear-gradient(180deg,#ff30401b,#ff304008 65%,#ff30401b)!important}.game.brInDanger:after,html.brInDangerActive .game:after{content:'DANGER ZONE';position:absolute;z-index:12;top:10px;left:50%;transform:translateX(-50%);padding:6px 13px;border:1px solid #ff6976;border-radius:8px;background:#260a11e8;color:#ff8791;font-size:10px;font-weight:1000;letter-spacing:2px;white-space:nowrap;pointer-events:none;text-shadow:0 0 10px #ff3146}
+      .game>.brLiveHud{position:absolute!important;left:16px!important;top:16px!important;width:190px!important;z-index:13!important;background:#080c13;border:1px solid #3b4353;border-radius:12px;padding:8px;pointer-events:none}.brLiveHud>small{display:block;text-align:center;font-size:7px;color:#ff7bce;font-weight:1000;letter-spacing:1px;margin-bottom:5px}.brLiveList{display:flex;flex-direction:column;gap:3px}.brLiveRow{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;height:28px;padding:0 6px;border:1px solid #303747;border-radius:7px;background:#10151e}.brLiveRow>i{font-style:normal;font-size:8px;color:#818b9c}.brLiveRow>b{font-size:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left}.brLiveRow>span{display:grid;text-align:right}.brLiveRow strong{font-size:8px}.brLiveRow small{font-size:6px;font-weight:1000}.brLiveRow.me{box-shadow:inset 2px 0 #fff}.brLiveRow.brBase small{color:#8e95a5}.brLiveRow.brGold{border-color:#ffd43b}.brLiveRow.brGold small{color:#ffd43b}.brLiveRow.brBlue{border-color:#58a6ff}.brLiveRow.brBlue small{color:#58a6ff}.brLiveRow.brPink{border-color:#ff72d2}.brLiveRow.brPink small{color:#ff72d2}
+      html.brInDangerActive .game{background:linear-gradient(180deg,#40141c,#220d15 45%,#100b10)!important;border-color:#ff4d5e!important;box-shadow:inset 0 0 0 2px #ff263e55,0 0 12px #ff263e44!important}html.brInDangerActive .game .lanes{background:linear-gradient(180deg,#ff30401b,#ff304008 65%,#ff30401b)!important}html.brInDangerActive .game:after{content:'DANGER ZONE';position:absolute;z-index:12;top:10px;left:50%;transform:translateX(-50%);padding:6px 13px;border:1px solid #ff6976;border-radius:8px;background:#260a11e8;color:#ff8791;font-size:10px;font-weight:1000;letter-spacing:2px;white-space:nowrap;pointer-events:none;text-shadow:0 0 10px #ff3146}
       .brVerdict{font-size:34px!important}.brVerdict.win{color:#ffd43b}.brVerdict.loss{color:#ff5a6e}.brVerdict.survive{color:#58e6a7}.brResultSub{margin:-2px 0 13px;font-size:9px;color:#949daf;font-weight:1000;letter-spacing:1px}.brResultList{display:flex;flex-direction:column;gap:4px;margin:12px 0 16px}.brResultRow{display:grid;grid-template-columns:35px minmax(0,1fr) 95px 75px;align-items:center;min-height:38px;padding:0 9px;border:1px solid #303747;border-radius:8px;background:#0d121a;text-align:left}.brResultRow>i{font-style:normal;font-size:9px;color:#8a94a5}.brResultRow>b{font-size:9px;display:grid}.brResultRow>b em{font-size:6px;font-style:normal;margin-top:2px}.brResultRow>span{text-align:right;font-size:10px;font-weight:1000}.brResultRow>small{text-align:right;font-size:6px;font-weight:1000;color:#52df9b}.brResultRow.out{opacity:.58}.brResultRow.out>small{color:#ff6173}.brResultRow.me{border-color:#ff71cc;box-shadow:0 0 10px #ff71cc18}.brMmrResult{display:flex;justify-content:center;align-items:center;gap:10px;padding:13px;border-top:1px solid #303747;border-bottom:1px solid #303747;margin:4px 0 16px;font-size:10px}.brMmrResult span{color:#747d8f}.brMmrResult strong{font-size:11px}.brMmrResult .positive{color:#48df92}.brMmrResult .negative{color:#ff5364}
       .brLeaveCard{width:min(420px,94vw);background:#111722;border:1px solid #3a4353;border-radius:18px;padding:24px;text-align:center}.brLeaveCard h2{margin:8px 0}.brLeaveCard p{color:#9ba5b7;font-size:11px}.brLeaveCard>div{display:flex;justify-content:center;gap:8px}.brLeaveCard button{padding:11px 16px;border-radius:10px;font-size:9px;font-weight:1000}.brLeaveConfirm{background:#38131b;border:1px solid #8b3448;color:#ff7888}.brLeaveCancel{background:#ed4eb9;border:1px solid #ff73cf;color:#fff}
       .brReadyClock{margin:12px auto;padding:9px 12px;border:1px solid #774361;border-radius:10px;background:#251522;color:#f1a8d4;font-size:10px;font-weight:900;letter-spacing:.7px}.brReadyClock b{color:#fff;font-size:18px}.brReadyClock span{display:block;margin-top:3px;color:#bba3b6;font-size:8px;font-weight:700;letter-spacing:0}.brReadyError:not([hidden]){margin:0 auto 12px;color:#ff8d9c;font-size:11px}
+      .brSongVote{margin:12px 0;color:#c8c1d7;font-size:10px}.brVoteTitle{display:flex;justify-content:space-between;gap:8px;font-size:10px;font-weight:1000;color:#ff8bd5}.brVoteTitle span{color:#9fa9b9;font-size:8px}.brVoteGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:10px 0}.brVoteOption{display:flex;align-items:center;gap:9px;min-width:0;min-height:72px;padding:7px;text-align:left;background:#0d1420!important;border:1px solid #394053!important;border-radius:9px!important;color:#fff!important;cursor:pointer}.brVoteOption.chosen{border-color:#ff83d1!important;background:#392238!important}.brVoteOption>img,.brVoteCoverFallback{width:75px;height:55px;flex:none;border-radius:6px;object-fit:cover;background:#211c34;color:#da9ef9}.brVoteCoverFallback{display:grid;place-items:center;font-size:24px;font-style:normal}.brVoteInfo{display:flex;flex-direction:column;gap:3px;min-width:0}.brVoteInfo b{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}.brVoteInfo span,.brVoteInfo em{font-size:8px;color:#b8b2c2;font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.brVoteOption:disabled{cursor:default;opacity:.65}.brSongVote>p{font-size:9px;color:#9fa9b9}
       @media(max-width:760px){.brDifficultyGrid,.brLobbyPlayers{grid-template-columns:1fr}.game>.brLiveHud{width:160px!important}.brResultRow{grid-template-columns:30px minmax(0,1fr) 76px 62px}.brMmrResult{flex-wrap:wrap}}
     `;document.head.appendChild(s);
   };

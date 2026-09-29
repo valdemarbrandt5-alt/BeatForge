@@ -1,13 +1,17 @@
 import { supabase } from './lib/supabase';
+import {liveCompetitionPoints} from './competitive-score';
+import {rankedResultScores,rankedResultMmr,rankedResultStats,wireRankedResult} from './ranked-result-view';
+import {rankName,challengerPosition} from './rank';
+import {groupSongs, instrumentLabel, loadChartById, loadSongInstruments, type ChartInstrument} from './chart-instruments';
 
 if (typeof window !== 'undefined' && supabase && window.location.pathname === '/') {
   const db:any=supabase;
   type BotMatch={
     id:string;user_id:string;status:string;bot_name:string;bot_mmr:number;user_mmr_before:number;
     candidate_chart_ids:string[];selected_chart_id:string|null;bot_difficulty:string;user_difficulty:string|null;
-    start_at:string|null;bot_score:number;bot_target_score:number;mmr_delta:number|null;
+    start_at:string|null;bot_score:number;bot_target_score:number;bot_max_combo:number;mmr_delta:number|null;
   };
-  type Chart={id:string;title:string;artist:string|null;youtube_url:string|null;play_count:number|null};
+  type Chart={id:string;title:string;artist:string|null;youtube_url:string|null;instrument?:ChartInstrument;play_count:number|null};
 
   let queueButton:Element|null=null;
   let queueDeadline=0;
@@ -24,14 +28,16 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   let leavePrompt:HTMLElement|null=null;
   let accessToken='';
   let unloadSent=false;
+  let pendingBotDifficulty='';
 
-  const rank=(mmr:number)=>mmr<800?'BRONZE':mmr<1000?'SILVER':mmr<1200?'GOLD':mmr<1400?'PLATINUM':mmr<1600?'DIAMOND':'MASTER';
+  const rank=rankName;
   const rankClass=(mmr:number)=>'rank'+rank(mmr)[0]+rank(mmr).slice(1).toLowerCase();
   const esc=(s:any)=>String(s??'').replace(/[&<>"']/g,(c:string)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
   const ytId=(url:string|null)=>{if(!url)return'';const m=url.match(/[?&]v=([^&]+)/)||url.match(/youtu\.be\/([^?]+)/)||url.match(/\/shorts\/([^?]+)/);return m?.[1]||''};
   const numberFrom=(v:string|null|undefined)=>Number(String(v||'0').replace(/[^0-9-]/g,''))||0;
   const portal=()=>document.fullscreenElement?.classList?.contains('beatforgeFullscreenShell')?document.fullscreenElement:document.body;
-  const resultEl=()=>[...document.querySelectorAll('.resultBackdrop')].find(x=>/SONG COMPLETE/i.test(x.textContent||'')) as HTMLElement|undefined;
+  const closedResults=new WeakSet<Element>();
+  const resultEl=()=>[...document.querySelectorAll('.resultBackdrop')].find(x=>!closedResults.has(x)&&(x as HTMLElement).style.display!=='none'&&/SONG COMPLETE/i.test(x.textContent||'')) as HTMLElement|undefined;
   const finalScore=()=>Math.max(numberFrom(resultEl()?.querySelector('.finalScore')?.textContent),numberFrom(document.querySelector('.hudScore b')?.textContent),lastScore);
 
   const clearQueueTimer=()=>{
@@ -69,7 +75,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   };
 
   const returnToRankedLobby=()=>{
-    clearLive();removeBotOverlay();active=null;soloResult=null;unloadSent=false;
+    clearLive();removeBotOverlay();active=null;soloResult=null;unloadSent=false;pendingBotDifficulty='';
     const b=document.querySelector('.rankedNavBtn') as HTMLButtonElement|null;
     window.setTimeout(()=>b?.click(),80);
   };
@@ -81,29 +87,30 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
 
   const loadSelectedChart=async(chartId:string)=>{
     if(!active)return;
-    const {data:selected}=await db.from('charts').select('id,title,artist').eq('id',chartId).single();
+    const {data:selected}=await db.from('charts').select('id,title,artist,instrument').eq('id',chartId).single();
     if(!selected)return;
-    modal('<small>RANKED DUEL · BOT</small><div class="queueSpinner"></div><h2>LOADING SONG</h2><p>'+esc(selected.title)+' · '+esc(selected.artist||'')+'</p>');
-    const community=[...document.querySelectorAll('button')].find(b=>b.textContent?.trim()==='COMMUNITY') as HTMLButtonElement|undefined;
-    community?.click();
-    let tries=0;
-    const timer=window.setInterval(()=>{
-      tries++;
-      const cards=[...document.querySelectorAll('.communityTile')] as HTMLElement[];
-      const title=String(selected.title||'').trim().toLowerCase(),artist=String(selected.artist||'').trim().toLowerCase();
-      const target=cards.find(c=>(c.querySelector('.tileInfo strong')?.textContent?.trim().toLowerCase()||'')===title&&(!artist||(c.querySelector('.tileInfo span')?.textContent?.trim().toLowerCase()||'')===artist));
-      if(target){
-        window.clearInterval(timer);target.click();window.setTimeout(showDifficulty,550);
-      }else if(tries>40){
-        window.clearInterval(timer);
-        const card=modal('<small>RANKED BOT ERROR</small><h2>COULD NOT LOAD SELECTED SONG</h2><button class="rankedSecondary botErrorClose">BACK</button>');
-        (card.querySelector('.botErrorClose') as HTMLButtonElement).onclick=()=>void cancelBot();
-      }
-    },150);
+    modal('<small>RANKED DUEL · BOT</small><div class="queueSpinner"></div><h2>LOADING SONG</h2><p>'+esc(selected.title)+' · '+esc(selected.artist||'')+' · '+esc(instrumentLabel(selected.instrument))+'</p>');
+    if(await loadChartById(chartId)){window.setTimeout(showDifficulty,550);return}
+    const card=modal('<small>RANKED BOT ERROR</small><h2>COULD NOT LOAD SELECTED SONG</h2><button class="rankedSecondary botErrorClose">BACK</button>');
+    (card.querySelector('.botErrorClose') as HTMLButtonElement).onclick=()=>void cancelBot();
+  };
+
+  const chooseInstrument=async(chartId:string)=>{
+    const {data:chart}=await db.from('charts').select('id,title,artist,youtube_url,instrument').eq('id',chartId).single();
+    if(!chart)return;
+    const choices=await loadSongInstruments(db,chart);
+    const card=modal('<small>RANKED DUEL · BOT</small><h2>CHOOSE YOUR INSTRUMENT AND DIFFICULTY</h2><p>Everyone plays the same song. Choose your own instrument and difficulty.</p><div class="rankVoteWinner"><div><b>'+esc(chart.title)+'</b><span>'+esc(chart.artist||'')+'</span></div></div><label class="rankInstrumentLabel">YOUR INSTRUMENT <select class="rankInstrument">'+choices.map(c=>'<option value="'+esc(c.id)+'" '+(c.id===chartId?'selected':'')+'>'+esc(instrumentLabel(c.instrument))+'</option>').join('')+'</select></label><div class="rankDifficultyGrid">'+['Easy','Medium','Hard','Expert'].map(d=>'<button class="rankDifficulty" data-d="'+d+'"><b>'+d+'</b><span>'+(d==='Easy'?'Safer combos':d==='Medium'?'Balanced':d==='Hard'?'More scoring potential':'Maximum scoring potential')+'</span></button>').join('')+'</div><button class="rankedSecondary botPreLeave">LEAVE</button>');
+    card.querySelectorAll<HTMLButtonElement>('.rankDifficulty').forEach(button=>button.onclick=()=>{pendingBotDifficulty=button.dataset.d||'Medium';card.querySelectorAll<HTMLButtonElement>('.rankDifficulty').forEach(b=>b.disabled=true);void loadSelectedChart((card.querySelector('.rankInstrument') as HTMLSelectElement).value||chartId)});
+    (card.querySelector('.botPreLeave') as HTMLButtonElement).onclick=()=>void cancelBot();
   };
 
   const showDifficulty=()=>{
     if(!active)return;
+    if(pendingBotDifficulty){
+      const d=pendingBotDifficulty;pendingBotDifficulty='';
+      void (async()=>{const button=[...document.querySelectorAll('.chartOptions .seg button')].find(b=>b.textContent?.trim()===d) as HTMLButtonElement|undefined;button?.click();const {error}=await db.rpc('set_ranked_bot_difficulty',{p_match:active!.id,p_difficulty:d});if(error){console.error('ranked bot difficulty',error);showDifficulty();return}active!.user_difficulty=d;armReady(d)})();
+      return;
+    }
     const card=modal('<small>RANKED DUEL · BOT</small><h2>CHOOSE YOUR DIFFICULTY</h2><p>You and your opponent choose independently.</p><div class="rankDifficultyGrid">'+['Easy','Medium','Hard','Expert'].map(d=>'<button class="rankDifficulty" data-d="'+d+'"><b>'+d+'</b><span>'+(d==='Easy'?'Safer combos':d==='Medium'?'Balanced':d==='Hard'?'More scoring potential':'Maximum scoring potential')+'</span></button>').join('')+'</div><button class="rankedSecondary botPreLeave">LEAVE</button>');
     card.querySelectorAll('.rankDifficulty').forEach(x=>x.addEventListener('click',async()=>{
       if(!active)return;
@@ -124,7 +131,8 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
     removeBotOverlay();
     const game=document.querySelector('.game') as HTMLElement|null;if(!game)return;
     const hud=document.createElement('div');hud.className='botRankedLiveHud';
-    hud.innerHTML='<div><span class="botLiveMe" data-place="1"><b>'+esc(self.username)+'</b><em>'+esc(active.user_difficulty||'Medium')+'</em><strong>0</strong></span><span class="botLiveOpp" data-place="2"><b>'+esc(active.bot_name)+' <i>BOT</i></b><em>'+esc(active.bot_difficulty)+'</em><strong>0</strong></span></div>';
+    hud.dataset.botTarget=String(active.bot_target_score||0);hud.dataset.botMaxCombo=String(active.bot_max_combo||0);
+    hud.innerHTML='<small>RANKED DUEL · LIVE</small><div><span class="botLiveMe" data-place="1"><b>'+esc(self.username)+'</b><em>'+esc(active.user_difficulty||'Medium')+'</em><strong>0</strong></span><span class="botLiveOpp" data-place="2"><b>'+esc(active.bot_name)+' <i>BOT</i></b><em>'+esc(active.bot_difficulty)+'</em><strong>0</strong></span></div>';
     game.appendChild(hud);liveHud=hud;live=true;finishing=false;lastScore=0;unloadSent=false;
     const session=await db.auth.getSession();accessToken=session?.data?.session?.access_token||'';
 
@@ -134,7 +142,7 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
       try{
         const result=resultEl();
         const finished=!!result;
-        lastScore=finalScore();
+        lastScore=Math.max(lastScore,liveCompetitionPoints());
         const {data,error}=await db.rpc('update_ranked_bot_score',{p_match:active.id,p_score:lastScore,p_finished:finished});
         if(error){console.error('ranked bot score',error);return}
         const row=Array.isArray(data)?data[0]:data;
@@ -146,41 +154,35 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
         ordered.forEach((p,i)=>{if(p.el){p.el.style.order=String(i);p.el.dataset.place=String(i+1)}});
         if(finished&&!finishing){
           finishing=true;
-          const perf=capturePerformance(result!);hideSoloResult(result!);
+          hideSoloResult(result!);
           active.bot_score=botScore;active.status='finished';active.mmr_delta=Number(row?.mmr_delta||0);
-          await showResult(row,perf);
+          await showResult(row);
         }
       }finally{busy=false}
     };
     await tick();liveTimer=window.setInterval(()=>void tick(),250);
   };
 
-  const capturePerformance=(result:HTMLElement)=>{
-    const meta=result.querySelectorAll('.resultMeta>div');
-    return{
-      perfect:result.querySelector('.perfectStat b')?.textContent?.trim()||'0',
-      great:result.querySelector('.greatStat b')?.textContent?.trim()||'0',
-      good:result.querySelector('.goodStat b')?.textContent?.trim()||'0',
-      miss:result.querySelector('.missStat b')?.textContent?.trim()||'0',
-      accuracy:meta[0]?.querySelector('b')?.textContent?.trim()||'0%',
-      combo:meta[1]?.querySelector('b')?.textContent?.trim()||'0×',
-      timing:meta[2]?.querySelector('b')?.textContent?.trim()||'0 ms',
-      timingLabel:meta[2]?.querySelector('span')?.textContent?.trim()||'ON TIME'
-    };
-  };
   const hideSoloResult=(r:HTMLElement)=>{r.style.display='none';soloResult=r};
   const closeSoloResult=async()=>{
     const r=soloResult;if(!r)return;
-    const finish=()=>{r.style.display='';const b=[...r.querySelectorAll('button')].find(x=>x.textContent?.trim()==='CLOSE') as HTMLButtonElement|undefined;b?.click();soloResult=null};
-    if(document.fullscreenElement){try{await document.exitFullscreen();window.setTimeout(finish,80)}catch{finish()}}else finish();
+    if(document.fullscreenElement){try{await document.exitFullscreen()}catch{}await new Promise(resolve=>setTimeout(resolve,80))}
+    closedResults.add(r);r.style.display='';const b=[...r.querySelectorAll('button')].find(x=>x.textContent?.trim()==='CLOSE') as HTMLButtonElement|undefined;b?.click();soloResult=null;
+    await new Promise(resolve=>requestAnimationFrame(()=>resolve(null)));
   };
 
-  const showResult=async(row:any,perf:any)=>{
+  const showResult=async(row:any)=>{
     if(!active)return;
     clearLive();
-    const mine=lastScore,theirs=Number(row?.bot_score??active.bot_score??0),before=active.user_mmr_before,delta=Number(row?.mmr_delta??0),after=Number(row?.my_mmr??before+delta);
+    const matchId=active.id;const playedChart=document.querySelector<HTMLElement>('main')?.dataset.activeChartId||active.selected_chart_id;
+    if(playedChart){void db.rpc('record_competitive_result',{p_mode:'ranked_bot',p_match:active.id,p_round:1,p_chart:playedChart,p_difficulty:active.user_difficulty||'Medium',p_song_points:numberFrom(soloResult?.querySelector('.finalScore')?.textContent)}).then(async({error}:{error:any})=>{if(error){console.error('ranked bot result save',error);return}const value=soloResult?.querySelector('.resultStarsFinal')?.getAttribute('data-stars');const stars=value===null||value===undefined?null:Number(value);if(stars!==null&&Number.isInteger(stars)){const {error:starsError}=await db.rpc('record_competitive_stars',{p_mode:'ranked_bot',p_match:matchId,p_round:1,p_stars:stars});if(starsError)console.error('ranked bot stars save',starsError)}})}
+    const mine=lastScore,theirs=Number(row?.bot_score??active.bot_score??0),before=active.user_mmr_before,delta=Number(row?.mmr_delta??0),after=Number(row?.my_mmr??before+delta);const worldPosition=await challengerPosition(db,active.user_id,after);
     const verdict=mine===theirs?'DRAW':mine>theirs?'VICTORY':'DEFEAT',cls=verdict==='VICTORY'?'win':verdict==='DEFEAT'?'loss':'draw';
-    const card=modal('<small>RANKED DUEL COMPLETE · BOT</small><h1 class="rankedVerdict '+cls+'">'+verdict+'</h1><div class="rankedFinalScores"><span><small>YOU · '+esc(active.user_difficulty||'Medium')+'</small><b>'+mine.toLocaleString()+'</b></span><i>VS</i><span><small>'+esc(active.bot_name)+' · BOT · '+esc(active.bot_difficulty)+'</small><b>'+theirs.toLocaleString()+'</b></span></div><div class="rankedPerformance"><div data-stat="perfect"><b>'+esc(perf.perfect)+'</b><span>PERFECT</span></div><div data-stat="great"><b>'+esc(perf.great)+'</b><span>GREAT</span></div><div data-stat="good"><b>'+esc(perf.good)+'</b><span>GOOD</span></div><div data-stat="miss"><b>'+esc(perf.miss)+'</b><span>MISS</span></div><div data-stat="accuracy"><b>'+esc(perf.accuracy)+'</b><span>ACCURACY</span></div><div data-stat="combo"><b>'+esc(perf.combo)+'</b><span>MAX COMBO</span></div><div data-stat="timing"><b>'+esc(perf.timing)+'</b><span>'+esc(perf.timingLabel)+'</span></div></div><div class="rankedMmrResult"><b>'+rank(before)+' · '+before+'</b><span>→</span><b>'+rank(after)+' · '+after+'</b><strong class="'+(delta>=0?'positive':'negative')+'">'+(delta>0?'+':'')+delta+' MMR</strong></div><button class="rankedPrimary botAgain">PLAY ANOTHER RANKED</button><button class="rankedSecondary botDone">DONE</button>');
+    const self=await getSelf(active.user_id);
+    const scores=rankedResultScores({name:self.username,difficulty:active.user_difficulty||'Medium',score:mine},{name:active.bot_name+' · BOT',difficulty:active.bot_difficulty,score:theirs});
+    const mmr=rankedResultMmr(before,after,delta,worldPosition);
+    const card=modal(`<small>RANKED DUEL COMPLETE · BOT</small><h1 class="rankedVerdict ${cls}">${verdict}</h1><div class="rankedResultSub">${verdict==='VICTORY'?'YOU WON THE DUEL':verdict==='DEFEAT'?'YOUR OPPONENT WON':'SCORES ARE TIED'}</div>${scores}${mmr}<button class="rankedPrimary rankedShowStats">SEE STATS</button><button class="rankedPrimary botAgain">PLAY ANOTHER RANKED</button><button class="rankedSecondary botDone">DONE</button><div class="rankedStatsSheet" hidden><h2>YOUR PERFORMANCE</h2>${rankedResultStats(soloResult)}<div class="rankedResultCompare"></div></div>`);
+    wireRankedResult(card);
     (card.querySelector('.botAgain') as HTMLButtonElement).onclick=async()=>{await closeSoloResult();returnToRankedLobby()};
     (card.querySelector('.botDone') as HTMLButtonElement).onclick=async()=>{await closeSoloResult();clearLive();removeBotOverlay();active=null};
   };
@@ -212,16 +214,16 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   const showVote=async(match:BotMatch)=>{
     active=match;clearQueueTimer();
     document.querySelector('.rankedBackdrop.realRanked')?.remove();
-    const user=await getUser();if(!user)return;const self=await getSelf(user.id);
-    const {data:charts}=await db.from('charts').select('id,title,artist,youtube_url,play_count').in('id',match.candidate_chart_ids);
-    const list=(charts||[]) as Chart[];
-    const card=modal('<small>MATCH FOUND · BOT</small><div class="matchPlayers"><span><small>YOU</small><b>'+esc(self.username)+'</b><em class="'+rankClass(self.mmr)+'">'+rank(self.mmr)+' · '+self.mmr+'</em></span><i>VS</i><span><small>OPPONENT · BOT</small><b>'+esc(match.bot_name)+'</b><em class="'+rankClass(match.bot_mmr)+'">'+rank(match.bot_mmr)+' · '+match.bot_mmr+'</em></span></div><h2>CHOOSE THE SONG</h2><p class="rankedVoteSub">3 charts from Trending · bot vote already locked</p><div class="rankVoteGrid">'+list.map(ch=>{const y=ytId(ch.youtube_url);return '<button class="rankVote" data-id="'+ch.id+'">'+(y?'<img src="https://i.ytimg.com/vi/'+y+'/mqdefault.jpg" alt="">':'<div class="voteFallback">BF</div>')+'<div><strong>'+esc(ch.title)+'</strong><span>'+esc(ch.artist||'Unknown artist')+'</span><small>▶ '+Number(ch.play_count||0).toLocaleString()+'</small></div></button>'}).join('')+'</div><div class="rankedVoteStatus">1/2 VOTES LOCKED</div><button class="rankedSecondary botPreLeave">LEAVE</button>');
+    const user=await getUser();if(!user)return;const self=await getSelf(user.id);const worldPosition=await challengerPosition(db,user.id,self.mmr);
+    const {data:charts}=await db.from('charts').select('id,title,artist,youtube_url,instrument,play_count').in('id',match.candidate_chart_ids);
+    const list=groupSongs((charts||[]) as Chart[]).map(group=>group[0]);
+    const card=modal('<small>MATCH FOUND · BOT</small><div class="matchPlayers"><span><small>YOU</small><b>'+esc(self.username)+'</b><em class="'+rankClass(self.mmr)+'">'+rank(self.mmr)+' · '+self.mmr+(worldPosition?' · WORLD #'+worldPosition:'')+'</em></span><i>VS</i><span><small>OPPONENT · BOT</small><b>'+esc(match.bot_name)+'</b><em class="'+rankClass(match.bot_mmr)+'">'+rank(match.bot_mmr)+' · '+match.bot_mmr+'</em></span></div><h2>CHOOSE THE SONG</h2><p class="rankedVoteSub">'+list.length+' songs from Trending · bot vote already locked</p><div class="rankVoteGrid">'+list.map(ch=>{const y=ytId(ch.youtube_url);return '<button class="rankVote" data-id="'+ch.id+'">'+(y?'<img src="https://i.ytimg.com/vi/'+y+'/mqdefault.jpg" alt="">':'<div class="voteFallback">BF</div>')+'<div><strong>'+esc(ch.title)+'</strong><span>'+esc(ch.artist||'Unknown artist')+'</span><small>▶ '+Number(ch.play_count||0).toLocaleString()+'</small></div></button>'}).join('')+'</div><div class="rankedVoteStatus">1/2 VOTES LOCKED</div><button class="rankedSecondary botPreLeave">LEAVE</button>');
     card.querySelectorAll('.rankVote').forEach(b=>b.addEventListener('click',async()=>{
       if(!active)return;card.querySelectorAll('.rankVote').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');
       const {data,error}=await db.rpc('vote_ranked_bot_chart',{p_match:active.id,p_chart:(b as HTMLElement).dataset.id});
       if(error){console.error('ranked bot vote',error);return}
       const selected=String(data||'');const refreshed=await getBotMatch(active.id);if(refreshed)active=refreshed;
-      if(selected)void loadSelectedChart(selected);
+      if(selected)void chooseInstrument(selected);
     }));
     (card.querySelector('.botPreLeave') as HTMLButtonElement).onclick=()=>void cancelBot();
   };
@@ -292,9 +294,9 @@ if (typeof window !== 'undefined' && supabase && window.location.pathname === '/
   const addStyles=()=>{
     if(document.getElementById('ranked-bot-style'))return;
     const s=document.createElement('style');s.id='ranked-bot-style';s.textContent=`
-      .rankedBotBackdrop,.rankedBotLeavePrompt{z-index:2147483646!important}.rankedBotCard .rankBronze{color:#cd7f32!important}.rankedBotCard .rankSilver{color:#c8ced8!important}.rankedBotCard .rankGold{color:#ffd43b!important}.rankedBotCard .rankPlatinum{color:#57e0d1!important}.rankedBotCard .rankDiamond{color:#6aa9ff!important}.rankedBotCard .rankMaster{color:#c084fc!important}
-      .game>.botRankedLiveHud{position:absolute!important;left:18px!important;bottom:304px!important;top:auto!important;right:auto!important;width:145px!important;min-width:145px!important;max-width:145px!important;z-index:12!important;pointer-events:none!important}.botRankedLiveHud>div{display:flex;flex-direction:column;gap:4px;width:145px}.botRankedLiveHud span{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;align-items:center;box-sizing:border-box;width:145px;height:38px;padding:4px 6px 4px 22px;border-radius:9px;background:#0f131c;border:1px solid #303747;text-align:left}.botRankedLiveHud span:before{content:'#' attr(data-place);position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:1000;color:#7e8799}.botRankedLiveHud span[data-place='1']:before{color:#ffd43b}.botRankedLiveHud span>b{grid-column:1;grid-row:1;font-size:8px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.botRankedLiveHud span>b i{font-style:normal;color:#a990ff;font-size:6px}.botRankedLiveHud span>em{grid-column:1;grid-row:2;font-size:6px;line-height:1;color:#788195;font-style:normal}.botRankedLiveHud span>strong{grid-column:2;grid-row:1 / span 2;font-size:11px;line-height:1;font-variant-numeric:tabular-nums;margin-left:4px;color:#fff}.botForfeitWarning{max-width:430px;margin:10px auto 16px;color:#aab2c2;line-height:1.5}.botForfeitWarning b{color:#ff6275}.rankedBotLeavePrompt .botConfirmForfeit{background:#ff4d61!important;border-color:#ff4d61!important}
-      @media(max-width:760px){.game>.botRankedLiveHud,.botRankedLiveHud>div,.botRankedLiveHud span{width:132px!important;min-width:132px!important;max-width:132px!important}.botRankedLiveHud span{height:36px!important}}
+      .rankedBotBackdrop,.rankedBotLeavePrompt{z-index:2147483646!important}.rankedBotCard .rankBronze{color:#cd7f32!important}.rankedBotCard .rankSilver{color:#c8ced8!important}.rankedBotCard .rankGold{color:#ffd43b!important}.rankedBotCard .rankPlatinum{color:#57e0d1!important}.rankedBotCard .rankDiamond{color:#6aa9ff!important}.rankedBotCard .rankMaster{color:#c084fc!important}.rankedBotCard .rankGrandmaster{color:#ff6cab!important}.rankedBotCard .rankChallenger{color:#ffd54a!important}
+      .game>.botRankedLiveHud{position:absolute!important;left:16px!important;top:16px!important;bottom:auto!important;right:auto!important;width:190px!important;min-width:190px!important;max-width:190px!important;z-index:12!important;pointer-events:none!important}.botRankedLiveHud>div{display:flex;flex-direction:column;gap:4px;width:145px}.botRankedLiveHud span{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;align-items:center;box-sizing:border-box;width:145px;height:38px;padding:4px 6px 4px 22px;border-radius:9px;background:#0f131c;border:1px solid #303747;text-align:left}.botRankedLiveHud span:before{content:'#' attr(data-place);position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:1000;color:#7e8799}.botRankedLiveHud span[data-place='1']:before{color:#ffd43b}.botRankedLiveHud span>b{grid-column:1;grid-row:1;font-size:8px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.botRankedLiveHud span>b i{font-style:normal;color:#a990ff;font-size:6px}.botRankedLiveHud span>em{grid-column:1;grid-row:2;font-size:6px;line-height:1;color:#788195;font-style:normal}.botRankedLiveHud span>strong{grid-column:2;grid-row:1 / span 2;font-size:11px;line-height:1;font-variant-numeric:tabular-nums;margin-left:4px;color:#fff}.botForfeitWarning{max-width:430px;margin:10px auto 16px;color:#aab2c2;line-height:1.5}.botForfeitWarning b{color:#ff6275}.rankedBotLeavePrompt .botConfirmForfeit{background:#ff4d61!important;border-color:#ff4d61!important}
+      @media(max-width:760px){.game>.botRankedLiveHud,.botRankedLiveHud>div,.botRankedLiveHud span{width:160px!important;min-width:160px!important;max-width:160px!important}.botRankedLiveHud span{height:28px!important}}
     `;document.head.appendChild(s);
   };
 

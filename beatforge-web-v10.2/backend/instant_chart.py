@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 from scipy.signal import lfilter
+from sustain import sustain_notes
 
 
 def generate_instant_chart(path: Path):
@@ -86,11 +87,13 @@ def generate_instant_chart(path: Path):
     beat = max(histogram, key=histogram.get) * .01 if histogram else .5
     origin = peaks[0][0] if peaks else 0
 
+    peaks = [peak for peak in peaks if peak[1] >= .035]
+    shaped = sustain_notes([(frame, time) for time, _, frame in peaks], env, hop / sr, .96, zcr * sr / 4,
+                           split_attacks=True)
     notes = []
     prev_lane = prev_prev = -1
-    for idx, (peak_time, strength, frame) in enumerate(peaks):
-        if strength < .035:
-            continue
+    for idx, note_duration in shaped:
+        peak_time, strength, frame = peaks[idx]
         step = beat / 2
         grid = origin + round((peak_time - origin) / step) * step
         t = grid if abs(grid - peak_time) < .035 else peak_time
@@ -100,29 +103,10 @@ def generate_instant_chart(path: Path):
         if lane == prev_prev and len(choices) > 1:
             lane = choices[(seed + 2) % len(choices)]
 
-        base = env[frame]
-        soft_floor = max(max_env * .0065, base * .20)
-        k = frame + 1
-        last_voiced = frame
-        quiet_frames = 0
-        next_attack = peaks[idx + 1][2] if idx + 1 < len(peaks) else frames
-        while k < frames and (k - frame) * hop / sr < 4.5:
-            if env[k] > soft_floor:
-                last_voiced, quiet_frames = k, 0
-            else:
-                quiet_frames += 1
-            age = (k - frame) * hop / sr
-            strong_attack = (age > .28 and k < next_attack + 2 and novelty[k] > max_novelty * .14
-                             and novelty[k] > novelty[max(0, k - 2)] * 1.45)
-            if strong_attack or quiet_frames > 7 or k >= next_attack:
-                break
-            k += 1
-        sustained = (last_voiced - frame) * hop / sr
-        note_duration = min(4.5, max(.45, sustained - .06)) if sustained >= .46 else 0
         notes.append({"id": len(notes), "time": max(.02, t), "lane": lane, "duration": note_duration})
         prev_prev, prev_lane = prev_lane, lane
 
-    if len(notes) < 8:
+    if len(notes) < 8 and not any(note["duration"] for note in notes):
         notes = [{"id": i, "time": .9 + i * .72, "lane": (i * 3) % 5, "duration": 0}
                  for i in range(max(10, int(duration * 1.25)))]
     return notes[:1600], duration

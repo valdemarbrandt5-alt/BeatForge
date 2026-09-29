@@ -1,7 +1,6 @@
 'use client';
-import {useEffect,useRef} from 'react';
+import {useEffect} from 'react';
 import RankedMultiplayer from './RankedMultiplayer';
-import {supabase} from '../lib/supabase';
 import '../ranked-ui-enhancements';
 import '../ranked-home-style';
 import '../ranked-forfeit';
@@ -13,28 +12,10 @@ import '../battle-royale';
 import '../battle-royale-danger-zone';
 import '../main-ui-tweaks';
 import '../solo-ui-enhancements';
-import '../casual-social';
-import '../casual-live';
+import '../friend-lobby';
 
 export default function Template({children}:{children:React.ReactNode}){
- const timer=useRef<number|null>(null);
- const wasSearching=useRef(false);
-
  useEffect(()=>{
-  if(!supabase)return;
-  const db=supabase;
-  const stop=()=>{
-   if(timer.current!==null){window.clearInterval(timer.current);timer.current=null}
-   if(wasSearching.current){wasSearching.current=false;void db.rpc('leave_ranked_queue')}
-  };
-  const beat=async()=>{
-   // Only the real multiplayer queue has .cancelRealQueue.
-   // The old simulated prototype uses .cancelQueue and is deliberately ignored.
-   if(!document.querySelector('.realRanked .cancelRealQueue')){stop();return}
-   wasSearching.current=true;
-   const {error}=await db.rpc('heartbeat_ranked_queue');
-   if(error)console.error('ranked queue heartbeat',error);
-  };
   const installProfileNav=()=>{
    const area=document.querySelector('.accountArea');
    if(!area||area.querySelector('.profileNavBtn'))return;
@@ -48,9 +29,6 @@ export default function Template({children}:{children:React.ReactNode}){
    if(charts)charts.insertAdjacentElement('afterend',profile);else area.appendChild(profile);
   };
   const sync=()=>{
-   const active=!!document.querySelector('.realRanked .cancelRealQueue');
-   if(active&&timer.current===null){wasSearching.current=true;void beat();timer.current=window.setInterval(beat,2000)}
-   else if(!active&&timer.current!==null)stop();
    installProfileNav();
    // React dialogs already define their own close actions; mirror them in the corner.
    document.querySelectorAll('.resultBackdrop .resultCard').forEach(node=>{
@@ -65,9 +43,7 @@ export default function Template({children}:{children:React.ReactNode}){
   const observer=new MutationObserver(sync);
   observer.observe(document.body,{childList:true,subtree:true});
   sync();
-  const hide=()=>stop();
-  window.addEventListener('pagehide',hide);
-  return()=>{observer.disconnect();window.removeEventListener('pagehide',hide);stop()};
+  return()=>observer.disconnect();
  },[]);
 
  return <><RankedMultiplayer/>{children}</>;

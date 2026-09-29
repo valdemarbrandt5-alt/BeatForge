@@ -31,7 +31,7 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
   });
 
   const captureRankedPerformance=(card:Element):Stats|null=>{
-    const perf=card.querySelector('.rankedPerformance');if(!perf)return null;
+    const perf=card.querySelector('.rankedPerformance');if(!perf)return card.querySelector('.rankedStatsSheet .resultGrid')?captureResult(card):null;
     const cells=[...perf.querySelectorAll(':scope>div')];
     if(cells.length<6)return null;
     const byLabel=(label:string)=>cells.find(x=>(x.querySelector('span')?.textContent||'').trim().toUpperCase()===label)?.querySelector('b')?.textContent;
@@ -152,9 +152,9 @@ if(typeof window!=='undefined'&&supabase&&window.location.pathname==='/'){
     if(error){waiting(card,'Bot performance unavailable.');return}
     const row=Array.isArray(data)?data[0]:data;
     if(!row)return;
-    local.score=numberFrom(card.querySelector('.rankedFinalScores span:first-child b')?.textContent)||local.score||0;
+    local.score=numberFrom(card.querySelector('.rankedFinalScores .rankedMe b')?.textContent)||local.score||0;
     const opp:Stats={
-      score:Number(row.bot_score)||numberFrom(card.querySelector('.rankedFinalScores span:last-child b')?.textContent),
+      score:Number(row.bot_score)||numberFrom(card.querySelector('.rankedFinalScores .rankedOpp b')?.textContent),
       perfect:Number(row.bot_perfect)||0,great:Number(row.bot_great)||0,good:Number(row.bot_good)||0,miss:Number(row.bot_miss)||0,maxCombo:Number(row.bot_max_combo)||0,
     };
     renderCompare(card,'RANKED HEAD TO HEAD',match.bot_name||'Bot',local,opp);
