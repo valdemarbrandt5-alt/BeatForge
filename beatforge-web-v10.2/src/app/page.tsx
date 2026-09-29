@@ -174,9 +174,11 @@ export default function Home(){
   if(request!==leaderboardRequest.current)return;
   const names=new Map((profiles||[]).map(profile=>[profile.id,profile.username]));
   if(rivalError&&rivalError.code!=='42P01')console.warn('Practice rivals are unavailable:',rivalError.message);
-  const realRows=[...(scores||[]),...((myBest||[]).filter(best=>!(scores||[]).some(row=>row.user_id===best.user_id&&row.score===best.score))),...[...(competitive||[]),...((myCompetitive||[]).filter(best=>!(competitive||[]).some(row=>row.user_id===best.user_id&&row.song_points===best.song_points)))].map(row=>({user_id:row.user_id,score:row.song_points,created_at:row.created_at,mode:row.mode,profiles:{username:names.get(row.user_id)||'Player'}}))];
-  const realPlayers=new Set(realRows.map(row=>row.user_id)).size;
-  const placeholders=(rivals||[]).slice(0,Math.max(0,3-realPlayers)).map(row=>({user_id:`rival-${chartId}-${diff}-${row.slot}`,score:row.score,max_combo:row.max_combo,simulated:true,profiles:{username:row.rival_name}}));
+  const realRows=[
+   ...(scores||[]),...((myBest||[]).filter(best=>!(scores||[]).some(row=>row.user_id===best.user_id&&row.score===best.score))),
+   ...[...(competitive||[]),...((myCompetitive||[]).filter(best=>!(competitive||[]).some(row=>row.user_id===best.user_id&&row.song_points===best.song_points)))].map(row=>({user_id:row.user_id,score:row.song_points,created_at:row.created_at,mode:row.mode,profiles:{username:names.get(row.user_id)||'Player'}}))
+  ];
+  const placeholders=(rivals||[]).slice(0,8).map(row=>({user_id:`rival-${chartId}-${diff}-${row.slot}`,score:row.score,max_combo:row.max_combo,simulated:true,profiles:{username:row.rival_name}}));
   const rows=[...realRows,...placeholders].sort((a,b)=>Number(b.score)-Number(a.score));
   setLeaderboard(rows);
   if(user){const {data:fs}=await db.from('friendships').select('requester_id,addressee_id').eq('status','accepted').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);if(request!==leaderboardRequest.current)return;const ids=new Set([user.id,...(fs||[]).flatMap(x=>[x.requester_id,x.addressee_id])]);setFriendLeaderboard(rows.filter(row=>ids.has(row.user_id)))}else setFriendLeaderboard([])
