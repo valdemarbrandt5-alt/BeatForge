@@ -1,6 +1,7 @@
 """Server-side equivalent of the instant vocal-focused generator in page.tsx."""
 
 import math
+from bisect import bisect_left, bisect_right
 from pathlib import Path
 
 import numpy as np
@@ -110,3 +111,53 @@ def generate_instant_chart(path: Path):
         notes = [{"id": i, "time": .9 + i * .72, "lane": (i * 3) % 5, "duration": 0}
                  for i in range(max(10, int(duration * 1.25)))]
     return notes[:1600], duration
+
+
+def compose_full_mix(charts):
+    """Build one playable chart from the analyzed instrument charts."""
+    instruments = ("vocals", "melody", "drums", "bass")
+    available = {name: charts[name] for name in instruments if name in charts}
+    if not available:
+        return [], 0.0
+    duration = max(item[1] for item in available.values())
+    events = [(note["time"], name, note) for name, (notes, _) in available.items()
+              for note in notes if 0 <= note["time"] < duration]
+    events.sort(key=lambda event: event[0])
+    lead_times = sorted(time for time, name, _ in events if name in ("vocals", "melody"))
+    priority = {"vocals": 4, "melody": 3, "drums": 2, "bass": 1}
+    # A local lead gives the chart continuity, but drums may fill pauses in it.
+    selected = []
+    for time, name, note in events:
+        lead_nearby = bisect_left(lead_times, time - .22) < bisect_right(lead_times, time + .22)
+        if name in ("drums", "bass") and lead_nearby:
+            continue
+        selected.append((time, name, note))
+    # Highest priority attack wins local clashes; a sliding density limit
+    # prevents short, busy arrangements from becoming impossible to play.
+    accepted = []
+    for event in sorted(selected, key=lambda item: (-priority[item[1]], item[0])):
+        time = event[0]
+        if any(abs(other[0] - time) < .105 for other in accepted):
+            continue
+        if sum(abs(other[0] - time) < .5 for other in accepted) >= 5:
+            continue
+        accepted.append(event)
+    accepted.sort(key=lambda item: item[0])
+    result, last_lane = [], -1
+    lane_free_at = [0.0] * 5
+    for index, (time, name, note) in enumerate(accepted[:3200]):
+        preferred = (int(note["lane"]) + {"vocals": 0, "melody": 1, "drums": 2, "bass": 3}[name]) % 5
+        free = [lane for lane in range(5) if lane_free_at[lane] <= time]
+        choices = [lane for lane in free if lane != last_lane] or free
+        lane = (min(choices, key=lambda candidate: (candidate - preferred) % 5)
+                if choices else min(range(5), key=lambda candidate: lane_free_at[candidate]))
+        if not free:
+            held = next((prior for prior in reversed(result) if prior["lane"] == lane
+                         and prior["time"] + prior["duration"] > time), None)
+            if held is not None:
+                held["duration"] = max(0.0, time - held["time"])
+        length = float(note.get("duration", 0)) if name in ("vocals", "melody") else 0.0
+        result.append({"id": index, "time": time, "lane": lane, "duration": length})
+        lane_free_at[lane] = time + length
+        last_lane = lane
+    return result, duration
