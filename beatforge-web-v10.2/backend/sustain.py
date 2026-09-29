@@ -17,6 +17,7 @@ def sustain_notes(events, envelope, seconds_per_frame, min_hold, pitches=None, g
     grace = max(1, round(gap_tolerance / dt))
     max_frames = round(3 / dt)
     active_start = active_end = -1
+    active_result = -1
     last_tap = -float('inf')
     result = []
 
@@ -60,6 +61,20 @@ def sustain_notes(events, envelope, seconds_per_frame, min_hold, pitches=None, g
         return bool(len(valley) and min(before, after) > noise_floor * 2
                     and float(np.min(valley)) < min(before, after) * .5)
 
+    def lasting_pitch_change(frame):
+        if pitches is None:
+            return False
+        before = window(pitches, frame, -.18, -.06)
+        after = window(pitches, frame, .10, .27)
+        later = window(pitches, frame, .27, .42)
+        before, after, later = (part[part > 0] for part in (before, after, later))
+        if min(len(before), len(after), len(later)) < 2:
+            return False
+        old, new, still = map(middle, (before, after, later))
+        cents = lambda a, b: abs(1200 * np.log2(a / b))
+        return (cents(new, old) >= 240 and cents(still, new) < 90
+                and middle(np.abs(1200 * np.log2(after / new))) < 70)
+
     for index, (frame, _) in enumerate(events):
         # Window leakage at a sound's release is not a new playable attack.
         before = middle(window(envelope, frame, -.06, -.015))
@@ -68,6 +83,18 @@ def sustain_notes(events, envelope, seconds_per_frame, min_hold, pitches=None, g
                 and before > noise_floor and after < max(noise_floor, before * .15)):
             continue
         if frame <= active_end:
+            elapsed, remaining = (frame - active_start) * dt, (active_end - frame) * dt
+            if (not split_attacks and active_result >= 0 and elapsed >= min_hold
+                    and remaining >= min_hold and (frame - last_tap) * dt >= .35
+                    and lasting_pitch_change(frame)):
+                # Hand over the held vowel to the new stable pitch. A short
+                # overlap gives the player time to press the next free lane.
+                previous, _ = result[active_result]
+                result[active_result] = (previous, min(3.0, elapsed + .08))
+                result.append((index, min(3.0, remaining - .06)))
+                active_result = len(result) - 1
+                active_start = last_tap = frame
+                continue
             if ((frame - active_start) * dt >= .25 and (active_end - frame) * dt >= .12
                     and (frame - last_tap) * dt >= .28 and is_inflection(frame)):
                 result.append((index, 0.0))
@@ -92,5 +119,6 @@ def sustain_notes(events, envelope, seconds_per_frame, min_hold, pitches=None, g
         result.append((index, length))
         if length:
             active_start, active_end = frame, last_active
+            active_result = len(result) - 1
             last_tap = frame
     return result
