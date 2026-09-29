@@ -154,14 +154,14 @@ def _playable_melody(candidates):
         lead = max(sources, key=lambda source: (
             sum(min(strength, 2) for _, strength, kind in nearby if kind == source)
             * preference.get(source, 1), preference.get(source, 1)))
-        if name != lead and any(source == lead and abs(other["time"] - at) < .4
+        if name not in (lead, "piano") and any(source == lead and abs(other["time"] - at) < .4
                                 for other, _, source in nearby):
             continue
-        chosen.append((note, confidence))
+        chosen.append((note, confidence, name))
     # One shared stream of notes must be playable with fingers, even when
     # separate instruments have interleaved attacks.
     selected = []
-    for note, confidence in sorted(chosen, key=lambda item: (-item[1], item[0]["time"])):
+    for note, confidence, name in sorted(chosen, key=lambda item: (item[2] != "piano", -item[1], item[0]["time"])):
         at = note["time"]
         if any(abs(other["time"] - at) < .09 for other in selected):
             continue
@@ -235,7 +235,7 @@ def merge_melody_sources(original: Path, six_directory: Path, mix_path: Path = N
     # Only collapse coincident hits from different stems. Chaining adjacent
     # groups used to swallow fast notes from the same piano stem.
     distinct = []
-    for note, confidence, name in sorted(candidates, key=lambda item: -item[1]):
+    for note, confidence, name in sorted(candidates, key=lambda item: (item[2] != "piano", -item[1])):
         if any(other_name != name and abs(note["time"] - other["time"]) < .07
                for other, _, other_name in distinct):
             continue
