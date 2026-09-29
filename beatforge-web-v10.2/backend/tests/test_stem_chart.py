@@ -9,10 +9,31 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from stem_chart import analyze_stem, _leaked_from_companion
+from stem_chart import analyze_stem, merge_melody_sources, _leaked_from_companion
 
 
 class StemChartTest(unittest.TestCase):
+    def test_piano_and_guitar_fill_missing_melody_without_duplicate_attacks(self):
+        sr = 22050
+        def note_at(at):
+            audio = np.zeros(sr * 4, dtype=np.float32)
+            t = np.arange(round(.35 * sr)) / sr
+            wave = .65 * (1 - np.exp(-t / .008)) * np.exp(-t / .18) * np.sin(2 * np.pi * 440 * t)
+            start = round(at * sr)
+            audio[start:start + len(t)] = wave
+            return audio
+        with TemporaryDirectory() as temp:
+            folder = Path(temp)
+            six = folder / 'six'
+            six.mkdir()
+            sf.write(folder / 'other.wav', note_at(.5), sr)
+            sf.write(six / 'other.wav', note_at(.5), sr)
+            sf.write(six / 'piano.wav', note_at(1.5), sr)
+            sf.write(six / 'guitar.wav', note_at(2.5), sr)
+            notes, _ = merge_melody_sources(folder / 'other.wav', six)
+        for at in (.5, 1.5, 2.5):
+            self.assertEqual(sum(abs(n['time'] - at) < .10 for n in notes), 1, notes)
+
     def test_shared_synth_attack_is_not_a_vocal_attack(self):
         sr, hop = 22050, 512
         seconds = np.arange(round(sr * .4)) / sr
