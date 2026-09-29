@@ -132,3 +132,58 @@ def analyze_stem(path: Path, instrument: str):
             prev_lane = lane
             notes.append({"id": len(notes), "time": round(float(t), 4), "lane": lane, "duration": round(float(length), 4)})
     return notes, duration
+
+
+def merge_melody_sources(original: Path, six_directory: Path):
+    """Use strong piano/guitar/other attacks without multiplying duplicate hits.
+
+    Four source `other` is retained as a fallback. The six source piano stem
+    can leak into other instruments, so each candidate must also pass the
+    existing companion rejection in analyze_stem and a local energy check.
+    """
+    sources = [("original", original)] + [
+        (name, six_directory / (name + ".wav"))
+        for name in ("piano", "guitar", "other")
+        if (six_directory / (name + ".wav")).is_file()
+    ]
+    original_notes, duration = analyze_stem(original, "melody")
+    if len(sources) == 1:
+        return original_notes, duration
+    candidates = []
+    with ExitStack() as stack:
+        for name, path in sources:
+            sound = stack.enter_context(sf.SoundFile(path))
+            if sound.samplerate != sf.info(original).samplerate:
+                continue
+            notes = original_notes if name == "original" else analyze_stem(path, "melody")[0]
+            values = []
+            for note in notes:
+                sound.seek(min(len(sound), max(0, round(note["time"] * sound.samplerate))))
+                sample = sound.read(round(.10 * sound.samplerate), dtype="float32", always_2d=True)
+                values.append(float(np.sqrt(np.mean(sample * sample))) if len(sample) else 0.0)
+            typical = float(np.percentile(values, 75)) if values else 0.0
+            for note, energy in zip(notes, values):
+                if energy < max(typical * .23, 1e-5):
+                    continue
+                # Specific sources get a modest preference, never a free pass.
+                confidence = min(3.0, energy / (typical + 1e-8)) * (1.12 if name in ("piano", "guitar") else 1.0)
+                candidates.append((note, confidence))
+    candidates.sort(key=lambda item: (item[0]["time"], -item[1]))
+    groups = []
+    for note, confidence in candidates:
+        if groups and note["time"] - groups[-1][-1][0]["time"] < .11:
+            groups[-1].append((note, confidence))
+        else:
+            groups.append([(note, confidence)])
+    distinct = []
+    for group in groups:
+        note, confidence = max(group, key=lambda item: item[1])
+        distinct.append((note, confidence))
+    # Cap extreme density per second, retaining the strongest musical attacks.
+    buckets = {}
+    for note, confidence in distinct:
+        buckets.setdefault(int(note["time"]), []).append((note, confidence))
+    selected = [note for bucket in buckets.values()
+                for note, _ in sorted(bucket, key=lambda item: item[1], reverse=True)[:6]]
+    selected.sort(key=lambda note: note["time"])
+    return [{**note, "id": index} for index, note in enumerate(selected)], duration
