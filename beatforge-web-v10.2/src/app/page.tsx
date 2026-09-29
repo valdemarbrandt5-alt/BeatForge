@@ -109,19 +109,19 @@ export default function Home(){
  const [discoverGlobalSort,setDiscoverGlobalSort]=useState(false);
  useEffect(()=>{if(!discoverOpen||!supabase)return;const db=supabase,request=++discoverRequest.current;setDiscoverLoading(true);setDiscoverCharts([]);setDiscoverHasMore(false);setCloudMessage('');const timer=window.setTimeout(async()=>{
   const q=discoverSearch.trim().replace(/[%,()*\\"]/g,' ').trim();
-  const fields='id,title,artist,youtube_url,instrument,difficulty,lane_count,duration,created_at,user_id,play_count,profiles!charts_user_id_fkey(username),chart_likes(user_id)';
+  const fields:string='id,title,artist,youtube_url,instrument,difficulty,lane_count,duration,created_at,user_id,play_count,profiles!charts_user_id_fkey(username),chart_likes(user_id)';
   let names:string[]=[];
   if(q){const {data:creators}=await db.from('profiles').select('id').ilike('username',`%${q}%`).limit(50);if(request!==discoverRequest.current)return;names=(creators||[]).map(row=>row.id)}
   if(discoverSort!=='default'){
    const {data:ordered,error:sortError}=await db.rpc('discover_charts_sorted',{p_sort:discoverSort,p_instrument:discoverInstrument,p_search:q,p_creator_ids:names,p_offset:discoverPage*30,p_limit:31});
    if(request!==discoverRequest.current)return;
    if(!sortError){
-    const page=(ordered||[]).slice(0,30),ids=page.map(row=>row.id);
+    const page=(ordered||[]).slice(0,30) as {id:string,note_density:number}[],ids=page.map(row=>row.id);
     if(!ids.length){setDiscoverCharts([]);setDiscoverHasMore(false);setDiscoverGlobalSort(true);setDiscoverLoading(false);return}
     const {data,error}=await db.from('charts').select(fields).in('id',ids);
     if(request!==discoverRequest.current)return;
     if(error){setDiscoverLoading(false);setCloudMessage(error.message);return}
-    const byId=new Map((data||[]).map(row=>[row.id,row]));
+    const byId=new Map<string,any>(((data||[]) as any[]).map(row=>[row.id,row]));
     setDiscoverCharts(page.flatMap(row=>{const ch=byId.get(row.id);return ch?[{...ch,note_density:row.note_density,like_count:ch.chart_likes?.length||0,liked_by_me:!!user&&ch.chart_likes?.some((l:any)=>l.user_id===user.id)}]:[]}) as SavedChart[]);
     setDiscoverHasMore((ordered||[]).length>30);setDiscoverGlobalSort(true);setDiscoverLoading(false);return;
    }
@@ -136,7 +136,7 @@ export default function Home(){
   let {data,error}=await fetchPage(true);
   if(error?.code==='42703')({data,error}=await fetchPage(false));
   if(request!==discoverRequest.current)return;setDiscoverLoading(false);if(error){setCloudMessage(error.message);return}
-  setDiscoverCharts((data||[]).slice(0,30).map(ch=>({...ch,like_count:ch.chart_likes?.length||0,liked_by_me:!!user&&ch.chart_likes?.some((l:any)=>l.user_id===user.id)})) as SavedChart[]);setDiscoverHasMore((data||[]).length>30);setDiscoverGlobalSort(false);
+  setDiscoverCharts(((data||[]) as any[]).slice(0,30).map(ch=>({...ch,like_count:ch.chart_likes?.length||0,liked_by_me:!!user&&ch.chart_likes?.some((l:any)=>l.user_id===user.id)})) as SavedChart[]);setDiscoverHasMore((data||[]).length>30);setDiscoverGlobalSort(false);
  },discoverSearch.trim()?350:0);return()=>{window.clearTimeout(timer);discoverRequest.current++};
  },[discoverOpen,discoverPage,discoverSearch,discoverInstrument,discoverTab,discoverSort,user?.id]);
  const saveProfile=async()=>{if(!user||!supabase)return 'Sign in to save your username.';const clean=username.trim();if(clean.length<3)return 'Username must be at least 3 characters.';const {error}=await supabase.from('profiles').upsert({id:user.id,username:clean},{onConflict:'id'});return error?error.message:'Profile saved ✓'};
