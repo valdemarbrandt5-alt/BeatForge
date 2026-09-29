@@ -6,10 +6,10 @@ import AdminBatchImport from './AdminBatchImport';
 import AccountSettings from './AccountSettings';
 import {parsePlayerSettings,parseSettingsTransfer,type PlayerSettings} from '../player-settings';
 import {distinctInstruments, groupSongs, instrumentLabel, type ChartInstrument} from '../chart-instruments';
-import {assignPhraseLanes} from '../phrase-lanes';
+import {buildPlayableChart} from '../playable-chart';
 import {hitAccuracy,scoreAccuracy} from '../hit-accuracy';
 import {chartScorePotential,starProgress as scoreStarProgress,starRating} from '../star-rating';
-import {clearHoldDuration} from '../hold-duration';
+import {sustainNotes} from '../sustain-notes';
 type Note={id:number,time:number,lane:number,duration?:number,hit?:boolean,miss?:boolean,holding?:boolean,completed?:boolean};
 type Feedback='READY'|'PERFECT'|'GREAT'|'GOOD'|'MISS';
 type ImpactBurst={lane:number,id:number,kind:Feedback,stage:'base'|'gold'|'blue'|'pink'};
@@ -234,39 +234,7 @@ export default function Home(){
   window.addEventListener('beatforge:load-chart',handle);
   return()=>window.removeEventListener('beatforge:load-chart',handle);
  },[user]);
- const buildChart=(source:Note[],lanes:number,diff:Difficulty,instrument:ChartInstrument=activeInstrument)=>{
-  const keep={Easy:.38,Medium:.62,Hard:.82,Expert:1}[diff];
-  const kept=assignPhraseLanes(source.filter((_,i)=>keep===1||((i*37)%100)/100<keep),lanes);
-  const blocked=Array(lanes).fill(-Infinity) as number[];
-  const built:Note[]=[];
-  const cfg={Easy:{chord:0,triple:0},Medium:{chord:35,triple:0},Hard:{chord:25,triple:0},Expert:{chord:18,triple:97}}[diff];
-  kept.forEach((n,i)=>{
-   const seed=(((i+1)*1103515245+Math.round(n.time*1000)*12345)>>>0);
-   const minHold={vocals:.6,melody:.72,bass:.76,drums:.9,mix:.9}[instrument];
-   const dur=clearHoldDuration(n.duration,kept[i+1]?.time,n.time,minHold);
-   const preferred=((n.lane%lanes)+lanes)%lanes;
-   const order=[preferred,...Array.from({length:lanes},(_,x)=>x).filter(x=>x!==preferred)];
-   const lane=order.find(x=>blocked[x]<=n.time-.08)??preferred;
-   if(dur>=.45)blocked[lane]=Math.max(blocked[lane],n.time+dur);
-   const base:Note={...n,lane,duration:dur||undefined,hit:false,miss:false,holding:false,completed:false};
-   built.push(base);
-   const chordEvery=instrument==='vocals'?0:cfg.chord;
-   const wantsChord=!!chordEvery&&lanes>=3&&i>1&&i<kept.length-1&&seed%chordEvery===0;
-   if(wantsChord){
-    const available=Array.from({length:lanes},(_,x)=>x).filter(x=>x!==lane&&blocked[x]<=n.time-.05);
-    if(available.length){
-     const chordLane=available[(seed>>>8)%available.length];
-     built.push({...base,lane:chordLane,duration:undefined});
-     const wantsTriple=!!cfg.triple&&lanes>=4&&seed%cfg.triple===0;
-     if(wantsTriple){
-      const third=available.filter(x=>x!==chordLane);
-      if(third.length)built.push({...base,lane:third[(seed>>>13)%third.length],duration:undefined});
-     }
-    }
-   }
-  });
-  return built.sort((a,b)=>a.time-b.time||a.lane-b.lane).map((n,id)=>({...n,id}));
- };
+ const buildChart=(source:Note[],lanes:number,diff:Difficulty,instrument:ChartInstrument=activeInstrument)=>buildPlayableChart(source,lanes,diff,instrument);
  useEffect(()=>{setKeys(k=>{const presets=[['f','j','k'],['d','f','j','k'],['d','f','j','k','l']][laneCount-3];return presets.map((d,i)=>k[i]??d)});setNotes(buildChart(baseNotes,laneCount,difficulty));setStatus(s=>songName==='Demo chart'?s:`${buildChart(baseNotes,laneCount,difficulty).length} notes · ${difficulty} · ${laneCount} lanes`);},[laneCount,difficulty,activeInstrument]);
  const missSound=()=>{try{const ctx=new AudioContext();const o=ctx.createOscillator(),g=ctx.createGain();o.type='square';o.frequency.setValueAtTime(145,ctx.currentTime);o.frequency.exponentialRampToValueAtTime(70,ctx.currentTime+.09);g.gain.setValueAtTime(.18*volume,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.1);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+.1);o.onended=()=>ctx.close()}catch{}};
  useEffect(()=>{if(activeChartId)loadLeaderboard(activeChartId,difficulty)},[difficulty,activeChartId]);
@@ -386,30 +354,19 @@ export default function Home(){
   let beat=.5,best=0;hist.forEach((v,k)=>{if(v>best){best=v;beat=k*.01}});const origin=peaks[0]?.t||0;
 
   const out:Note[]=[];let prevLane=-1,prevPrev=-1;
-  peaks.forEach((p,idx)=>{
-   if(p.strength<.035)return;
+  const usable=peaks.filter(p=>p.strength>=.035);
+  const shaped=sustainNotes(usable.map(p=>({frame:p.frame,time:p.t})),env,hop/sr,.96,zcr.map(value=>value*sr/4),true);
+  shaped.forEach(({index:idx,duration:dur})=>{
+   const p=usable[idx];
    const step=beat/2,grid=origin+Math.round((p.t-origin)/step)*step;
    const t=Math.abs(grid-p.t)<.035?grid:p.t; // less snapping than v0.14: preserve sung phrasing
    const candidates=[0,1,2,3,4].filter(l=>l!==prevLane||idx%6===0);
    const seed=((p.frame*1103515245+idx*12345)>>>0);let lane=candidates[seed%candidates.length];
    if(lane===prevPrev&&candidates.length>1)lane=candidates[(seed+2)%candidates.length];
 
-   // A hold needs sustained energy throughout the phrase; decaying tails are taps.
-   const base=env[p.frame],softFloor=Math.max(maxEnv*.012,base*.45);let k=p.frame+1,lastVoiced=p.frame,quietFrames=0;
-   const nextAttack=idx+1<peaks.length?peaks[idx+1].frame:frames;
-   while(k<frames&&(k-p.frame)*hop/sr<3){
-    const active=env[k]>softFloor;
-    if(active){lastVoiced=k;quietFrames=0}else quietFrames++;
-    // A clear later syllable starts a new note; tiny fluctuations inside a held vowel do not.
-    const age=(k-p.frame)*hop/sr;
-    const strongAttack=age>.28&&k<nextAttack+2&&novelty[k]>maxNovelty*.14&&novelty[k]>novelty[Math.max(0,k-2)]*1.45;
-    if(strongAttack||quietFrames>4||k>=nextAttack)break;k++;
-   }
-   const sustained=(lastVoiced-p.frame)*hop/sr;let dur=0;
-   if(sustained>=.96)dur=Math.min(3,sustained-.06);
    out.push({id:out.length,time:Math.max(.02,t),lane,duration:dur||undefined});prevPrev=prevLane;prevLane=lane;
   });
-  if(out.length<8)return Array.from({length:Math.max(10,Math.floor(buffer.duration*1.25))},(_,i)=>({id:i,time:.9+i*.72,lane:(i*3)%5}));
+  if(out.length<8&&!out.some(note=>note.duration))return Array.from({length:Math.max(10,Math.floor(buffer.duration*1.25))},(_,i)=>({id:i,time:.9+i*.72,lane:(i*3)%5}));
   return out.slice(0,1600);
  };
  const openYoutubeChart=async()=>{const id=youtubeId(uploadYoutube.trim());if(!id){setCloudMessage('Enter a valid YouTube link.');return}if(!supabase){setCloudMessage('Supabase is not configured.');return}setCloudMessage('Searching for this YouTube song…');const {data,error}=await supabase.from('charts').select('id,title,artist,youtube_url,instrument,difficulty,lane_count,duration,created_at,user_id,profiles!charts_user_id_fkey(username)').ilike('youtube_url',`%${id}%`).limit(100);if(error){setCloudMessage(error.message);return}const exact=(data||[]).filter((x:any)=>youtubeId(x.youtube_url)===id) as unknown as SavedChart[];if(exact.length){setUploadOpen(false);setUploadYoutube('');setCloudMessage('');await chooseSong(exact);return}setUploadNeedsAudio(true);setCloudMessage('This song is new to BeatStrike. Choose the audio file once so BeatStrike can generate the chart. The YouTube link will be kept automatically.')};

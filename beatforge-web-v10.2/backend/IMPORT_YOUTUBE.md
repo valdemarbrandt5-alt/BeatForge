@@ -13,7 +13,7 @@ Use recordings you are permitted to download and analyze.
    make `ffmpeg` available on PATH. For instrument charts also install Demucs:
    `py -m pip install demucs`. The first run downloads the `htdemucs` model to
    the local computer; separation can take several minutes per song.
-3. Keep `import_youtube_charts.py`, `instant_chart.py` and `stem_chart.py`
+3. Keep `import_youtube_charts.py`, `instant_chart.py`, `stem_chart.py` and `sustain.py`
    together in one directory. Create `links.txt` there with one individual
    YouTube URL per line. Duplicate URLs and blank or commented lines are ignored.
 4. Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (the `sb_secret_` key or a
@@ -69,7 +69,18 @@ Use a new checkpoint filename when you intentionally refresh everything again
 after another analyzer update.
 
 The updated analyzer compares vocals and melody against the other Demucs tracks
-to reject shared instrumental attacks, and preserves clear sustained melody and
-bass notes more often. To apply it to existing instrument charts, replace your
-local `stem_chart.py` with the updated version before running `--refresh-stems`.
+to reject shared instrumental attacks. It keeps sustained notes through ordinary
+vibrato and allows distinct vocal inflections as taps while the original note
+continues. Update both `stem_chart.py` and `sustain.py` before `--refresh-stems`.
 The frontend change to hold lengths also needs the current Vercel deployment.
+
+Full mix charts use `instant_chart.py` and the same `sustain.py`. To reanalyze
+existing admin-owned full mix charts as well as stems, use:
+
+```powershell
+py .\import_youtube_charts.py .\beatforge-links.txt --instruments all --refresh-existing --completed-file .\genanalyse-lange-noter.txt
+```
+
+This regenerates notes in place and preserves chart IDs. Existing scores were
+made with the old note patterns; compare new scores with new plays only. Use a
+new checkpoint file when refreshing again after a later analyzer update.

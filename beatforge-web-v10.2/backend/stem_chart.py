@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 from scipy.ndimage import gaussian_filter1d
+from sustain import sustain_notes
 
 
 STEMS = {
@@ -58,6 +59,7 @@ def analyze_stem(path: Path, instrument: str):
         return [], duration
     frames = 1 + (len(y) - win) // hop
     rms, flux = np.empty(frames, np.float32), np.empty(frames, np.float32)
+    pitches = np.zeros(frames, np.float32)
     prev = None
     window = np.hanning(win).astype(np.float32)
     for i in range(frames):
@@ -66,6 +68,14 @@ def analyze_stem(path: Path, instrument: str):
         mag = np.abs(np.fft.rfft(x))
         flux[i] = 0 if prev is None else np.maximum(0, mag - prev).sum() / (mag.sum() + 1e-8)
         prev = mag
+        if instrument != "drums":
+            low = max(1, int(55 * win / sr))
+            high = min(len(mag) - 1, int(1800 * win / sr))
+            peak_bin = low + int(np.argmax(mag[low:high]))
+            # Interpolation avoids FFT-bin jumps being mistaken for vocal bends.
+            a, b, c = np.log(np.maximum(mag[peak_bin - 1:peak_bin + 2], 1e-10))
+            bend = .5 * (a - c) / (a - 2 * b + c) if abs(a - 2 * b + c) > 1e-8 else 0
+            pitches[i] = (peak_bin + np.clip(bend, -.5, .5)) * sr / win
     rms = gaussian_filter1d(rms, 1.0)
     flux = gaussian_filter1d(flux, 1.0)
     # Soft piano attacks and fresh vocal syllables can raise the volume without
@@ -110,20 +120,13 @@ def analyze_stem(path: Path, instrument: str):
         companions = [other for other in companions if other.samplerate == sr and len(other) >= len(y)]
         accepted = [(fi, t) for fi, t in candidates[:1600]
                     if not companions or not _leaked_from_companion(y, peak, sr, fi, hop, companions)]
-        for idx, (fi, t) in enumerate(accepted):
-            length = 0.0
-            if instrument != "drums":
-                floor = max(np.percentile(rms, 30) * 1.25, rms[fi] * .45)
-                next_onset = accepted[idx + 1][0] if idx + 1 < len(accepted) else frames
-                j, max_frames = fi + 1, int(3.0 * sr / hop)
-                while j < next_onset and j < frames and j - fi < max_frames and rms[j] > floor:
-                    if j > fi + int(.28 * sr / hop) and score[j] > max(base * .7, score[fi] * .8):
-                        break
-                    j += 1
-                raw = (j - fi) * hop / sr
-                min_hold = {"vocals": .68, "melody": .82, "bass": .86}[instrument]
-                if raw >= min_hold:
-                    length = min(raw - .06, 3.0)
+        shaped = ([(i, 0.0) for i in range(len(accepted))] if instrument == "drums" else
+                  sustain_notes(accepted, rms, hop / sr,
+                                {"vocals": .68, "melody": .82, "bass": .86}[instrument], pitches,
+                                gap_tolerance=.085 if instrument == "vocals" else .03,
+                                split_attacks=instrument != "vocals"))
+        for idx, length in shaped:
+            fi, t = accepted[idx]
             choices = [lane for lane in range(5) if lane != prev_lane]
             lane = int(rng.choice(choices))
             prev_lane = lane

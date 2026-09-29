@@ -1,0 +1,96 @@
+"""Group a voiced phrase into a hold, with sparse taps for audible inflections.
+
+Energy continuity owns the hold length. Onset detections inside it are only
+ornaments: regular vibrato/tremolo must not restart the note. The browser uses
+the same thresholds in src/sustain-notes.ts.
+"""
+
+import numpy as np
+
+
+def sustain_notes(events, envelope, seconds_per_frame, min_hold, pitches=None, gap_tolerance=.085, split_attacks=False):
+    """Return (event index, duration); unselected interior ripples are omitted."""
+    if not events or len(envelope) == 0:
+        return []
+    dt = seconds_per_frame
+    noise_floor = float(np.max(envelope)) * .012
+    grace = max(1, round(gap_tolerance / dt))
+    max_frames = round(3 / dt)
+    active_start = active_end = -1
+    last_tap = -float('inf')
+    result = []
+
+    def window(values, frame, start, end):
+        return values[max(0, frame + round(start / dt)):min(len(values), frame + round(end / dt))]
+
+    def middle(values):
+        return float(np.median(values)) if len(values) else 0.0
+
+    # Repeated instrumental attacks can have ringing tails between them. A
+    # clear decay followed by a fresh rise is a new note, not one endless hold.
+    restarts = set()
+    if split_attacks:
+        for frame, _ in events:
+            shoulder = middle(window(envelope, frame, -.20, -.08))
+            valley = window(envelope, frame, -.065, .01)
+            low = float(np.percentile(valley, 25)) if len(valley) else 0
+            after = middle(window(envelope, frame, .02, .10))
+            if shoulder > noise_floor and low < shoulder * .65 and after > max(noise_floor, low * 1.8):
+                restarts.add(frame)
+
+    def is_inflection(frame):
+        # Compare stable neighborhoods, not two adjacent FFT frames. The latter
+        # turns every cycle of vibrato into another attack.
+        if pitches is not None:
+            before = window(pitches, frame, -.16, -.04)
+            after = window(pitches, frame, .04, .16)
+            before, after = before[before > 0], after[after > 0]
+            if len(before) >= 2 and len(after) >= 2:
+                left, right = middle(before), middle(after)
+                change = abs(1200 * np.log2(right / left))
+                spread = max(middle(np.abs(1200 * np.log2(before / left))),
+                             middle(np.abs(1200 * np.log2(after / right))))
+                if change >= 120 and spread < 70:
+                    return True
+        # A brief, pronounced vocal break may keep the same pitch. Normal
+        # volume oscillation does not reach this depth relative to both sides.
+        before = middle(window(envelope, frame, -.18, -.09))
+        after = middle(window(envelope, frame, .03, .12))
+        valley = window(envelope, frame, -.09, .025)
+        return bool(len(valley) and min(before, after) > noise_floor * 2
+                    and float(np.min(valley)) < min(before, after) * .5)
+
+    for index, (frame, _) in enumerate(events):
+        # Window leakage at a sound's release is not a new playable attack.
+        before = middle(window(envelope, frame, -.06, -.015))
+        after = middle(window(envelope, frame, .02, .07))
+        if (active_end >= 0 and abs(frame - active_end) * dt < .1
+                and before > noise_floor and after < max(noise_floor, before * .15)):
+            continue
+        if frame <= active_end:
+            if ((frame - active_start) * dt >= .25 and (active_end - frame) * dt >= .12
+                    and (frame - last_tap) * dt >= .28 and is_inflection(frame)):
+                result.append((index, 0.0))
+                last_tap = frame
+            continue
+
+        initial = window(envelope, frame, 0, .12)
+        level = float(np.percentile(initial, 70)) if len(initial) else float(envelope[frame])
+        floor = max(noise_floor, level * .35)
+        last_active, quiet = frame, 0
+        for current in range(frame + 1, min(len(envelope), frame + max_frames + 1)):
+            if current in restarts:
+                break
+            if envelope[current] > floor:
+                last_active, quiet = current, 0
+            else:
+                quiet += 1
+                if quiet > grace:
+                    break
+        raw = (last_active - frame) * dt
+        length = min(3.0, raw - .06) if raw >= min_hold else 0.0
+        result.append((index, length))
+        if length:
+            active_start, active_end = frame, last_active
+            last_tap = frame
+    return result
