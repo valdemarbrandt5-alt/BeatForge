@@ -11,6 +11,7 @@ import soundfile as sf
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from stem_chart import analyze_stem
 from instant_chart import generate_instant_chart
+from sustain import sustain_notes
 
 
 def vowel(sr, seconds=1.6, expressive=False, vibrato=True):
@@ -27,6 +28,25 @@ def vowel(sr, seconds=1.6, expressive=False, vibrato=True):
 
 
 class SustainAudioTest(unittest.TestCase):
+    def test_stable_new_pitch_hands_a_hold_to_the_next_lane(self):
+        dt = .01
+        frames = np.arange(250)
+        envelope = np.where((frames >= 20) & (frames < 220), 1.0, 0.0)
+        pitches = np.where(frames < 105, 330., 330. * 2 ** (320 / 1200))
+        events = [(20, .2), (105, 1.05), (145, 1.45)]
+        shaped = sustain_notes(events, envelope, dt, .6, pitches)
+        holds = [(events[i][1], length) for i, length in shaped if length]
+        self.assertEqual(len(holds), 2, shaped)
+        self.assertGreater(holds[0][0] + holds[0][1], holds[1][0])
+        self.assertGreater(holds[1][1], .9)
+
+    def test_small_pitch_bend_stays_inside_one_hold(self):
+        frames = np.arange(250)
+        envelope = np.where((frames >= 20) & (frames < 220), 1.0, 0.0)
+        pitches = np.where(frames < 105, 330., 330. * 2 ** (175 / 1200))
+        shaped = sustain_notes([(20, .2), (105, 1.05)], envelope, .01, .6, pitches)
+        self.assertEqual(sum(length > 0 for _, length in shaped), 1, shaped)
+
     def analyze(self, signal, sr, instrument='vocals', mix=False):
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / 'voice.wav'
@@ -50,18 +70,31 @@ class SustainAudioTest(unittest.TestCase):
                     self.assertGreater(holds[0]['duration'], 1.3, notes)
                     self.assertLessEqual(len(notes), 2, notes)
 
-    def test_pitch_breaks_become_taps_inside_the_same_held_vowel(self):
+    def test_small_break_is_a_tap_and_lasting_new_pitch_hands_off_the_hold(self):
         for sr in (22050, 44100):
             with self.subTest(sr=sr):
                 notes = self.analyze(self.recording(sr, expressive=True), sr)
                 holds = [note for note in notes if note['duration']]
-                self.assertEqual(len(holds), 1, notes)
-                held = holds[0]
-                self.assertGreater(held['duration'], 1.7, notes)
+                self.assertEqual(len(holds), 2, notes)
+                held, next_hold = holds
+                self.assertGreater(held['duration'], 1.1, notes)
+                self.assertGreater(next_hold['duration'], .68, notes)
+                self.assertGreater(held['time'] + held['duration'], next_hold['time'], notes)
                 taps = [note for note in notes if not note['duration'] and held['time'] < note['time'] < held['time'] + held['duration']]
                 self.assertTrue(any(abs(note['time'] - 1.15) < .16 for note in taps), notes)
-                self.assertTrue(any(abs(note['time'] - 1.75) < .16 for note in taps), notes)
                 self.assertLessEqual(len(taps), 3, notes)
+
+    def test_quiet_vocal_break_does_not_end_the_hold_at_the_next_attack(self):
+        sr = 22050
+        audio = np.zeros(sr * 4, dtype=np.float32)
+        tone = vowel(sr, seconds=2.0, expressive=True)
+        t = np.arange(len(tone)) / sr
+        for center in (.42, .98, 1.48):
+            tone *= (1 - .96 * np.exp(-((t - center) / .045) ** 8)).astype(np.float32)
+        start = round(.5 * sr)
+        audio[start:start + len(tone)] = tone
+        notes = self.analyze(audio, sr)
+        self.assertTrue(any(n['duration'] > 1.7 for n in notes), notes)
 
     def test_a_breath_separates_two_long_syllables(self):
         sr = 44100
