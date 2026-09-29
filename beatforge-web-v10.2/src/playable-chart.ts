@@ -23,8 +23,9 @@ export function buildPlayableChart(source:PlayableNote[],lanes:number,diff:Diffi
     // Never put a fresh hit under a finger that must still be held down.
     if(!available.length)return;
     const lane=available[0];
-    // Keep one lane available for upcoming attacks, even with a polyphonic chart.
-    const dur=available.length>1?clearHoldDuration(n.duration,minHold):0;
+    // A later attack cannot shorten a measured hold. If every lane is held,
+    // that later attack is omitted until a lane becomes free.
+    const dur=clearHoldDuration(n.duration,minHold);
     blocked[lane]=n.time+dur;
     const base:PlayableNote={...n,lane,duration:dur||undefined,hit:false,miss:false,holding:false,completed:false};
     built.push(base);
