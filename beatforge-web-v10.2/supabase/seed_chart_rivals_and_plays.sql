@@ -41,9 +41,9 @@ insert into public.chart_rival_scores (chart_id,difficulty,slot,rival_name,score
 select chart.id, diff.name, rival.slot,
        (array['Echo','Nova','Pulse','Flux','Astra','Rune','Vex','Kairo'])[rival.slot],
        greatest(500,round(potential.perfect_taps * (
-         0.18 + rival.slot*0.091 + mod((('x'||substr(md5(chart.id::text||diff.name||rival.slot),1,6))::bit(24)::int),21)/1000.0
+         0.56 - (rival.slot-1)*0.055 + mod((('x'||substr(md5(chart.id::text||diff.name||rival.slot),1,6))::bit(24)::int),11)/1000.0
        )))::bigint,
-       greatest(1,round(note_count.value * (0.29 + rival.slot*0.079)))::integer
+       greatest(1,round(note_count.value * (0.56 - (rival.slot-1)*0.055)))::integer
 from new_chart_rival_seeds fresh
 join public.charts chart on chart.id=fresh.chart_id
 cross join (values ('Easy',0.30),('Medium',0.50),('Hard',0.72),('Expert',1.0)) as diff(name,ratio)
