@@ -295,8 +295,8 @@ def main():
         parser.error("--refresh-stems requires --instruments stems or all")
     if args.refresh_stems and args.refresh_existing:
         parser.error("Choose either --refresh-stems or --refresh-existing")
-    if args.completed_file and not args.refresh_existing:
-        parser.error("--completed-file requires --refresh-existing")
+    if args.completed_file and not (args.refresh_existing or args.refresh_stems):
+        parser.error("--completed-file requires --refresh-existing or --refresh-stems")
     ids = read_links(args.links)
     if not ids:
         parser.error("No links found")
