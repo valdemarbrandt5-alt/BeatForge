@@ -125,7 +125,7 @@ async def analyze_all(file:UploadFile=File(...)):
             if not stem_path.exists(): raise HTTPException(500,f'Missing separated stem: {filename}')
             notes,d=analyze_stem(stem_path,instrument); duration=max(duration,d)
             charts[instrument]={'notes':notes,'stem':filename}
-        return {'charts':charts,'duration':duration,'generator':'demucs-adaptive-v2','cached':True}
+        return {'charts':charts,'duration':duration,'generator':'demucs-adaptive-v3','cached':True}
     finally: shutil.rmtree(root,ignore_errors=True)
 
 @app.post('/analyze')
@@ -143,7 +143,7 @@ async def analyze(file:UploadFile=File(...),instrument:str=Form('vocals')):
         if not stem_path.exists(): raise HTTPException(500,f'Missing separated stem: {stem}')
         notes,duration=analyze_stem(stem_path,instrument)
         if len(notes)<4: raise HTTPException(422,'Too few musical events detected in this stem.')
-        return {'notes':notes,'duration':duration,'instrument':instrument,'stem':stem_path.name,'generator':'demucs-adaptive-v2'}
+        return {'notes':notes,'duration':duration,'instrument':instrument,'stem':stem_path.name,'generator':'demucs-adaptive-v3'}
     finally: shutil.rmtree(root,ignore_errors=True)
 
 if __name__ == '__main__':

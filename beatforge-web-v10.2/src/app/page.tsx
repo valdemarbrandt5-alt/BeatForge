@@ -240,7 +240,8 @@ export default function Home(){
   const cfg={Easy:{chord:0,triple:0},Medium:{chord:35,triple:0},Hard:{chord:25,triple:0},Expert:{chord:18,triple:97}}[diff];
   kept.forEach((n,i)=>{
    const seed=(((i+1)*1103515245+Math.round(n.time*1000)*12345)>>>0);
-   const dur=clearHoldDuration(n.duration,kept[i+1]?.time,n.time,instrument==='vocals'?.6:.9);
+   const minHold={vocals:.6,melody:.72,bass:.76,drums:.9,mix:.9}[instrument];
+   const dur=clearHoldDuration(n.duration,kept[i+1]?.time,n.time,minHold);
    const preferred=((n.lane%lanes)+lanes)%lanes;
    const order=[preferred,...Array.from({length:lanes},(_,x)=>x).filter(x=>x!==preferred)];
    const lane=order.find(x=>blocked[x]<=n.time-.08)??preferred;

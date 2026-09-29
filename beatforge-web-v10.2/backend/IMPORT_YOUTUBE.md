@@ -59,3 +59,9 @@ note pattern, so compare new scores only with plays made after the refresh.
 The change becomes visible on BeatForge once each updated song is saved; reload
 the page before playing it again. The command needs the updated local
 `stem_chart.py`; a Railway redeploy is not needed for local imports.
+
+The updated analyzer compares vocals and melody against the other Demucs tracks
+to reject shared instrumental attacks, and preserves clear sustained melody and
+bass notes more often. To apply it to existing instrument charts, replace your
+local `stem_chart.py` with the updated version before running `--refresh-stems`.
+The frontend change to hold lengths also needs the current Vercel deployment.
