@@ -32,7 +32,11 @@ py .\import_youtube_charts.py .\links.txt --instruments all
 melody charts. `--instruments stems` adds only the four stems, including to a
 song that already has a mix chart. Omitting this option uses the fast full mix
 generator and does not need Demucs. Each song/instrument combination already
-present is skipped independently. Rerun the same list to retry failures; the
+present is skipped independently. Melody additionally runs the experimental
+`htdemucs_6s` model for piano and guitar, merges clear melodic attacks and
+removes near duplicates. Its first run downloads another model and takes longer.
+If that model fails, the original `other` stem remains available.
+Rerun the same list to retry failures; the
 script does not replace existing charts or scores. BeatForge's browser,
 Community, profile, invitations, Ranked and Battle Royale use the same chart
 IDs. The hosted admin importer still creates full mix charts; Demucs runs on
