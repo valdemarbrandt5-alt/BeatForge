@@ -138,7 +138,7 @@ def analyze_stem(path: Path, instrument: str, source_kind: str = ""):
     return notes, duration
 
 
-def merge_melody_sources(original: Path, six_directory: Path):
+def merge_melody_sources(original: Path, six_directory: Path, mix_path: Path = None):
     """Use strong piano/guitar/other attacks without multiplying duplicate hits.
 
     Four source `other` is retained as a fallback. The six source piano stem
@@ -153,6 +153,24 @@ def merge_melody_sources(original: Path, six_directory: Path):
     original_notes, duration = analyze_stem(original, "melody")
     if len(sources) == 1:
         return original_notes, duration
+    # Demucs can invent faint attacks in otherwise silent parts of the song.
+    # Confirm that the unseparated recording has audible energy at that time.
+    mix_energy = None
+    if mix_path is not None:
+        mix, mix_sr = sf.read(mix_path, always_2d=True, dtype="float32")
+        mix = mix.mean(axis=1)
+        block = max(1, round(mix_sr * .04))
+        mix_energy = np.array([np.sqrt(np.mean(mix[i:i + block] ** 2))
+                               for i in range(0, len(mix), block)])
+        mix_floor = max(float(np.percentile(mix_energy, 95)) * .006, 1e-5)
+
+    def audible_in_mix(at):
+        if mix_energy is None:
+            return True
+        frame = round(at * mix_sr / block)
+        return (max(mix_energy[max(0, frame - 1):min(len(mix_energy), frame + 2)],
+                    default=0) >= mix_floor)
+
     candidates = []
     with ExitStack() as stack:
         for name, path in sources:
@@ -167,6 +185,8 @@ def merge_melody_sources(original: Path, six_directory: Path):
                 values.append(float(np.sqrt(np.mean(sample * sample))) if len(sample) else 0.0)
             typical = float(np.percentile(values, 75)) if values else 0.0
             for note, energy in zip(notes, values):
+                if not audible_in_mix(note["time"]):
+                    continue
                 if energy < max(typical * (.12 if name == "piano" else .23), 1e-5):
                     continue
                 # Specific sources get a modest preference, never a free pass.
