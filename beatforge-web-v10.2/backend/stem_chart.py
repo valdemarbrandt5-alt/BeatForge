@@ -195,7 +195,7 @@ def merge_melody_sources(original: Path, six_directory: Path, mix_path: Path = N
         block = max(1, round(mix_sr * .04))
         mix_energy = np.array([np.sqrt(np.mean(mix[i:i + block] ** 2))
                                for i in range(0, len(mix), block)])
-        mix_floor = max(float(np.percentile(mix_energy, 95)) * .006, 1e-5)
+        mix_floor = max(float(np.percentile(mix_energy, 95)) * .0007, 1e-5)
 
     def audible_in_mix(at):
         if mix_energy is None:
@@ -220,10 +220,16 @@ def merge_melody_sources(original: Path, six_directory: Path, mix_path: Path = N
             for note, energy in zip(notes, values):
                 if not audible_in_mix(note["time"]):
                     continue
-                if energy < max(typical * (.12 if name == "piano" else .23), 1e-5):
+                nearby_energy = [level for other, level in zip(notes, values)
+                                 if abs(other["time"] - note["time"]) <= 1.5]
+                local_typical = float(np.percentile(nearby_energy, 75)) if nearby_energy else typical
+                floor = (max(min(typical * .12, local_typical * .18), typical * .008, 1e-5)
+                         if name == "piano" else max(typical * .23, 1e-5))
+                if energy < floor:
                     continue
                 # Specific sources get a modest preference, never a free pass.
-                confidence = min(3.0, energy / (typical + 1e-8)) * (1.12 if name in ("piano", "guitar") else 1.0)
+                reference = local_typical if name == "piano" else typical
+                confidence = min(3.0, energy / (reference + 1e-8)) * (1.12 if name in ("piano", "guitar") else 1.0)
                 candidates.append((note, confidence, name))
     candidates.sort(key=lambda item: (item[0]["time"], -item[1]))
     # Only collapse coincident hits from different stems. Chaining adjacent
