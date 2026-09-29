@@ -12,6 +12,40 @@ import import_youtube_charts as importer
 
 
 class InstrumentImportTest(unittest.TestCase):
+    def test_refreshing_only_mix_uses_stems_without_replacing_other_charts(self):
+        with TemporaryDirectory() as tmp:
+            links = Path(tmp) / "links.txt"
+            links.write_text("https://www.youtube.com/watch?v=TAZkHYyio-M\n")
+            admin_id = "1f7c311c-227e-4bea-8791-5dcb32f8c953"
+            rows = [{"id": "mix-1", "instrument": "mix", "user_id": admin_id}] + [
+                {"id": name + "-1", "instrument": name, "user_id": "other-user"}
+                for name in ("vocals", "melody", "drums", "bass")]
+            writes = []
+            def request(_base, _key, route, method="GET", payload=None):
+                if route.startswith("profiles?"):
+                    return [{"id": admin_id}]
+                if route.startswith("charts?select="):
+                    return rows
+                writes.append((route, method, payload))
+            stem_notes = [{"time": i * .35 + .5, "lane": i % 5, "duration": 0} for i in range(12)]
+            stems = {name: (stem_notes, 6.) for name in ("vocals", "melody", "drums", "bass")}
+            env = {"SUPABASE_URL": "https://example.supabase.co", "SUPABASE_SERVICE_ROLE_KEY": "sb_secret_example",
+                   "BEATFORGE_ADMIN_USER_ID": admin_id}
+            with (patch.dict(os.environ, env),
+                  patch.object(sys, "argv", ["import_youtube_charts.py", str(links), "--instruments", "all", "--refresh-existing"]),
+                  patch.object(importer, "request_json", side_effect=request),
+                  patch.object(importer, "youtube_metadata", return_value={"title": "Song", "artist": "Artist"}),
+                  patch.object(importer, "download_audio", side_effect=lambda _url, directory: directory / "song.wav"),
+                  patch.object(importer, "generate_chart", return_value=([{"time": .1, "lane": 0}], 6.)),
+                  patch.object(importer, "generate_stem_charts", return_value=stems),
+                  patch.object(importer.shutil, "which", return_value="ffmpeg"),
+                  patch("importlib.util.find_spec", return_value=object())):
+                importer.main()
+            mix_payload = next(payload for route, method, payload in writes if route.startswith("charts?id=eq.mix-1"))
+            self.assertGreater(len(mix_payload["notes"]), 8)
+            self.assertFalse(any(note["time"] == .1 for note in mix_payload["notes"]))
+            self.assertEqual(len(writes), 1)
+
     def test_mix_only_export_excludes_songs_with_any_stem_across_pages(self):
         with TemporaryDirectory() as tmp:
             output = Path(tmp) / "kun-full-mix.txt"
