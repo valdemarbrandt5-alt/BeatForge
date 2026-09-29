@@ -229,7 +229,7 @@ def generate_chart(audio: Path, directory: Path):
 
 def generate_stem_charts(audio: Path, directory: Path, instruments: set[str]):
     """Separate audio once, then analyze the requested original Demucs stems."""
-    from stem_chart import STEMS, analyze_stem
+    from stem_chart import STEMS, analyze_stem, merge_melody_sources
 
     output = directory / "separated"
     print("  Separating vocals, drums, bass and melody with Demucs…", flush=True)
@@ -240,6 +240,20 @@ def generate_stem_charts(audio: Path, directory: Path, instruments: set[str]):
     if proc.returncode:
         raise RuntimeError("Demucs separation failed: " + proc.stderr[-900:])
     stem_directory = output / "htdemucs" / audio.stem
+    melodic_directory = None
+    if "melody" in instruments:
+        # The four source model leaves piano and guitar inside "other". The
+        # experimental six source model supplies extra melodic candidates;
+        # keep the four source model as the fallback for every instrument.
+        print("  Separating piano and guitar for melody…", flush=True)
+        six = subprocess.run(
+            [sys.executable, "-m", "demucs", "-n", "htdemucs_6s", "--out", str(output), str(audio)],
+            capture_output=True, text=True, timeout=1800,
+        )
+        if six.returncode == 0:
+            melodic_directory = output / "htdemucs_6s" / audio.stem
+        else:
+            print("  Six source separation unavailable; using the original melody stem", flush=True)
     charts = {}
     for instrument in STEMS:
         if instrument not in instruments:
@@ -247,7 +261,9 @@ def generate_stem_charts(audio: Path, directory: Path, instruments: set[str]):
         path = stem_directory / STEMS[instrument]
         if not path.is_file():
             raise RuntimeError(f"Demucs did not produce {STEMS[instrument]}")
-        notes, duration = analyze_stem(path, instrument)
+        notes, duration = (merge_melody_sources(path, melodic_directory)
+                           if instrument == "melody" and melodic_directory else
+                           analyze_stem(path, instrument))
         if len(notes) < 4:
             print(f"  Skipped {instrument}: fewer than four detected notes", flush=True)
             continue
