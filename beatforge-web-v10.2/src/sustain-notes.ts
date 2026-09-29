@@ -8,6 +8,7 @@ export function sustainNotes(events:Event[],envelope:ArrayLike<number>,secondsPe
   for(let i=0;i<envelope.length;i++)maximum=Math.max(maximum,envelope[i]);
   const noiseFloor=maximum*.012,grace=Math.max(1,Math.round(.085/dt)),maxFrames=Math.round(3/dt);
   let activeStart=-1,activeEnd=-1,lastTap=-Infinity;
+  let activeResult=-1;
   const result:{index:number,duration:number}[]=[];
   const window=(values:ArrayLike<number>,frame:number,start:number,end:number)=>Array.from({length:Math.max(0,Math.min(values.length,frame+Math.round(end/dt))-Math.max(0,frame+Math.round(start/dt)))},(_,i)=>values[Math.max(0,frame+Math.round(start/dt))+i]);
   const quantile=(values:number[],q:number)=>{
@@ -35,10 +36,27 @@ export function sustainNotes(events:Event[],envelope:ArrayLike<number>,secondsPe
     const valley=window(envelope,frame,-.09,.025);
     return valley.length>0&&Math.min(before,after)>noiseFloor*2&&Math.min(...valley)<Math.min(before,after)*.5;
   };
+  const lastingPitchChange=(frame:number)=>{
+    if(!pitches)return false;
+    const before=window(pitches,frame,-.18,-.06).filter(x=>x>0);
+    const after=window(pitches,frame,.10,.27).filter(x=>x>0);
+    const later=window(pitches,frame,.27,.42).filter(x=>x>0);
+    if(Math.min(before.length,after.length,later.length)<2)return false;
+    const old=middle(before),next=middle(after),still=middle(later);
+    const cents=(a:number,b:number)=>Math.abs(1200*Math.log2(a/b));
+    return cents(next,old)>=240&&cents(still,next)<90&&middle(after.map(x=>cents(x,next)))<70;
+  };
   events.forEach(({frame},index)=>{
     const before=middle(window(envelope,frame,-.06,-.015)),after=middle(window(envelope,frame,.02,.07));
     if(activeEnd>=0&&Math.abs(frame-activeEnd)*dt<.1&&before>noiseFloor&&after<Math.max(noiseFloor,before*.15))return;
     if(frame<=activeEnd){
+      const elapsed=(frame-activeStart)*dt,remaining=(activeEnd-frame)*dt;
+      if(!splitAttacks&&activeResult>=0&&elapsed>=minHold&&remaining>=minHold&&(frame-lastTap)*dt>=.35&&lastingPitchChange(frame)){
+        result[activeResult].duration=Math.min(3,elapsed+.08);
+        result.push({index,duration:Math.min(3,remaining-.06)});
+        activeResult=result.length-1;activeStart=lastTap=frame;
+        return;
+      }
       if((frame-activeStart)*dt>=.25&&(activeEnd-frame)*dt>=.12&&(frame-lastTap)*dt>=.28&&isInflection(frame)){
         result.push({index,duration:0});lastTap=frame;
       }
@@ -52,7 +70,7 @@ export function sustainNotes(events:Event[],envelope:ArrayLike<number>,secondsPe
     }
     const raw=(lastActive-frame)*dt,duration=raw>=minHold?Math.min(3,raw-.06):0;
     result.push({index,duration});
-    if(duration){activeStart=frame;activeEnd=lastActive;lastTap=frame;}
+    if(duration){activeStart=frame;activeEnd=lastActive;lastTap=frame;activeResult=result.length-1;}
   });
   return result;
 }
