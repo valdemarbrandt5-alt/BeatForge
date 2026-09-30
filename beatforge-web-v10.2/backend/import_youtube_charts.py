@@ -279,8 +279,8 @@ def main():
     parser.add_argument("--export-mix-only", type=Path, nargs="?", const=Path("kun-full-mix.txt"),
                         help="Save links for songs with Full mix but no other instruments (default: kun-full-mix.txt)")
     parser.add_argument("--dry-run", action="store_true", help="Show metadata without downloading or saving")
-    parser.add_argument("--instruments", choices=("mix", "stems", "all"), default="mix",
-                        help="mix (default), four separated stems, or mix plus all four stems")
+    parser.add_argument("--instruments", choices=("mix", "vocal-mix", "stems", "all"), default="mix",
+                        help="mix (default), vocal plus fast full mix, four separated stems, or everything")
     parser.add_argument("--refresh-stems", action="store_true",
                         help="Reanalyze existing admin-owned instrument charts in place; keeps their IDs and scores")
     parser.add_argument("--refresh-existing", action="store_true",
@@ -338,6 +338,7 @@ def main():
 
     failed = 0
     requested = ({"mix"} if args.instruments == "mix" else
+                 {"mix", "vocals"} if args.instruments == "vocal-mix" else
                  {"vocals", "drums", "bass", "melody"} if args.instruments == "stems" else
                  {"mix", "vocals", "drums", "bass", "melody"})
     completed = set(args.completed_file.read_text(encoding="utf-8").splitlines()) if args.completed_file and args.completed_file.exists() else set()
