@@ -46,6 +46,12 @@ export function sustainNotes(events:Event[],envelope:ArrayLike<number>,secondsPe
     const cents=(a:number,b:number)=>Math.abs(1200*Math.log2(a/b));
     return cents(next,old)>=240&&cents(still,next)<90&&middle(after.map(x=>cents(x,next)))<70;
   };
+  const newSyllable=(frame:number)=>{
+    if(!onsetStrength)return false;
+    const before=middle(window(envelope,frame,-.16,-.06)),after=middle(window(envelope,frame,.02,.09));
+    const nearby=middle(window(onsetStrength,frame,-.20,-.06));
+    return before>noiseFloor&&after>before*1.28&&onsetStrength[frame]>Math.max(noiseFloor,nearby*1.8);
+  };
   events.forEach(({frame},index)=>{
     const before=middle(window(envelope,frame,-.06,-.015)),after=middle(window(envelope,frame,.02,.07));
     if(activeEnd>=0&&Math.abs(frame-activeEnd)*dt<.1&&before>noiseFloor&&after<Math.max(noiseFloor,before*.15))return;
