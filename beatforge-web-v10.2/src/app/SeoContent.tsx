@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 const features = [
  {
   title: 'Play instantly in your browser',
@@ -61,9 +63,9 @@ export default function SeoContent() {
    <h2>About BeatStrike</h2>
    {questions.map(item=><details key={item.question}>
     <summary>{item.question}</summary>
-    <p>{item.answer}</p>
+   <p>{item.answer}</p>
    </details>)}
   </div>
+  <div className="seoBrowse"><Link href="/songs">BROWSE ALL BEATSTRIKE SONGS</Link><span>Explore community charts for vocals, drums, bass, melody and full mix.</span></div>
  </section>;
 }
-

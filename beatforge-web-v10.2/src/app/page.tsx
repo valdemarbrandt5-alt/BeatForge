@@ -6,7 +6,7 @@ import AdminBatchImport from './AdminBatchImport';
 import AccountSettings from './AccountSettings';
 import SeoContent from './SeoContent';
 import {parsePlayerSettings,parseSettingsTransfer,type PlayerSettings} from '../player-settings';
-import {distinctInstruments, groupSongs, instrumentLabel, type ChartInstrument} from '../chart-instruments';
+import {distinctInstruments, groupSongs, instrumentLabel, loadChartById, type ChartInstrument} from '../chart-instruments';
 import {buildPlayableChart} from '../playable-chart';
 import {hitAccuracy,scoreAccuracy} from '../hit-accuracy';
 import {chartScorePotential,starProgress as scoreStarProgress,starRating} from '../star-rating';
@@ -232,9 +232,16 @@ export default function Home(){
     resolve(true);
    }catch(error){console.error('Could not load chart',error);resolve(false)}
   };
-  window.addEventListener('beatforge:load-chart',handle);
+ window.addEventListener('beatforge:load-chart',handle);
   return()=>window.removeEventListener('beatforge:load-chart',handle);
  },[user]);
+ useEffect(()=>{
+  const chartId=new URLSearchParams(window.location.search).get('chart');
+  if(!chartId||!/^[0-9a-f-]{36}$/i.test(chartId))return;
+  let cancelled=false;
+  const timer=window.setTimeout(()=>{void loadChartById(chartId).then(loaded=>{if(!cancelled&&loaded)window.history.replaceState({},'',window.location.pathname)})},0);
+  return()=>{cancelled=true;window.clearTimeout(timer)};
+ },[]);
  const buildChart=(source:Note[],lanes:number,diff:Difficulty,instrument:ChartInstrument=activeInstrument)=>buildPlayableChart(source,lanes,diff,instrument);
  useEffect(()=>{setKeys(k=>{const presets=[['f','j','k'],['d','f','j','k'],['d','f','j','k','l']][laneCount-3];return presets.map((d,i)=>k[i]??d)});setNotes(buildChart(baseNotes,laneCount,difficulty));setStatus(s=>songName==='Demo chart'?s:`${buildChart(baseNotes,laneCount,difficulty).length} notes · ${difficulty} · ${laneCount} lanes`);},[laneCount,difficulty,activeInstrument]);
  const missSound=()=>{try{const ctx=new AudioContext();const o=ctx.createOscillator(),g=ctx.createGain();o.type='square';o.frequency.setValueAtTime(145,ctx.currentTime);o.frequency.exponentialRampToValueAtTime(70,ctx.currentTime+.09);g.gain.setValueAtTime(.18*volume,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.1);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+.1);o.onended=()=>ctx.close()}catch{}};

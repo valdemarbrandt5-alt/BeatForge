@@ -150,6 +150,7 @@
 .seoFaq summary:after{content:"+";position:absolute;right:4px;top:14px;color:#a990ff;font-size:25px;font-weight:400}
 .seoFaq details[open] summary:after{content:"−"}
 .seoFaq details p{padding:0 38px 20px 0}
+.seoBrowse{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;margin:42px 0 0;padding:22px;border:1px solid #2c3341;border-radius:16px;background:#10151e}.seoBrowse a{display:inline-flex;padding:12px 17px;border-radius:10px;background:#7657ff;color:#fff;text-decoration:none;font-size:11px;font-weight:900;letter-spacing:.07em}.seoBrowse span{color:#8f98aa;font-size:12px}
 @media(max-width:700px){.seoContent{margin-top:48px;padding-top:38px}.seoFeatures{grid-template-columns:1fr;margin-bottom:38px}.seoHowTo{grid-template-columns:1fr;padding:24px;gap:22px}.seoIntro>p{font-size:14px}}
 
 /* v0.27 Community */
