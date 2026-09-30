@@ -29,7 +29,7 @@ export function buildPlayableChart(source:PlayableNote[],lanes:number,diff:Diffi
     blocked[lane]=n.time+dur;
     const base:PlayableNote={...n,lane,duration:dur||undefined,hit:false,miss:false,holding:false,completed:false};
     built.push(base);
-    const chordEvery=instrument==='vocals'?0:cfg.chord;
+    const chordEvery=instrument==='vocals'?0:instrument==='mix'&&diff==='Expert'?4:cfg.chord;
     const nextIsChord=kept[i+1]&&kept[i+1].time-n.time<.08;
     const wantsChord=!!chordEvery&&!nextIsChord&&lanes>=3&&i>1&&i<kept.length-1&&seed%chordEvery===0;
     if(wantsChord){
@@ -38,7 +38,8 @@ export function buildPlayableChart(source:PlayableNote[],lanes:number,diff:Diffi
         const chordLane=free[(seed>>>8)%free.length];
         built.push({...base,lane:chordLane,duration:undefined});
         blocked[chordLane]=n.time;
-        if(cfg.triple&&lanes>=4&&seed%cfg.triple===0){
+        const tripleEvery=instrument==='mix'&&diff==='Expert'?43:cfg.triple;
+        if(tripleEvery&&lanes>=4&&seed%tripleEvery===0){
           const third=free.filter(x=>x!==chordLane);
           if(third.length){
             const thirdLane=third[(seed>>>13)%third.length];
