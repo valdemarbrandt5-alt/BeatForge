@@ -129,7 +129,8 @@ def analyze_stem(path: Path, instrument: str, source_kind: str = ""):
                   sustain_notes(accepted, rms, hop / sr,
                                 {"vocals": .68, "melody": .82, "bass": .86}[instrument], pitches,
                                 gap_tolerance=.085 if instrument == "vocals" else .03,
-                                split_attacks=instrument != "vocals"))
+                                split_attacks=instrument != "vocals",
+                                sustained_floor_ratio=.55 if instrument == "vocals" else None))
         for idx, length in shaped:
             fi, t = accepted[idx]
             choices = [lane for lane in range(5) if lane != prev_lane]
