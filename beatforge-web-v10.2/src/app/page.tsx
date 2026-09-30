@@ -11,7 +11,6 @@ import {distinctInstruments, groupSongs, instrumentLabel, loadChartById, type Ch
 import {buildPlayableChart} from '../playable-chart';
 import {hitAccuracy,scoreAccuracy} from '../hit-accuracy';
 import {chartScorePotential,starProgress as scoreStarProgress,starRating} from '../star-rating';
-import {sustainNotes} from '../sustain-notes';
 type Note={id:number,time:number,lane:number,duration?:number,hit?:boolean,miss?:boolean,holding?:boolean,completed?:boolean};
 type Feedback='READY'|'PERFECT'|'GREAT'|'GOOD'|'MISS';
 type ImpactBurst={lane:number,id:number,kind:Feedback,stage:'base'|'gold'|'blue'|'pink'};
@@ -364,7 +363,7 @@ export default function Home(){
 
   const out:Note[]=[];let prevLane=-1,prevPrev=-1;
   const usable=peaks.filter(p=>p.strength>=.035);
-  const shaped=sustainNotes(usable.map(p=>({frame:p.frame,time:p.t})),env,hop/sr,.96,zcr.map(value=>value*sr/4),true,.55,novelty);
+  const shaped=usable.map((_,index)=>({index,duration:0}));
   shaped.forEach(({index:idx,duration:dur})=>{
    const p=usable[idx];
    const step=beat/2,grid=origin+Math.round((p.t-origin)/step)*step;
