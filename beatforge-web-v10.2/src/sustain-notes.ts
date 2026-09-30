@@ -1,7 +1,7 @@
 type Event={frame:number,time:number};
 
 /** Match backend/sustain.py for browser-generated full mix charts. */
-export function sustainNotes(events:Event[],envelope:ArrayLike<number>,secondsPerFrame:number,minHold:number,pitches?:ArrayLike<number>,splitAttacks=false):{index:number,duration:number}[]{
+export function sustainNotes(events:Event[],envelope:ArrayLike<number>,secondsPerFrame:number,minHold:number,pitches?:ArrayLike<number>,splitAttacks=false,sustainedFloorRatio?:number):{index:number,duration:number}[]{
   if(!events.length||!envelope.length)return [];
   const dt=secondsPerFrame;
   let maximum=0;
@@ -67,6 +67,16 @@ export function sustainNotes(events:Event[],envelope:ArrayLike<number>,secondsPe
     for(let current=frame+1;current<Math.min(envelope.length,frame+maxFrames+1);current++){
       if(restarts.has(current))break;
       if(envelope[current]>floor){lastActive=current;quiet=0;}else if(++quiet>grace)break;
+    }
+    if(sustainedFloorRatio!==undefined&&lastActive>frame){
+      const supportFloor=Math.max(noiseFloor,level*sustainedFloorRatio);
+      const supportGrace=Math.max(grace,Math.round(.12/dt)),warmup=Math.round(.16/dt);
+      let lastSupported=frame,unsupported=0;
+      for(let current=frame+1;current<=lastActive;current++){
+        if(envelope[current]>supportFloor){lastSupported=current;unsupported=0;}
+        else if(current-frame>warmup&&++unsupported>supportGrace)break;
+      }
+      lastActive=lastSupported;
     }
     const raw=(lastActive-frame)*dt,duration=raw>=minHold?Math.min(3,raw-.06):0;
     result.push({index,duration});
