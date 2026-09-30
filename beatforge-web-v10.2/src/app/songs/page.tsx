@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {catalogSongs,formatDuration,getPublicCharts,songSlug} from '../../song-catalog';
 import {distinctInstruments,youtubeVideoId} from '../../chart-instruments';
 import styles from './songs.module.css';
+import LegalFooter from '../LegalFooter';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,6 @@ export default async function SongsPage() {
     })}
    </section>:<div className={styles.empty}>The song library is temporarily unavailable. You can still play BeatStrike from the home page.</div>}
   </div>
+  <LegalFooter/>
  </main>;
 }
-

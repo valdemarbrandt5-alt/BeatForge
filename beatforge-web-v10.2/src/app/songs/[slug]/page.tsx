@@ -4,6 +4,7 @@ import {notFound,permanentRedirect} from 'next/navigation';
 import {chartIdFromSlug,formatDuration,getPublicChart,getPublicCharts,songCharts,songDescription,songSlug} from '../../../song-catalog';
 import {distinctInstruments,instrumentLabel,youtubeVideoId} from '../../../chart-instruments';
 import styles from '../songs.module.css';
+import LegalFooter from '../../LegalFooter';
 
 type PageProps = {params: Promise<{slug:string}>};
 
@@ -68,7 +69,7 @@ export default async function SongPage({params}:PageProps){
    </div></section>
    <section className={styles.copy}><h2>Play {chart.title} as a browser rhythm game</h2><p>{description} BeatStrike rewards accurate timing, long combos and clean performances with higher scores and up to five stars.</p></section>
   </div>
+  <LegalFooter/>
   <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(structuredData)}}/>
  </main>;
 }
-
