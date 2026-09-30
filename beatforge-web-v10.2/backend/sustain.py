@@ -8,7 +8,8 @@ the same thresholds in src/sustain-notes.ts.
 import numpy as np
 
 
-def sustain_notes(events, envelope, seconds_per_frame, min_hold, pitches=None, gap_tolerance=.085, split_attacks=False):
+def sustain_notes(events, envelope, seconds_per_frame, min_hold, pitches=None, gap_tolerance=.085,
+                  split_attacks=False, sustained_floor_ratio=None):
     """Return (event index, duration); unselected interior ripples are omitted."""
     if not events or len(envelope) == 0:
         return []
@@ -114,6 +115,21 @@ def sustain_notes(events, envelope, seconds_per_frame, min_hold, pitches=None, g
                 quiet += 1
                 if quiet > grace:
                     break
+        # A permissive floor bridges vibrato, but reverb or a quiet backing
+        # bed must not make a short sound look like a long held note.
+        if sustained_floor_ratio is not None and last_active > frame:
+            support_floor = max(noise_floor, level * sustained_floor_ratio)
+            support_grace = max(grace, round(.12 / dt))
+            warmup = round(.16 / dt)
+            last_supported, unsupported = frame, 0
+            for current in range(frame + 1, last_active + 1):
+                if envelope[current] > support_floor:
+                    last_supported, unsupported = current, 0
+                elif current - frame > warmup:
+                    unsupported += 1
+                    if unsupported > support_grace:
+                        break
+            last_active = last_supported
         raw = (last_active - frame) * dt
         length = min(3.0, raw - .06) if raw >= min_hold else 0.0
         result.append((index, length))
