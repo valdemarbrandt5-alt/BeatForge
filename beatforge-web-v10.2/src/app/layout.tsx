@@ -7,7 +7,7 @@ import './note-palette.css';
 import './impact-solid.css';
 import './neon-controls.css';
 
-const siteUrl = 'https://beatstrike.app';
+const siteUrl = 'https://www.beatstrike.app';
 
 export const metadata: Metadata = {
  metadataBase: new URL(siteUrl),
