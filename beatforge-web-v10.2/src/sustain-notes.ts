@@ -63,7 +63,7 @@ export function sustainNotes(events:Event[],envelope:ArrayLike<number>,secondsPe
         activeResult=result.length-1;activeStart=lastTap=frame;
         return;
       }
-      if((frame-activeStart)*dt>=.25&&(activeEnd-frame)*dt>=.12&&(frame-lastTap)*dt>=.28&&isInflection(frame)){
+      if((frame-activeStart)*dt>=.25&&(activeEnd-frame)*dt>=.12&&(frame-lastTap)*dt>=.28&&(isInflection(frame)||newSyllable(frame))){
         result.push({index,duration:0});lastTap=frame;
       }
       return;
