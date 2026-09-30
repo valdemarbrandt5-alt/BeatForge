@@ -324,7 +324,8 @@ export default function Home(){
    const sustainRatio=sustain/Math.max(.00001,env[i]);
    const noisy=Math.max(0,(rough[i]/Math.max(.00001,env[i]))-2.8);
    const vocalShape=Math.max(.15,Math.min(1.25,sustainRatio*1.15)) / (1+noisy*.22);
-   novelty[i]=rise*vocalShape;
+   const textureRise=Math.max(0,rough[i]-rough[i-2])*1.6;
+   novelty[i]=Math.max(rise,textureRise)*vocalShape;
    if(novelty[i]>maxNovelty)maxNovelty=novelty[i];
   }
 
@@ -333,7 +334,7 @@ export default function Home(){
    let mean=0,dev=0,n=0;const a=Math.max(0,i-34),b=Math.min(frames,i+34);
    for(let k=a;k<b;k++){mean+=novelty[k];n++}mean/=Math.max(1,n);
    for(let k=a;k<b;k++)dev+=Math.abs(novelty[k]-mean);dev/=Math.max(1,n);
-   const localFloor=Math.max(maxNovelty*.018,mean+dev*.95);
+   const localFloor=Math.max(maxNovelty*.012,mean+dev*.75);
    const voicedEnergy=env[i]/Math.max(.00001,maxEnv);
    const sustained=env[Math.min(frames-1,i+3)]>env[i]*.30;
    // Very high zero-crossing rates and one-frame energy bursts are commonly percussion/noise.
@@ -344,14 +345,14 @@ export default function Home(){
    let refined=i;let bestRise=-Infinity;
    for(let q=Math.max(2,i-2);q<=Math.min(frames-2,i+2);q++){const rr=env[q]-env[q-2];if(rr>bestRise){bestRise=rr;refined=q}}
    const t=(refined*hop+win/2)/sr;
-   if(t>.22&&t-last>.09&&voicedEnergy>.014&&sustained&&plausibleZcr&&novelty[i]>localFloor&&novelty[i]>=novelty[i-1]&&novelty[i]>=novelty[i+1]){
+   if(t>.22&&t-last>.08&&voicedEnergy>.014&&sustained&&plausibleZcr&&novelty[i]>localFloor&&novelty[i]>=novelty[i-1]&&novelty[i]>=novelty[i+1]){
     candidates.push({t,strength:novelty[i]/Math.max(.00001,maxNovelty),frame:i});last=t;
    }
   }
 
   // Merge near-duplicate attacks. This helps one sung syllable become one note rather than a cluster.
   const peaks:{t:number;strength:number;frame:number}[]=[];
-  for(const p of candidates){const prev=peaks[peaks.length-1];if(prev&&p.t-prev.t<.135){if(p.strength>prev.strength)peaks[peaks.length-1]=p}else peaks.push(p)}
+  for(const p of candidates){const prev=peaks[peaks.length-1];if(prev&&p.t-prev.t<.11){if(p.strength>prev.strength)peaks[peaks.length-1]=p}else peaks.push(p)}
 
   // Find a loose rhythmic grid only for tiny timing corrections. Vocal timing remains the authority.
   const hist=new Map<number,number>();
@@ -362,7 +363,7 @@ export default function Home(){
   let beat=.5,best=0;hist.forEach((v,k)=>{if(v>best){best=v;beat=k*.01}});const origin=peaks[0]?.t||0;
 
   const out:Note[]=[];let prevLane=-1,prevPrev=-1;
-  const usable=peaks.filter(p=>p.strength>=.025);
+  const usable=peaks.filter(p=>p.strength>=.02);
   const shaped=usable.map((_,index)=>({index,duration:0}));
   shaped.forEach(({index:idx,duration:dur})=>{
    const p=usable[idx];
