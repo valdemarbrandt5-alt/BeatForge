@@ -130,7 +130,8 @@ def analyze_stem(path: Path, instrument: str, source_kind: str = ""):
                                 {"vocals": .68, "melody": .82, "bass": .86}[instrument], pitches,
                                 gap_tolerance=.085 if instrument == "vocals" else .03,
                                 split_attacks=instrument != "vocals",
-                                sustained_floor_ratio=.55 if instrument == "vocals" else None))
+                                sustained_floor_ratio=.55 if instrument == "vocals" else None,
+                                vocal_onsets=score if instrument == "vocals" else None))
         for idx, length in shaped:
             fi, t = accepted[idx]
             choices = [lane for lane in range(5) if lane != prev_lane]
