@@ -1,7 +1,7 @@
 type Event={frame:number,time:number};
 
 /** Match backend/sustain.py for browser-generated full mix charts. */
-export function sustainNotes(events:Event[],envelope:ArrayLike<number>,secondsPerFrame:number,minHold:number,pitches?:ArrayLike<number>,splitAttacks=false,sustainedFloorRatio?:number):{index:number,duration:number}[]{
+export function sustainNotes(events:Event[],envelope:ArrayLike<number>,secondsPerFrame:number,minHold:number,pitches?:ArrayLike<number>,splitAttacks=false,sustainedFloorRatio?:number,onsetStrength?:ArrayLike<number>):{index:number,duration:number}[]{
   if(!events.length||!envelope.length)return [];
   const dt=secondsPerFrame;
   let maximum=0;
