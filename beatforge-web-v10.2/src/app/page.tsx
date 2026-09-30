@@ -364,7 +364,7 @@ export default function Home(){
 
   const out:Note[]=[];let prevLane=-1,prevPrev=-1;
   const usable=peaks.filter(p=>p.strength>=.035);
-  const shaped=sustainNotes(usable.map(p=>({frame:p.frame,time:p.t})),env,hop/sr,.96,zcr.map(value=>value*sr/4),true,.55);
+  const shaped=sustainNotes(usable.map(p=>({frame:p.frame,time:p.t})),env,hop/sr,.96,zcr.map(value=>value*sr/4),true,.55,novelty);
   shaped.forEach(({index:idx,duration:dur})=>{
    const p=usable[idx];
    const step=beat/2,grid=origin+Math.round((p.t-origin)/step)*step;
