@@ -8,6 +8,7 @@ Only use for recordings that you have permission to download and analyze.
 import argparse
 import base64
 import binascii
+import csv
 from contextlib import contextmanager
 import json
 import os
@@ -64,32 +65,62 @@ def read_links(path: Path) -> list[str]:
 
 
 def export_links(base: str, key: str, destination: Path) -> int:
-    """Export all unique song links from charts, including paginated libraries."""
-    ids = []
-    seen = set()
+    """Export playable links and audit every chart, including missing links."""
+    rows = []
     offset = 0
     page_size = 500
-    skipped = 0
     while True:
-        route = ("charts?select=youtube_url&youtube_url=not.is.null&order=id.asc"
+        route = ("charts?select=id,title,artist,instrument,youtube_url&order=id.asc"
                  f"&limit={page_size}&offset={offset}")
-        rows = request_json(base, key, route) or []
-        for row in rows:
-            try:
-                video_id = parse_video_id(row.get("youtube_url") or "")
-            except ValueError:
-                skipped += 1
-                continue
-            if video_id not in seen:
-                seen.add(video_id)
-                ids.append(video_id)
-        if len(rows) < page_size:
+        page = request_json(base, key, route) or []
+        rows.extend(page)
+        if len(page) < page_size:
             break
         offset += page_size
+
+    ids = []
+    seen = set()
+    title_videos = {}
+    audited = []
+    for row in rows:
+        url = (row.get("youtube_url") or "").strip()
+        try:
+            video_id = parse_video_id(url) if url else ""
+        except ValueError:
+            video_id = ""
+        status = "valid" if video_id else ("invalid_link" if url else "missing_link")
+        if video_id and video_id not in seen:
+            seen.add(video_id)
+            ids.append(video_id)
+        title_key = ((row.get("artist") or "").strip().casefold(),
+                     (row.get("title") or "").strip().casefold())
+        if video_id:
+            title_videos.setdefault(title_key, set()).add(video_id)
+        audited.append((row, video_id, status, title_key))
+
     if not ids:
         raise RuntimeError("No valid YouTube song links found in BeatForge charts")
-    destination.write_text("".join(f"https://www.youtube.com/watch?v={video_id}\n" for video_id in ids), encoding="utf-8")
-    print(f"Exported {len(ids)} unique songs to {destination} ({skipped} invalid links skipped)")
+    destination.write_text("".join(f"https://www.youtube.com/watch?v={video_id}\\n" for video_id in ids),
+                           encoding="utf-8")
+
+    report = destination.with_name(destination.stem + "-rapport.csv")
+    # One row per chart makes absent links and same-song uploads visible.
+    with report.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(("chart_id", "artist", "title", "instrument", "status",
+                         "video_id", "youtube_url", "other_video_ids_same_title"))
+        for row, video_id, status, title_key in audited:
+            others = sorted(title_videos.get(title_key, set()) - ({video_id} if video_id else set()))
+            writer.writerow((row.get("id") or "", row.get("artist") or "", row.get("title") or "",
+                             row.get("instrument") or "mix", status, video_id,
+                             row.get("youtube_url") or "", " | ".join(others)))
+
+    missing = sum(status == "missing_link" for _, _, status, _ in audited)
+    invalid = sum(status == "invalid_link" for _, _, status, _ in audited)
+    duplicate_titles = sum(len(videos) > 1 for videos in title_videos.values())
+    print(f"Exported {len(ids)} unique YouTube links to {destination}")
+    print(f"Audited {len(rows)} charts in {report}: {missing} without link, "
+          f"{invalid} invalid links, {duplicate_titles} titles with multiple video IDs")
     return len(ids)
 
 
