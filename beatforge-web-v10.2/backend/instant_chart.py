@@ -56,10 +56,10 @@ def generate_instant_chart(path: Path):
         local = novelty[max(0, i - 34):min(frames, i + 34)]
         mean = float(local.mean())
         dev = float(np.mean(np.abs(local - mean)))
-        floor = max(max_novelty * .018, mean + dev * 1.12)
+        floor = max(max_novelty * .018, mean + dev * .95)
         refined = max(range(max(2, i - 2), min(frames - 2, i + 2) + 1), key=lambda q: env[q] - env[q - 2])
         t = (refined * hop + win / 2) / sr
-        if (t > .22 and t - last > .115 and env[i] / max(.00001, max_env) > .018
+        if (t > .22 and t - last > .09 and env[i] / max(.00001, max_env) > .014
                 and env[i + 3] > env[i] * .30 and .004 < zcr[i] < .34
                 and novelty[i] > floor and novelty[i] >= novelty[i - 1] and novelty[i] >= novelty[i + 1]):
             candidates.append((t, float(novelty[i] / max(.00001, max_novelty)), i))
@@ -67,7 +67,7 @@ def generate_instant_chart(path: Path):
 
     peaks = []
     for candidate in candidates:
-        if peaks and candidate[0] - peaks[-1][0] < .18:
+        if peaks and candidate[0] - peaks[-1][0] < .135:
             if candidate[1] > peaks[-1][1]:
                 peaks[-1] = candidate
         else:
@@ -87,7 +87,7 @@ def generate_instant_chart(path: Path):
     beat = max(histogram, key=histogram.get) * .01 if histogram else .5
     origin = peaks[0][0] if peaks else 0
 
-    peaks = [peak for peak in peaks if peak[1] >= .035]
+    peaks = [peak for peak in peaks if peak[1] >= .025]
     # Mixed audio cannot prove which instrument holds a note.
     shaped = [(index, 0.0) for index in range(len(peaks))]
     notes = []
