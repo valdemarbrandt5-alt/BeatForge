@@ -7,10 +7,46 @@ import './note-palette.css';
 import './impact-solid.css';
 import './neon-controls.css';
 
-export const metadata: Metadata = {title:'BeatStrike',description:'Play your favorite songs in a competitive rhythm game'};
+const siteUrl = 'https://beatstrike.app';
+
+export const metadata: Metadata = {
+ metadataBase: new URL(siteUrl),
+ title: 'BeatStrike | Free Online Rhythm Game',
+ description: 'Play BeatStrike, a free competitive rhythm game in your browser. Play vocals, drums, bass, melody and full mix across hundreds of songs.',
+ applicationName: 'BeatStrike',
+ keywords: ['BeatStrike','online rhythm game','browser rhythm game','music game','competitive rhythm game','free rhythm game'],
+ alternates: {canonical: '/'},
+ robots: {index: true,follow: true,googleBot: {index: true,follow: true}},
+ openGraph: {
+  type: 'website',
+  url: siteUrl,
+  siteName: 'BeatStrike',
+  title: 'BeatStrike | Free Online Rhythm Game',
+  description: 'Play vocals, drums, bass, melody and full mix in a competitive browser rhythm game.',
+ },
+ twitter: {
+  card: 'summary',
+  title: 'BeatStrike | Free Online Rhythm Game',
+  description: 'Play vocals, drums, bass, melody and full mix directly in your browser.',
+ },
+ category: 'game',
+};
+
+const structuredData = {
+ '@context': 'https://schema.org',
+ '@type': 'VideoGame',
+ name: 'BeatStrike',
+ url: siteUrl,
+ description: 'A free competitive five lane rhythm game played directly in the browser.',
+ applicationCategory: 'GameApplication',
+ operatingSystem: 'Any',
+ playMode: ['SinglePlayer','MultiPlayer'],
+ offers: {'@type': 'Offer',price: '0',priceCurrency: 'USD'},
+};
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
  return <html lang="en"><body>{children}
+ <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(structuredData)}}/>
  <Script id="beatforge-ranked-duel" strategy="afterInteractive">{`
  (()=>{
   const names=['Mikkel','NOVA','Kasper','Emilie','vexx','Lucas','Freja','Rasmus','Sofia','Nikolaj','K1NG','Madsen','Luna','Oliver'];
