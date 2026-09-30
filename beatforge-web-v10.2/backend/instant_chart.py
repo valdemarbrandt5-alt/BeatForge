@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 from scipy.signal import lfilter
-from sustain import sustain_notes
 
 
 def generate_instant_chart(path: Path):
@@ -89,8 +88,8 @@ def generate_instant_chart(path: Path):
     origin = peaks[0][0] if peaks else 0
 
     peaks = [peak for peak in peaks if peak[1] >= .035]
-    shaped = sustain_notes([(frame, time) for time, _, frame in peaks], env, hop / sr, .96, zcr * sr / 4,
-                           split_attacks=True, sustained_floor_ratio=.55, vocal_onsets=novelty)
+    # Mixed audio cannot prove which instrument holds a note.
+    shaped = [(index, 0.0) for index in range(len(peaks))]
     notes = []
     prev_lane = prev_prev = -1
     for idx, note_duration in shaped:
@@ -156,8 +155,7 @@ def compose_full_mix(charts):
                          and prior["time"] + prior["duration"] > time), None)
             if held is not None:
                 held["duration"] = max(0.0, time - held["time"])
-        length = float(note.get("duration", 0)) if name in ("vocals", "melody") else 0.0
-        result.append({"id": index, "time": time, "lane": lane, "duration": length})
-        lane_free_at[lane] = time + length
+        result.append({"id": index, "time": time, "lane": lane, "duration": 0.0})
+        lane_free_at[lane] = time
         last_lane = lane
     return result, duration
