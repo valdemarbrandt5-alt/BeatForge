@@ -47,7 +47,8 @@ def generate_instant_chart(path: Path):
         sustain = (env[i + 2] + env[i + 3]) * .5
         noisy = max(0, rough[i] / max(.00001, env[i]) - 2.8)
         shape = max(.15, min(1.25, sustain / max(.00001, env[i]) * 1.15)) / (1 + noisy * .22)
-        novelty[i] = rise * shape
+        texture_rise = max(0, rough[i] - rough[i - 2]) * 1.6
+        novelty[i] = max(rise, texture_rise) * shape
     max_novelty = float(np.max(novelty))
 
     candidates = []
@@ -56,10 +57,10 @@ def generate_instant_chart(path: Path):
         local = novelty[max(0, i - 34):min(frames, i + 34)]
         mean = float(local.mean())
         dev = float(np.mean(np.abs(local - mean)))
-        floor = max(max_novelty * .018, mean + dev * .95)
+        floor = max(max_novelty * .012, mean + dev * .75)
         refined = max(range(max(2, i - 2), min(frames - 2, i + 2) + 1), key=lambda q: env[q] - env[q - 2])
         t = (refined * hop + win / 2) / sr
-        if (t > .22 and t - last > .09 and env[i] / max(.00001, max_env) > .014
+        if (t > .22 and t - last > .08 and env[i] / max(.00001, max_env) > .014
                 and env[i + 3] > env[i] * .30 and .004 < zcr[i] < .34
                 and novelty[i] > floor and novelty[i] >= novelty[i - 1] and novelty[i] >= novelty[i + 1]):
             candidates.append((t, float(novelty[i] / max(.00001, max_novelty)), i))
@@ -67,7 +68,7 @@ def generate_instant_chart(path: Path):
 
     peaks = []
     for candidate in candidates:
-        if peaks and candidate[0] - peaks[-1][0] < .135:
+        if peaks and candidate[0] - peaks[-1][0] < .11:
             if candidate[1] > peaks[-1][1]:
                 peaks[-1] = candidate
         else:
@@ -87,7 +88,7 @@ def generate_instant_chart(path: Path):
     beat = max(histogram, key=histogram.get) * .01 if histogram else .5
     origin = peaks[0][0] if peaks else 0
 
-    peaks = [peak for peak in peaks if peak[1] >= .025]
+    peaks = [peak for peak in peaks if peak[1] >= .02]
     # Mixed audio cannot prove which instrument holds a note.
     shaped = [(index, 0.0) for index in range(len(peaks))]
     notes = []
