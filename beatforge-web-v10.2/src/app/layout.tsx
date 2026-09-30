@@ -34,14 +34,33 @@ export const metadata: Metadata = {
 
 const structuredData = {
  '@context': 'https://schema.org',
- '@type': 'VideoGame',
- name: 'BeatStrike',
- url: siteUrl,
- description: 'A free competitive five lane rhythm game played directly in the browser.',
- applicationCategory: 'GameApplication',
- operatingSystem: 'Any',
- playMode: ['SinglePlayer','MultiPlayer'],
- offers: {'@type': 'Offer',price: '0',priceCurrency: 'USD'},
+ '@graph': [
+  {
+   '@type': ['VideoGame','WebApplication'],
+   '@id': `${siteUrl}/#game`,
+   name: 'BeatStrike',
+   url: siteUrl,
+   description: 'A free competitive five lane rhythm game played directly in the browser.',
+   applicationCategory: 'GameApplication',
+   genre: ['Rhythm game','Music game'],
+   gamePlatform: 'Web browser',
+   operatingSystem: 'Any',
+   playMode: ['SinglePlayer','MultiPlayer'],
+   inLanguage: 'en',
+   isAccessibleForFree: true,
+   offers: {'@type': 'Offer',price: '0',priceCurrency: 'USD'},
+  },
+  {
+   '@type': 'FAQPage',
+   '@id': `${siteUrl}/#faq`,
+   mainEntity: [
+    {question: 'Is BeatStrike free to play?',answer: 'Yes. BeatStrike is a free online rhythm game that you can play directly in a modern web browser.'},
+    {question: 'Do I need to download BeatStrike?',answer: 'No. BeatStrike runs in your browser, so you can start playing without downloading a game client.'},
+    {question: 'Can I play my own songs?',answer: 'Yes. You can add a song and let BeatStrike generate a playable rhythm chart. You can also explore charts shared by the community.'},
+    {question: 'Which instruments can I play?',answer: 'BeatStrike supports vocals, drums, bass, melody and full mix charts. Available instruments can vary from song to song.'},
+   ].map(item=>({'@type':'Question',name:item.question,acceptedAnswer:{'@type':'Answer',text:item.answer}})),
+  },
+ ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -124,6 +124,34 @@
 .uploadChoiceCard{width:min(620px,92vw)}
 @media(max-width:620px){.uploadChoices{grid-template-columns:1fr}}
 
+/* Search friendly product information */
+.seoContent{margin:64px 0 18px;padding-top:52px;border-top:1px solid #252a35;color:#dce0e9}
+.seoContent small{display:block;color:#9b7cff;font-size:10px;font-weight:900;letter-spacing:.2em;margin-bottom:10px}
+.seoContent h2{margin:0;color:#f5f7fb;font-size:clamp(26px,4vw,40px);line-height:1.08;letter-spacing:-.035em}
+.seoContent h3{margin:0 0 8px;color:#f5f7fb;font-size:17px}
+.seoContent p{color:#929bad;line-height:1.65;margin:0}
+.seoIntro{max-width:720px}
+.seoIntro>p{font-size:16px;margin-top:18px}
+.seoFeatures{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:30px 0 54px}
+.seoFeatures article{padding:22px;border:1px solid #292f3c;border-radius:16px;background:linear-gradient(145deg,#121722,#0d1118)}
+.seoFeatures article:before{content:"";display:block;width:30px;height:3px;margin-bottom:17px;border-radius:99px;background:linear-gradient(90deg,#9b7cff,#ff72d2)}
+.seoHowTo{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:40px;align-items:start;padding:36px;border:1px solid #2b3140;border-radius:20px;background:#0d1119}
+.seoHowTo ol{list-style:none;counter-reset:steps;display:grid;gap:12px;margin:0;padding:0}
+.seoHowTo li{counter-increment:steps;display:grid;grid-template-columns:36px 1fr;column-gap:12px;padding:14px 0;border-bottom:1px solid #252b37}
+.seoHowTo li:last-child{border-bottom:0}
+.seoHowTo li:before{content:counter(steps);grid-row:1/3;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:#7657ff;color:#fff;font-weight:900}
+.seoHowTo strong{font-size:14px;color:#f5f7fb}
+.seoHowTo span{font-size:12px;color:#8791a4;margin-top:4px;line-height:1.45}
+.seoFaq{max-width:760px;margin:54px auto 0}
+.seoFaq>h2{font-size:30px;margin-bottom:18px}
+.seoFaq details{border-bottom:1px solid #2a303d;padding:0}
+.seoFaq summary{position:relative;cursor:pointer;list-style:none;padding:18px 38px 18px 0;color:#eef0f5;font-weight:800}
+.seoFaq summary::-webkit-details-marker{display:none}
+.seoFaq summary:after{content:"+";position:absolute;right:4px;top:14px;color:#a990ff;font-size:25px;font-weight:400}
+.seoFaq details[open] summary:after{content:"−"}
+.seoFaq details p{padding:0 38px 20px 0}
+@media(max-width:700px){.seoContent{margin-top:48px;padding-top:38px}.seoFeatures{grid-template-columns:1fr;margin-bottom:38px}.seoHowTo{grid-template-columns:1fr;padding:24px;gap:22px}.seoIntro>p{font-size:14px}}
+
 /* v0.27 Community */
 .communityOverlay{position:fixed;inset:0;z-index:80;background:rgba(3,6,11,.94);backdrop-filter:blur(18px);overflow:auto}
 .communityPage{width:min(1220px,calc(100% - 48px));margin:0 auto;padding:54px 0 80px}
