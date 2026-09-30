@@ -310,8 +310,8 @@ def main():
     parser.add_argument("--export-mix-only", type=Path, nargs="?", const=Path("kun-full-mix.txt"),
                         help="Save links for songs with Full mix but no other instruments (default: kun-full-mix.txt)")
     parser.add_argument("--dry-run", action="store_true", help="Show metadata without downloading or saving")
-    parser.add_argument("--instruments", choices=("mix", "vocal-mix", "stems", "all"), default="mix",
-                        help="mix (default), vocal plus fast full mix, four separated stems, or everything")
+    parser.add_argument("--instruments", choices=("mix", "vocal", "vocal-mix", "stems", "all"), default="mix",
+                        help="mix (default), vocals only, vocal plus fast full mix, four separated stems, or everything")
     parser.add_argument("--refresh-stems", action="store_true",
                         help="Reanalyze existing admin-owned instrument charts in place; keeps their IDs and scores")
     parser.add_argument("--refresh-existing", action="store_true",
@@ -339,7 +339,7 @@ def main():
     if not args.links:
         parser.error("Provide a links file or use --export-links")
     if args.refresh_stems and args.instruments == "mix":
-        parser.error("--refresh-stems requires --instruments stems or all")
+        parser.error("--refresh-stems requires --instruments vocal, vocal-mix, stems or all")
     if args.refresh_stems and args.refresh_existing:
         parser.error("Choose either --refresh-stems or --refresh-existing")
     if args.completed_file and not (args.refresh_existing or args.refresh_stems):
@@ -369,6 +369,7 @@ def main():
 
     failed = 0
     requested = ({"mix"} if args.instruments == "mix" else
+                 {"vocals"} if args.instruments == "vocal" else
                  {"mix", "vocals"} if args.instruments == "vocal-mix" else
                  {"vocals", "drums", "bass", "melody"} if args.instruments == "stems" else
                  {"mix", "vocals", "drums", "bass", "melody"})
