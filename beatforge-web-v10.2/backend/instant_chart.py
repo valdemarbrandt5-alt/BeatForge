@@ -90,7 +90,7 @@ def generate_instant_chart(path: Path):
 
     peaks = [peak for peak in peaks if peak[1] >= .035]
     shaped = sustain_notes([(frame, time) for time, _, frame in peaks], env, hop / sr, .96, zcr * sr / 4,
-                           split_attacks=True)
+                           split_attacks=True, sustained_floor_ratio=.55)
     notes = []
     prev_lane = prev_prev = -1
     for idx, note_duration in shaped:
