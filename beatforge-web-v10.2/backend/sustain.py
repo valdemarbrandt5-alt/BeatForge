@@ -9,7 +9,7 @@ import numpy as np
 
 
 def sustain_notes(events, envelope, seconds_per_frame, min_hold, pitches=None, gap_tolerance=.085,
-                  split_attacks=False, sustained_floor_ratio=None):
+                  split_attacks=False, sustained_floor_ratio=None, vocal_onsets=None):
     """Return (event index, duration); unselected interior ripples are omitted."""
     if not events or len(envelope) == 0:
         return []
@@ -76,6 +76,18 @@ def sustain_notes(events, envelope, seconds_per_frame, min_hold, pitches=None, g
         return (cents(new, old) >= 240 and cents(still, new) < 90
                 and middle(np.abs(1200 * np.log2(after / new))) < 70)
 
+    def new_syllable(frame):
+        if vocal_onsets is None:
+            return False
+        # A new spectral and amplitude attack can coexist with the previous
+        # held sound; vibrato's small recurring ripples are not new syllables.
+        before = middle(window(envelope, frame, -.16, -.06))
+        after = middle(window(envelope, frame, .02, .09))
+        nearby = window(vocal_onsets, frame, -.20, -.06)
+        strength = float(vocal_onsets[frame])
+        return (before > noise_floor and after > before * 1.28
+                and strength > max(noise_floor, middle(nearby) * 1.8))
+
     for index, (frame, _) in enumerate(events):
         # Window leakage at a sound's release is not a new playable attack.
         before = middle(window(envelope, frame, -.06, -.015))
@@ -97,7 +109,8 @@ def sustain_notes(events, envelope, seconds_per_frame, min_hold, pitches=None, g
                 active_start = last_tap = frame
                 continue
             if ((frame - active_start) * dt >= .25 and (active_end - frame) * dt >= .12
-                    and (frame - last_tap) * dt >= .28 and is_inflection(frame)):
+                    and (frame - last_tap) * dt >= .28
+                    and (is_inflection(frame) or new_syllable(frame))):
                 result.append((index, 0.0))
                 last_tap = frame
             continue
