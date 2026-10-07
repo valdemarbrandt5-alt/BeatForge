@@ -14,7 +14,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
    changeFrequency: 'daily',
    priority: .9,
   },
-  ...['privacy','cookies','terms','copyright','contact'].map(path=>({
+  ...['about','how-to-play','privacy','cookies','terms','copyright','contact'].map(path=>({
    url:`https://www.beatstrike.app/${path}`,
    lastModified:new Date('2026-09-30'),
    changeFrequency:'monthly' as const,
