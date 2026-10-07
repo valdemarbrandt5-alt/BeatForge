@@ -18,11 +18,10 @@ export default function LegalPage({title,label,children}:{title:string;label:str
     <p className={styles.updated}>Effective September 30, 2026</p>
     {children}
     <nav className={styles.nav} aria-label="Legal and contact pages">
-     <Link href="/privacy">Privacy</Link><Link href="/cookies">Cookies</Link><Link href="/terms">Terms</Link><Link href="/copyright">Copyright</Link><Link href="/contact">Contact</Link>
+     <Link href="/about">About</Link><Link href="/how-to-play">How to Play</Link><Link href="/privacy">Privacy</Link><Link href="/cookies">Cookies</Link><Link href="/terms">Terms</Link><Link href="/copyright">Copyright</Link><Link href="/contact">Contact</Link>
     </nav>
    </article>
    <LegalFooter/>
   </div>
  </main>;
 }
-
